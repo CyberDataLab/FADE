@@ -12,7 +12,7 @@ services:
       - db_data:/var/lib/mysql
     ports:
       - "3306:3306"
-  web:
+  backend:
     build: 
       context: ./backend
       dockerfile: Dockerfile
@@ -28,6 +28,14 @@ services:
       MYSQL_ROOT_PASSWORD: rootpassword
     depends_on:
       - db
-
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "4200:4200"
+    volumes:
+      - ./frontend:/app
+        
 volumes:
   db_data:
