@@ -1,0 +1,24 @@
+# Python image
+FROM python:3.9-slim
+
+# Set the workdir
+WORKDIR /app
+
+# Install system dependencies required for mysqlclient 
+RUN apt-get update && apt-get install -y \
+    default-libmysqlclient-dev build-essential pkg-config
+
+# Copy requirements file
+COPY requirements.txt /app/
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the rest of the code
+COPY . /app/
+
+# Expose the Django port
+EXPOSE 8000
+
+# Default command to run the application
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
