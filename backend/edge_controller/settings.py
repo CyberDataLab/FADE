@@ -37,11 +37,14 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'corsheaders',
     'data_management',
     'action_execution',
+    'accounts'
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -104,6 +107,8 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+AUTH_USER_MODEL = 'accounts.CustomUser'
+
 
 # Internationalization
 # https://docs.djangoproject.com/en/4.2/topics/i18n/
@@ -116,6 +121,10 @@ USE_I18N = True
 
 USE_TZ = True
 
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:4200",  # Cambia esto según sea necesario
+]
+
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
@@ -126,3 +135,5 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+APPEND_SLASH = False

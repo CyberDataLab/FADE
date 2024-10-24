@@ -1,0 +1,37 @@
+<div class="modal-dialog align-middle login-modal" role="document">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h1 class="modal-title login-title" id="exampleModalLabel"><b>Login</b></h1>
+    </div>
+    <div class="modal-body">
+      <form>
+        <div class="form-group">
+          <input type="text" [(ngModel)]="userLoginDTO.username" name="username" class="form-control login-input" #username="ngModel" placeholder="Username" id="recipient-name" />
+          <ng-container *ngIf="usernameError">
+            <p class="error-message"><small>*Insert username</small></p>
+          </ng-container>
+        </div>
+
+        <div class="form-group">
+          <input type="password" [(ngModel)]="userLoginDTO.password" name="password" class="form-control login-input" placeholder="Password" id="recipient-name" />
+          <ng-container *ngIf="passwordError">
+            <p class="error-message"><small>*Insert password</small></p>
+          </ng-container>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button (click)="login()" type="button" class="btn login-btn btn-lg btn-block" data-dismiss="modal">
+        Login
+      </button>
+    </div>
+    <div class="login-options">
+      <p type="button" class="btn btn-link login-link" [routerLink]="['/user/change-password']" data-dismiss="modal">
+        Forgot your password?
+      </p>
+      <p type="button" class="btn btn-link login-link" [routerLink]="['/register']" data-dismiss="modal">
+        Don't have an account: Register
+      </p>
+    </div>
+  </div>
+</div>

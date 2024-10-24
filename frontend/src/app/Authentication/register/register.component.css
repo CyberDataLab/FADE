@@ -1,0 +1,94 @@
+/* Fondo degradado en tonos azulados, violetas y grises */
+html, body {
+    background: linear-gradient(to bottom, #b0c4de, #889fb3, #67748b); /* Azul a gris */
+    min-height: 100vh; /* Asegurar que cubra toda la pantalla */
+    margin: 0; /* Eliminar márgenes */
+    padding: 0; /* Eliminar padding */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: 'Arial', sans-serif;
+    overflow: hidden; /* Evitar desplazamiento extra */
+}
+
+/* Ajuste del contenedor del modal */
+.modal-dialog {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding-top: 100px; /* Ajusta este valor según sea necesario */
+}
+
+/* Estilos del modal */
+.register-modal .modal-content {
+    background: linear-gradient(to bottom, #b0c4de, #889fb3, #67748b); /* Azul oscuro semi-transparente */
+    backdrop-filter: blur(15px); /* Efecto de desenfoque */
+    border-radius: 15px;
+    padding: 40px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+    color: #dfe6ff; /* Texto claro */
+}
+
+/* Título del modal */
+.register-title {
+    color: #381d5b; /* Violeta claro */
+    font-size: 24px;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+/* Estilo de los campos de entrada */
+.register-input {
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid #3b215e; /* Borde violeta claro */
+    color: #000000; /* Texto negro */
+    font-size: 16px;
+    padding: 10px;
+    width: 100%;
+}
+
+/* Placeholder en azul claro */
+.register-input::placeholder {
+    color: #5a4184; /* Placeholder en azul claro */
+}
+
+/* Mensaje de error */
+.error-message {
+    color: #ec1c1c;
+    font-size: 16px;
+}
+
+/* Estilo del botón de registro */
+.register-btn {
+    background: linear-gradient(to right, #57528b, #8481a9, #c6c5d5);
+    border: none;
+    border-radius: 25px;
+    color: #3b215e;
+    font-size: 18px;
+    cursor: pointer;
+    padding: 10px;
+    transition: background 0.3s ease;
+}
+
+.register-btn:hover {
+    background: linear-gradient(to right, #c6c5d5, #8481a9, #57528b);
+}
+
+/* Opciones de texto en el footer */
+.register-options {
+    display: flex;
+    justify-content: center;
+    margin-top: 20px;
+}
+
+.register-link {
+    font-size: 14px;
+    color: #381d5b;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.register-link:hover {
+    text-decoration: underline;
+}

@@ -1,0 +1,76 @@
+<div class="modal-dialog align-middle register-modal" role="document">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h1 class="modal-title register-title" id="exampleModalLabel"><b>Register</b></h1>
+    </div>
+    <div class="modal-body">
+      <form>
+        <div class="form-group">
+          <input type="text" [(ngModel)]="userRegisterDTO.username" name="username" class="form-control register-input" #username="ngModel" placeholder="Username" id="recipient-name" />
+          <ng-container *ngIf="usernameError; else usernameValid">
+            <p class="error-message">
+              <small>*Insert username</small>
+            </p>
+          </ng-container>
+          <ng-template #usernameValid>
+            <p *ngIf="badUsernameError" class="error-message">
+              <small>*Username format is incorrect. At least 6 characters long and include at least one lowercase letter and one number.</small>
+            </p>
+          </ng-template>
+        </div>
+
+        <div class="form-group">
+          <input type="password" [(ngModel)]="userRegisterDTO.password" name="password" class="form-control register-input" #password="ngModel" placeholder="Password" id="recipient-name" />
+          <ng-container *ngIf="passwordError; else passwordValid">
+            <p class="error-message">
+              <small>*Insert password</small>
+            </p>
+          </ng-container>
+          <ng-template #passwordValid>
+            <p *ngIf="badPasswordError" class="error-message">
+              <small>*Password format is incorrect. At least 8 characters long and include at least one upercase letter, one lowercase letter, and one number.</small>
+            </p>
+          </ng-template>
+        </div>
+
+        <div class="form-group">
+          <input type="text" [(ngModel)]="userRegisterDTO.name" name="name" class="form-control register-input" #name="ngModel" placeholder="Name" id="recipient-name" />
+          <ng-container *ngIf="nameError">
+            <p class="error-message">
+              <small>*Insert name</small>
+            </p>
+          </ng-container>
+        </div>
+
+        <div class="form-group">
+          <input type="text" [(ngModel)]="userRegisterDTO.lastName" name="lastName" class="form-control register-input" #lastName="ngModel" placeholder="Last name" id="recipient-name" />
+          <ng-container *ngIf="lastNameError">
+            <p class="error-message">
+              <small>*Insert last name</small>
+            </p>
+          </ng-container>
+        </div>
+
+        <div class="form-group">
+          <input type="text" [(ngModel)]="userRegisterDTO.email" name="email" class="form-control register-input" #email="ngModel" placeholder="Email" id="recipient-name" />
+          <ng-container *ngIf="emailError; else emailValid">
+            <p class="error-message">
+              <small>*Insert email</small>
+            </p>
+          </ng-container>
+          <ng-template #emailValid>
+            <p *ngIf="badEmailError" class="error-message">
+              <small>*Email format is incorrect</small>
+            </p>
+          </ng-template>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button (click)="registerUser()" type="button" class="btn register-btn btn-lg btn-block">Sing up</button>
+    </div>
+    <div class="register-options">
+      <p type="button" class="btn btn-link register-link" [routerLink]="['/login']" data-dismiss="modal">Already have an account? Log in to your account</p>
+    </div>
+  </div>
+</div>
