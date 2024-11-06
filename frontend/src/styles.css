@@ -1,7 +1,7 @@
 /* You can add global styles to this file, and also import other style files */
 html, body { height: 100%; }
 body {
-    background: linear-gradient(to bottom, #444d5b, #73818e, #a4a9af); /* Azul a gris */
+    background: linear-gradient(to bottom, #5b677a, #73818e, #a4a9af); /* Azul a gris */
     display: flex;
     justify-content: center;
     align-items: center;

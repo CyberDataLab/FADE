@@ -26,16 +26,22 @@ export class LoginComponent implements OnInit {
 
   usernameError: boolean;
   passwordError: boolean;
+  showPassword: boolean;
 
   constructor(private authenticationService: AuthenticationService, private router: Router) { 
     this.usernameError = false;
     this.passwordError = false;
+    this.showPassword = false;
   }
 
   ngOnInit(): void {
     if(this.authenticationService.valorUsuarioActual != null){
       this.router.navigate(["/dashboard"]);
     }
+  }
+
+  togglePasswordVisibility() {
+    this.showPassword = !this.showPassword;
   }
 
   keyDownFunction(event: KeyboardEvent): void{
@@ -45,7 +51,20 @@ export class LoginComponent implements OnInit {
   }
 
   login() {
+    this.usernameError = false;
+    this.passwordError = false;
+
+    if (this.userLoginDTO.username === '') {
+      this.usernameError = true;
+    }
+
+    if (this.userLoginDTO.password === '') {
+      this.passwordError = true;
+    }
+
     if (this.userLoginDTO.username !== '' && this.userLoginDTO.password !== '') {
+      this.usernameError = false;
+      this.passwordError = false;
       const loginObs = this.authenticationService.login(this.userLoginDTO);
 
       if (loginObs) {
@@ -55,24 +74,14 @@ export class LoginComponent implements OnInit {
               this.router.navigate(["/dashboard"]);
             },
             error => {
-              // If the login observable is null or an error occurs, you can handle it like this
-              console.error('Login failed', error);
               alert('Wrong user or password.');
+              
             }
           );
       } else {
-        // User is already logged in, redirect them to the info page.
         alert('You are already logged in.');
         this.router.navigate(["/dashboard"]);
       }
-    } else {
-      if (this.userLoginDTO.username === '') {
-        this.usernameError = true;
-      }
-      if (this.userLoginDTO.password === '') {
-        this.passwordError = true;
-      }
-    }
+    } 
   }
-   
 }

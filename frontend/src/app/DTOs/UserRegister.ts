@@ -1,8 +1,11 @@
 export interface UserRegister{
+    admin_username: string;
+    admin_password: string;
     username: string;
     password: string;
-    name: string;
-    lastName: string;
+    confirm_password: string;
+    first_name: string;
+    last_name: string;
     email: string;
   }
   

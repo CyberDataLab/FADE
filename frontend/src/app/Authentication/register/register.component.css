@@ -1,65 +1,75 @@
-/* Fondo degradado en tonos azulados, violetas y grises */
 html, body {
-    background: linear-gradient(to bottom, #b0c4de, #889fb3, #67748b); /* Azul a gris */
-    min-height: 100vh; /* Asegurar que cubra toda la pantalla */
-    margin: 0; /* Eliminar márgenes */
-    padding: 0; /* Eliminar padding */
+    height: 100vh;
+    margin: 0; 
+    padding: 0; 
     display: flex;
     justify-content: center;
     align-items: center;
     font-family: 'Arial', sans-serif;
-    overflow: hidden; /* Evitar desplazamiento extra */
+    background: linear-gradient(to bottom, #b0c4de, #889fb3, #67748b);
 }
 
-/* Ajuste del contenedor del modal */
 .modal-dialog {
     display: flex;
     justify-content: center;
-    align-items: flex-start;
-    padding-top: 100px; /* Ajusta este valor según sea necesario */
+    align-items: center;
+    height: 100%;
+    padding: 20px; 
+    box-sizing: border-box;
+    overflow-y: auto; 
 }
 
-/* Estilos del modal */
 .register-modal .modal-content {
-    background: linear-gradient(to bottom, #b0c4de, #889fb3, #67748b); /* Azul oscuro semi-transparente */
-    backdrop-filter: blur(15px); /* Efecto de desenfoque */
+    background: linear-gradient(to bottom, #b0c4de, #889fb3, #67748b);
+    backdrop-filter: blur(15px); 
     border-radius: 15px;
     padding: 40px;
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
-    color: #dfe6ff; /* Texto claro */
+    color: #dfe6ff; 
+    max-width: 500px;
+    width: 100%; 
+    height: auto; 
 }
 
-/* Título del modal */
+.modal-body {
+    max-height: 450px; 
+    overflow-y: auto; 
+}
+
+.form-group {
+    margin-bottom: 15px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 5px;
+}
+
 .register-title {
-    color: #381d5b; /* Violeta claro */
+    color: #381d5b; 
     font-size: 24px;
     text-align: center;
     margin-bottom: 20px;
 }
 
-/* Estilo de los campos de entrada */
 .register-input {
     background: transparent;
     border: none;
-    border-bottom: 2px solid #3b215e; /* Borde violeta claro */
-    color: #000000; /* Texto negro */
+    border-bottom: 2px solid #3b215e; 
+    color: #000000; 
     font-size: 16px;
     padding: 10px;
     width: 100%;
 }
 
-/* Placeholder en azul claro */
 .register-input::placeholder {
-    color: #5a4184; /* Placeholder en azul claro */
+    color: #5a4184; 
 }
 
-/* Mensaje de error */
 .error-message {
     color: #ec1c1c;
     font-size: 16px;
 }
 
-/* Estilo del botón de registro */
 .register-btn {
     background: linear-gradient(to right, #57528b, #8481a9, #c6c5d5);
     border: none;
@@ -75,7 +85,6 @@ html, body {
     background: linear-gradient(to right, #c6c5d5, #8481a9, #57528b);
 }
 
-/* Opciones de texto en el footer */
 .register-options {
     display: flex;
     justify-content: center;
@@ -91,4 +100,24 @@ html, body {
 
 .register-link:hover {
     text-decoration: underline;
+}
+
+.password-toggle-btn {
+    position: absolute;
+    top: 50%;
+    right: 10px; 
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    color: #6c757d; 
+}
+  
+.password-toggle-btn:focus {
+    outline: none; 
+}
+
+.password-toggle-btn i {
+    font-size: 1.2em;
 }

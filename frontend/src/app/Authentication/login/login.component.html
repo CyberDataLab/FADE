@@ -4,16 +4,20 @@
       <h1 class="modal-title login-title" id="exampleModalLabel"><b>Login</b></h1>
     </div>
     <div class="modal-body">
-      <form>
+      <form (keydown)="keyDownFunction($event)">
+        <!-- Username -->
         <div class="form-group">
           <input type="text" [(ngModel)]="userLoginDTO.username" name="username" class="form-control login-input" #username="ngModel" placeholder="Username" id="recipient-name" />
           <ng-container *ngIf="usernameError">
             <p class="error-message"><small>*Insert username</small></p>
           </ng-container>
         </div>
-
-        <div class="form-group">
-          <input type="password" [(ngModel)]="userLoginDTO.password" name="password" class="form-control login-input" placeholder="Password" id="recipient-name" />
+        <!-- Password -->
+        <div class="form-group position-relative">
+          <input [type]="showPassword ? 'text' : 'password'" [(ngModel)]="userLoginDTO.password" name="password" class="form-control login-input" placeholder="Password" id="recipient-name"/>
+          <button type="button" (click)="togglePasswordVisibility()" class="password-toggle-btn">
+            <i [ngClass]="showPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
+          </button>
           <ng-container *ngIf="passwordError">
             <p class="error-message"><small>*Insert password</small></p>
           </ng-container>
@@ -26,11 +30,11 @@
       </button>
     </div>
     <div class="login-options">
-      <p type="button" class="btn btn-link login-link" [routerLink]="['/user/change-password']" data-dismiss="modal">
+      <p type="button" class="btn btn-link login-link" [routerLink]="['/send-email']" data-dismiss="modal">
         Forgot your password?
       </p>
       <p type="button" class="btn btn-link login-link" [routerLink]="['/register']" data-dismiss="modal">
-        Don't have an account: Register
+        Don't have an account: Register here
       </p>
     </div>
   </div>

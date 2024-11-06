@@ -4,7 +4,26 @@
       <h1 class="modal-title register-title" id="exampleModalLabel"><b>Register</b></h1>
     </div>
     <div class="modal-body">
-      <form>
+      <form (keydown)="keyDownFunction($event)">
+        <div class="form-group">
+          <!-- Admin username -->
+          <input type="text" [(ngModel)]="userRegisterDTO.admin_username" name="admin_username" class="form-control register-input" #admin_username="ngModel" placeholder="Admin username" id="recipient-name" />
+          <ng-container *ngIf="admin_usernameError">
+            <p class="error-message">
+              <small>*Insert admin username</small>
+            </p>
+          </ng-container>
+        </div>
+        <!-- Admin password -->
+        <div class="form-group">
+          <input type="password" [(ngModel)]="userRegisterDTO.admin_password" name="admin_password" class="form-control register-input" #admin_password="ngModel" placeholder="Admin password" id="recipient-name" />
+          <ng-container *ngIf="admin_passwordError">
+            <p class="error-message">
+              <small>*Insert admin password</small>
+            </p>
+          </ng-container>
+        </div>
+        <!-- Username new user -->
         <div class="form-group">
           <input type="text" [(ngModel)]="userRegisterDTO.username" name="username" class="form-control register-input" #username="ngModel" placeholder="Username" id="recipient-name" />
           <ng-container *ngIf="usernameError; else usernameValid">
@@ -18,39 +37,63 @@
             </p>
           </ng-template>
         </div>
-
-        <div class="form-group">
-          <input type="password" [(ngModel)]="userRegisterDTO.password" name="password" class="form-control register-input" #password="ngModel" placeholder="Password" id="recipient-name" />
+        <!-- Password new user -->
+        <div class="form-group position-relative">
+          <input [type]="showPassword ? 'text' : 'password'" [(ngModel)]="userRegisterDTO.password" name="password" class="form-control register-input" #password="ngModel" placeholder="Password" id="recipient-name" />
+          <button type="button" (click)="togglePasswordVisibility()" class="password-toggle-btn">
+            <i [ngClass]="showPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
+          </button>
           <ng-container *ngIf="passwordError; else passwordValid">
             <p class="error-message">
               <small>*Insert password</small>
             </p>
-          </ng-container>
+          </ng-container>        
           <ng-template #passwordValid>
             <p *ngIf="badPasswordError" class="error-message">
-              <small>*Password format is incorrect. At least 8 characters long and include at least one upercase letter, one lowercase letter, and one number.</small>
+              <small>
+                *Password format is incorrect. At least 8 characters long and include at least one uppercase letter, one lowercase letter, and one number.
+              </small>
             </p>
           </ng-template>
-        </div>
-
-        <div class="form-group">
-          <input type="text" [(ngModel)]="userRegisterDTO.name" name="name" class="form-control register-input" #name="ngModel" placeholder="Name" id="recipient-name" />
-          <ng-container *ngIf="nameError">
+        </div>     
+        <!-- Confirm password new user -->
+        <div class="form-group position-relative">
+          <input [type]="showConfirmPassword ? 'text' : 'password'" [(ngModel)]="userRegisterDTO.confirm_password" name="confirm_password" class="form-control register-input" #confirm_password="ngModel" placeholder="Confirm password" id="recipient-name" />
+          <button type="button" (click)="toggleConfirmPasswordVisibility()" class="password-toggle-btn">
+            <i [ngClass]="showConfirmPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
+          </button>
+          <ng-container *ngIf="confirm_passwordError; else confirm_passwordValid">
             <p class="error-message">
-              <small>*Insert name</small>
+              <small>*Insert password</small>
+            </p>
+          </ng-container>        
+          <ng-template #confirm_passwordValid>
+            <p *ngIf="badConfirmPasswordError" class="error-message">
+              <small>
+                *Password format is incorrect. At least 8 characters long and include at least one uppercase letter, one lowercase letter, and one number.
+              </small>
+            </p>
+          </ng-template>
+        </div> 
+        <!-- First name new user -->   
+        <div class="form-group">
+          <input type="text" [(ngModel)]="userRegisterDTO.first_name" name="first_name" class="form-control register-input" #first_name="ngModel" placeholder="First name" id="recipient-name" />
+          <ng-container *ngIf="first_nameError">
+            <p class="error-message">
+              <small>*Insert first name</small>
             </p>
           </ng-container>
         </div>
-
+        <!-- Last name new user -->
         <div class="form-group">
-          <input type="text" [(ngModel)]="userRegisterDTO.lastName" name="lastName" class="form-control register-input" #lastName="ngModel" placeholder="Last name" id="recipient-name" />
-          <ng-container *ngIf="lastNameError">
+          <input type="text" [(ngModel)]="userRegisterDTO.last_name" name="last_name" class="form-control register-input" #last_name="ngModel" placeholder="Last name" id="recipient-name" />
+          <ng-container *ngIf="last_nameError">
             <p class="error-message">
               <small>*Insert last name</small>
             </p>
           </ng-container>
         </div>
-
+        <!-- Email new user -->
         <div class="form-group">
           <input type="text" [(ngModel)]="userRegisterDTO.email" name="email" class="form-control register-input" #email="ngModel" placeholder="Email" id="recipient-name" />
           <ng-container *ngIf="emailError; else emailValid">
@@ -67,7 +110,7 @@
       </form>
     </div>
     <div class="modal-footer">
-      <button (click)="registerUser()" type="button" class="btn register-btn btn-lg btn-block">Sing up</button>
+      <button (click)="registerUser()" type="button" class="btn register-btn btn-lg btn-block">Register</button>
     </div>
     <div class="register-options">
       <p type="button" class="btn btn-link register-link" [routerLink]="['/login']" data-dismiss="modal">Already have an account? Log in to your account</p>

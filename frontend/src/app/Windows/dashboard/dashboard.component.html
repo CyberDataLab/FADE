@@ -1,1 +1,37 @@
-<p>dashboard works!</p>
+<div class="container">
+    <!-- Barra superior con botón de logout -->
+    <div class="top-bar">
+      <div class="logout-container">
+        <button class="logout-btn" (click)="logout()">Logout</button>
+      </div>
+    </div>
+  
+    <!-- Sidebar fijo a la izquierda, debajo de la barra superior -->
+    <div class="sidebar">
+      <div class="option" (click)="selectOption(1)">Anomaly Detector</div>
+      <div class="option" (click)="selectOption(2)">XAI</div>
+      <div class="option" (click)="selectOption(3)">Policies</div>
+      <div class="option" (click)="selectOption(4)">Options</div>
+      <div class="option" (click)="selectOption(5)">User</div>
+    </div>
+  
+    <!-- Contenido del dashboard -->
+    <div class="content">
+      <ng-container *ngIf="selectedOption === 1">
+        <app-anomaly-detector></app-anomaly-detector>
+      </ng-container>
+      <ng-container *ngIf="selectedOption === 2">
+        <app-xai></app-xai>
+      </ng-container>
+      <ng-container *ngIf="selectedOption === 3">
+        <app-policies></app-policies>
+      </ng-container>
+      <ng-container *ngIf="selectedOption === 4">
+        <app-options></app-options>
+      </ng-container>
+      <ng-container *ngIf="selectedOption === 5">
+        <app-user></app-user>
+      </ng-container>
+    </div>
+  </div>
+  
