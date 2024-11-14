@@ -1,87 +1,127 @@
 html, body {
-    margin: 0;
-    padding: 0;
-    height: 100%;
-  }
-  
-  .container {
-    display: flex;
-    flex-direction: row;
-    height: 100vh;
-  }
-  
-  .top-bar {
-    width: 100%;
-    background-color: #f8f9fa;
-    padding: 10px;
-    display: flex;
-    justify-content: flex-end; /* Mantiene el botón de logout alineado a la derecha */
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    position: fixed;
-    top: 0;
-    left: 0;
-    z-index: 10;
-    height: 60px; /* Ajusta la altura de la barra superior */
-  }
-  
-  .logout-container {
-    display: flex;
-    justify-content: flex-end; /* Mantiene el botón alineado a la derecha */
-    width: 100%; /* El contenedor ocupa todo el ancho de la pantalla */
-  }
-  
-  .logout-btn {
-    background-color: #dc3545;
-    color: rgb(255, 255, 255);
-    border: none;
-    padding: 8px 16px;
-    cursor: pointer;
-    border-radius: 4px;
-    margin-right: 20px; /* Margen a la derecha para separarlo un poco del borde */
-  }
-  
-  .logout-btn:hover {
-    background-color: #c82333;
-  }
-  
-  .sidebar {
-    width: 200px;
-    background-color: #343a40;
-    padding: 20px;
-    color: rgb(0, 0, 0);
-    height: calc(100vh - 60px); /* Ajusta la altura para que el sidebar esté debajo de la barra */
-    position: fixed;
-    top: 60px; /* El sidebar comienza justo debajo de la barra superior */
-    left: 0;
-    z-index: 10;
-    overflow-y: auto; /* Agrega scroll si el contenido es muy largo */
-  }
-  
-  .option {
-    margin: 10px 0;
-    cursor: pointer;
-    padding: 15px 20px; /* Aumenta el tamaño del padding para hacer los botones más grandes */
-    background-color: #495057; /* Color de fondo de la opción */
-    border-radius: 4px;
-    transition: background-color 0.2s;
-    color: white; /* Color del texto */
-    width: 100%; /* Ocupa todo el ancho del sidebar */
-    box-sizing: border-box; /* Asegura que el padding no desborde el ancho */
-    text-align: center; /* Centra el texto en el medio de los botones */
-    font-size: 16px; /* Aumenta el tamaño del texto si es necesario */
-  }
-  
-  .option:hover {
-    background-color: #6c757d; /* Cambia el color de fondo al pasar el ratón */
-    color: #ffffff; /* Color del texto al hacer hover */
-  }
-  
-  
-  .content {
-    margin-left: 200px; /* Deja espacio para el sidebar */
-    padding: 20px;
-    flex: 1;
-    overflow-y: auto;
-    margin-top: 60px; /* Ajusta para que el contenido esté debajo de la barra superior */
-  }
-  
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+.container {
+  display: flex;
+  flex-direction: row;
+  height: 100vh;
+}
+
+.top-bar {
+  width: 100%;
+  background-color: #f8f9fa;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 10;
+  height: 60px;
+}
+
+.top-bar-left {
+  flex: 1; /* Ocupa espacio para alinear el botón de logout a la derecha */
+}
+
+.logout-container {
+  display: flex;
+  justify-content: flex-end;
+  width: auto;
+}
+
+.logout-btn {
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.logout-btn:hover {
+  background-color: #c82333;
+}
+
+.sidebar {
+  width: 200px;
+  background-color: #343a40;
+  padding: 20px;
+  color: rgb(0, 0, 0);
+  height: calc(100vh - 60px); /* Ajusta la altura para que el sidebar esté debajo de la barra */
+  position: fixed;
+  top: 60px; /* El sidebar comienza justo debajo de la barra superior */
+  left: 0;
+  z-index: 10;
+  overflow-y: auto; /* Agrega scroll si el contenido es muy largo */
+}
+
+.option {
+  margin: 10px 0;
+  cursor: pointer;
+  padding: 15px 20px; /* Aumenta el tamaño del padding para hacer los botones más grandes */
+  background-color: #495057; /* Color de fondo de la opción */
+  border-radius: 4px;
+  transition: background-color 0.2s;
+  color: white; /* Color del texto */
+  width: 100%; /* Ocupa todo el ancho del sidebar */
+  box-sizing: border-box; /* Asegura que el padding no desborde el ancho */
+  text-align: center; /* Centra el texto en el medio de los botones */
+  font-size: 16px; /* Aumenta el tamaño del texto si es necesario */
+}
+
+.option:hover {
+  background-color: #6c757d; /* Cambia el color de fondo al pasar el ratón */
+  color: #ffffff; /* Color del texto al hacer hover */
+}
+
+.content {
+  margin-left: 200px; /* Deja espacio para el sidebar */
+  padding: 20px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* Centra el contenido horizontalmente */
+  justify-content: center; /* Centra el contenido verticalmente */
+  margin-top: 60px;
+  height: calc(100vh - 60px); /* Ajusta la altura para que ocupe toda la pantalla, menos la barra superior */
+  box-sizing: border-box; /* Asegura que padding y margin no desborden */
+}
+
+/* Botones por defecto con el mismo estilo que los del sidebar */
+.default-button {
+  width: 200px; /* Ancho consistente con los botones del sidebar */
+  padding: 15px 20px;
+  background-color: #495057;
+  border-radius: 4px;
+  color: white;
+  font-size: 16px;
+  margin: 10px 0; /* Margen vertical para colocarlos en columna */
+  cursor: pointer;
+  text-align: center;
+  transition: background-color 0.2s;
+  border: none; /* Elimina cualquier borde para evitar el efecto de sombreado */
+  box-shadow: none; /* Elimina sombras adicionales */
+}
+
+.default-button:hover {
+  background-color: #6c757d; /* Color de fondo al pasar el ratón, igual que en el sidebar */
+}
+
+.back-btn {
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.back-btn:hover {
+  background-color: #5a6268;
+}

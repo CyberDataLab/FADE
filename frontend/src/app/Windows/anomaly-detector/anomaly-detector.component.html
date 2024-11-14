@@ -1,1 +1,20 @@
-<p>anomaly-detector works!</p>
+<div class="top-bar">
+  <!-- Scenarios -->
+  <div class="dropdown-container" *ngIf="isRootSubRoute()">
+    <select [(ngModel)]="selectedOptionDropdown" class="dropdown-select" (change)="onDropdownChange()">
+      <option value="new">New scenario</option>
+      <option value="import">Import scenario</option>
+    </select>
+  </div>
+</div>
+
+<!-- Anomaly detector options -->
+<div class="content">
+  <ng-container *ngIf="isRootSubRoute()">
+    <button class="default-button" (click)="navigateTo('features')">Features</button>
+    <button class="default-button" (click)="navigateTo('timeline-ad')">Timeline AD</button>
+    <button class="default-button" (click)="navigateTo('metrics')">Metrics</button>
+  </ng-container>
+
+  <router-outlet *ngIf="!isRootSubRoute()"></router-outlet>
+</div>

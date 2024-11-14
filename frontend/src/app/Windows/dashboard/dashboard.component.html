@@ -1,37 +1,33 @@
 <div class="container">
-    <!-- Barra superior con botón de logout -->
-    <div class="top-bar">
-      <div class="logout-container">
-        <button class="logout-btn" (click)="logout()">Logout</button>
-      </div>
+  <!-- Logout and back buttons -->
+  <div class="top-bar">
+    <div class="top-bar-left">
+      <button class="back-btn" *ngIf="!isDashboard()" (click)="goBack()">← Back</button>
     </div>
-  
-    <!-- Sidebar fijo a la izquierda, debajo de la barra superior -->
-    <div class="sidebar">
-      <div class="option" (click)="selectOption(1)">Anomaly Detector</div>
-      <div class="option" (click)="selectOption(2)">XAI</div>
-      <div class="option" (click)="selectOption(3)">Policies</div>
-      <div class="option" (click)="selectOption(4)">Options</div>
-      <div class="option" (click)="selectOption(5)">User</div>
-    </div>
-  
-    <!-- Contenido del dashboard -->
-    <div class="content">
-      <ng-container *ngIf="selectedOption === 1">
-        <app-anomaly-detector></app-anomaly-detector>
-      </ng-container>
-      <ng-container *ngIf="selectedOption === 2">
-        <app-xai></app-xai>
-      </ng-container>
-      <ng-container *ngIf="selectedOption === 3">
-        <app-policies></app-policies>
-      </ng-container>
-      <ng-container *ngIf="selectedOption === 4">
-        <app-options></app-options>
-      </ng-container>
-      <ng-container *ngIf="selectedOption === 5">
-        <app-user></app-user>
-      </ng-container>
+    
+    <div class="logout-container">
+      <button class="logout-btn" (click)="logout()">Logout</button>
     </div>
   </div>
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="option" (click)="navigateTo('anomaly-detector')">Anomaly Detector</div>
+    <div class="option" (click)="navigateTo('xai')">XAI</div>
+    <div class="option" (click)="navigateTo('policies')">Policies</div>
+    <div class="option" (click)="navigateTo('options')">Options</div>
+    <div class="option" (click)="navigateTo('user')">User</div>
+  </div>
+
+  <div class="content">
+    <!--Dashboard contnet -->
+    <ng-container *ngIf="isDashboard()">
+      <button class="default-button">Anomalies detected</button>
+      <button class="default-button">Network / Data statistics</button>
+      <button class="default-button">Tested actions / mitigations</button>
+    </ng-container>
   
+    <!-- Options content -->
+    <router-outlet *ngIf="!isDashboard()"></router-outlet>
+  </div>
+</div>
