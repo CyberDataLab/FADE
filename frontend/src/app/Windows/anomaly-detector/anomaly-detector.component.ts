@@ -40,7 +40,7 @@ export class AnomalyDetectorComponent {
   onDropdownChange(): void {
     console.log('Dropdown changed to:', this.selectedOptionDropdown);
     if (this.selectedOptionDropdown === 'new') {
-      this.router.navigate(['/dashboard/anomaly-detector/new-scenario']);
+      this.router.navigate(['/dashboard/anomaly-detector/new-scenario/data-source']);
     } else if (this.selectedOptionDropdown === 'import') {
       this.router.navigate(['/dashboard/anomaly-detector/import-scenario']);
     }

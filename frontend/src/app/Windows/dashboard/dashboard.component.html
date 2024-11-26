@@ -12,11 +12,20 @@
 
   <!-- Sidebar -->
   <div class="sidebar">
-    <div class="option" (click)="navigateTo('anomaly-detector')">Anomaly Detector</div>
-    <div class="option" (click)="navigateTo('xai')">XAI</div>
-    <div class="option" (click)="navigateTo('policies')">Policies</div>
-    <div class="option" (click)="navigateTo('options')">Options</div>
-    <div class="option" (click)="navigateTo('user')">User</div>
+    <ng-container *ngIf="isNewScenario(); else defaultSidebar">
+      <div class="option" (click)="navigateToNewScenario('data-source')">Data Source</div>
+      <div class="option" (click)="navigateToNewScenario('data-processing')">Data processing</div>
+      <div class="option" (click)="navigateToNewScenario('feature-engineering')">Feature Engineering</div>
+      <div class="option" (click)="navigateToNewScenario('model-selection')">Model selection</div>
+      <div class="option" (click)="navigateToNewScenario('model-training')">Model training</div>
+    </ng-container>
+    <ng-template #defaultSidebar>
+      <div class="option" (click)="navigateTo('anomaly-detector')">Anomaly Detector</div>
+      <div class="option" (click)="navigateTo('xai')">XAI</div>
+      <div class="option" (click)="navigateTo('policies')">Policies</div>
+      <div class="option" (click)="navigateTo('options')">Options</div>
+      <div class="option" (click)="navigateTo('user')">User</div>
+    </ng-template>
   </div>
 
   <div class="content">
