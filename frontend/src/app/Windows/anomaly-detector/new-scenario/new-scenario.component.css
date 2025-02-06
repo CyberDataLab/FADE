@@ -1,0 +1,330 @@
+/* Reset básico */
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  overflow: hidden; /* Evitar scroll */
+  box-sizing: border-box;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.app-container {
+  display: flex;
+  flex-direction: row;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+  position: fixed;
+  top: 0;
+  left: 0;
+}
+
+.design-container {
+  width: 250px;
+  background-color: #2a3d4f;
+  color: white;
+  height: 100vh;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  position: relative;  /* Cambiado de fixed a relative */
+  top: 60px;
+  left: 0;
+}
+
+.section {
+  margin: 10px 0;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.section-header {
+  padding: 10px;
+  background-color: #4a5c70;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: background-color 0.3s ease-in-out;
+}
+  
+.section-header:hover {
+  background-color: #1e2a33;
+}
+
+.section-header i {
+  font-size: 20px;
+}
+
+.section-header span {
+  font-size: 14px;
+}
+
+.sub-section {
+  padding: 10px 0;
+  background-color: #3d4a5b;
+  border-radius: 5px;
+}
+
+.option-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  justify-content: center;
+  padding: 10px 0;
+}
+
+/* Añadir esto para elementos creados dinámicamente */
+/* Asegurar que los estilos se apliquen incluso a elementos dinámicos */
+:host ::ng-deep .option {
+  display: flex !important;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 70px;
+  height: 80px;
+  background-color: #4a5c70;
+  border-radius: 5px;
+  padding: 8px;
+  cursor: pointer;
+  transition: background-color 0.3s ease-in-out;
+}
+
+:host ::ng-deep .option:hover {
+  background-color: #57616f;
+}
+
+:host ::ng-deep .option i {
+  font-size: 13px;
+  margin-bottom: 20px;
+}
+
+:host ::ng-deep .option i.fa {
+  font-size: 18px; 
+  margin-bottom: 10px; 
+}
+
+:host ::ng-deep .option span {
+  font-size: 15px;
+  text-align: center;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
+}
+
+:host ::ng-deep .option.active {
+  background-color: #24313c;
+}
+
+.workspace {
+  flex-grow: 1;
+  position: relative;
+  background-color: transparent;
+  overflow: visible; /* Cambiado a visible para evitar cortes */
+  margin: 0;
+  padding: 0;
+}
+
+
+.drop-area {
+  width: 100%;
+  height: calc(100vh - 60px);
+  border: 2px dashed #ccc;
+  border-radius: 0;
+  background-image: linear-gradient(to right, rgba(255, 255, 255, 0.25) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(255, 255, 255, 0.25) 1px, transparent 1px);
+  background-size: 20px 20px;
+  margin: 0;
+  padding: 0;
+  top: 60px;
+  box-sizing: border-box;
+  position: relative; /* Asegurarse de que se ajuste al contenedor */
+}
+  
+.drop-area .draggable {
+  position: absolute;
+  color: white;
+  text-align: center;
+  cursor: pointer;
+}
+
+
+.drop-area * {
+  color:white;
+}
+
+.controls {
+  display: flex;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.zoom-button {
+  background-color: #f4f4f4;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  margin: 0 5px;
+  padding: 10px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.zoom-button:hover {
+  background-color: #e0e0e0;
+}
+
+.zoom-button i {
+  font-size: 16px;
+}
+
+.save-button {
+  background-color: #f4f4f4;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  margin: 0 5px;
+  padding: 10px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.save-button:hover {
+  background-color: #e0e0e0;
+}
+
+.save-button i {
+  font-size: 16px;
+}
+
+.workspace-element {
+  position: relative;
+  padding: 10px;
+  margin: 0; /* Quitar márgenes para evitar desplazamientos */
+  background-color: #4a5c70;
+  color: white;
+  border-radius: 5px;
+  text-align: center;
+  cursor: pointer;
+  z-index: 1;
+}
+
+::ng-deep .selected {
+  border: 2px dashed rgb(255, 255, 255);
+  background-color: #6a7d87;
+}
+
+#selection-box {
+  position: absolute;
+  z-index: 1000;
+  border: 2px dashed #4a5c70;
+  background-color: rgba(74, 92, 112, 0.3);
+  pointer-events: none;
+}
+
+.context-menu {
+  display: none;
+  position: absolute;
+  background-color: white;
+  border: 1px solid #ccc;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  padding: 5px;
+  list-style: none;
+  z-index: 1000;
+}
+
+.context-menu ul {
+  margin: 0;
+  padding: 0;
+}
+
+.context-menu li {
+  padding: 10px;
+  cursor: pointer;
+}
+
+.context-menu li:hover {
+  background-color: #f0f0f0;
+}
+
+.context-menu li:hover {
+  background-color: #f4f4f4;
+}
+
+/* Contenedor de configuración */
+.config-container {
+  width: 400px;
+  padding: 10px;
+  background-color: #2a3d4f;
+  color: white;
+  position: fixed;
+  top: 60px; /* Asegúrate de mantener el espacio adecuado desde arriba */
+  right: 0; /* Alineado a la derecha */
+  height: calc(100vh - 60px);
+  z-index: 10;
+  box-sizing: border-box;
+  display: none; /* Inicialmente oculto */
+  transition: transform 0.3s ease-in-out; /* Agregar animación de transición */
+}
+
+.config-container.show {
+  display: block; /* Mostrar cuando se agregue la clase 'show' */
+}
+
+.config-container .close-btn {
+  background-color: #4a5c70;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  padding: 5px 10px;
+  cursor: pointer;
+  margin-bottom: 10px;
+  transition: background-color 0.3s ease-in-out;
+}
+
+.config-container .close-btn:hover {
+  background-color: #57616f;
+}
+
+svg {
+  z-index: -1;  /* Coloca el SVG detrás de otros elementos */
+}
+
+:host ::ng-deep .gear-icon {
+  position: absolute;
+  font-size: 15px !important;
+  right: 3px;
+  top: 3px;
+  color: white;  /* Puedes cambiar el color si lo prefieres */
+  cursor: pointer;
+  display: none;
+  z-index: 2;
+}
+
+:host ::ng-deep .arrow-icon {
+  position: absolute;
+  font-size: 15px !important;
+  right: 3px;
+  top: 21px;
+  color: white;  /* Puedes cambiar el color si lo prefieres */
+  cursor: pointer;
+  display: none;
+  z-index: 2;
+}
+
+.control-point {
+  pointer-events: all; /* Permite que el círculo sea interactuado */
+  position: absolute;
+  z-index: 10; /* Asegúrate de que el círculo está por encima de otros elementos */
+}
+
+#drop-area svg circle {
+  pointer-events: all; /* Asegura que el punto de control sea interactivo */
+}

@@ -8,11 +8,7 @@ import { OptionsComponent } from '../options/options.component';
 import { UserComponent } from '../user/user.component'
 import { AuthenticationService } from '../../Authentication/authentication.service';
 import { Location } from '@angular/common';
-import { DataSourceComponent } from '../anomaly-detector/new-scenario/data-source/data-source.component';
-import { DataProcessingComponent } from '../anomaly-detector/new-scenario/data-processing/data-processing.component';
-import { FeatureEngineeringComponent } from '../anomaly-detector/new-scenario/feature-engineering/feature-engineering.component';
-import { ModelSelectionComponent } from '../anomaly-detector/new-scenario/model-selection/model-selection.component';
-import { ModelTrainingComponent } from '../anomaly-detector/new-scenario/model-training/model-training.component';
+import { ScenarioService } from '../scenario.service';
 
 @Component({
   selector: 'app-dashboard',
@@ -29,14 +25,12 @@ export class DashboardComponent {
   constructor(
     private authenticationService: AuthenticationService,
     private router: Router,
-    private location: Location
+    private location: Location,
+    private scenarioDesign: ScenarioService
   ) {}
 
   navigateTo(path: string): void {
     this.router.navigate([`/dashboard/${path}`]);
-  }
-  navigateToNewScenario(path: string): void {
-    this.router.navigate([`/dashboard/anomaly-detector/new-scenario/${path}`]);
   }
 
   isDashboard(): boolean {
@@ -44,27 +38,43 @@ export class DashboardComponent {
   }
 
   isNewScenario(): boolean {
-    return this.router.url.includes('/anomaly-detector/new-scenario');
+    return this.router.url.includes('/anomaly-detector/new-scenario') || this.router.url.includes('/anomaly-detector/edit-scenario');
   }
 
-  goBack(): void {
+  isEditScenario(): boolean {
+    return this.router.url.includes('/anomaly-detector/edit-scenario');
+  }
+
+
+  async goBack(): Promise<void> {
+    if (this.isNewScenario()) {
+      // Obtener el estado actualizado del servicio
+      const hasChanges = this.scenarioDesign.getUnsavedChanges();
+      
+      if (hasChanges) {
+        const confirmSave = confirm('Do you want to save the scenario?');
+        if (confirmSave) {
+          await this.scenarioDesign.requestSave(); // Usar await si saveDesign() es asíncrono
+        }
+      }
+    }
+
+    this.navigateBack();
+  }
+
+  private navigateBack() {
     const currentUrl = this.router.url;
     const urlParts = currentUrl.split('/');
 
     if (urlParts.length > 3) {
-      urlParts.pop(); 
-      const newUrl = urlParts.join('/'); 
-      this.router.navigateByUrl(newUrl); 
+      if (this.isEditScenario()) {
+        urlParts.pop();
+      }
+      urlParts.pop();
+      const newUrl = urlParts.join('/');
+      this.router.navigateByUrl(newUrl);
     } else {
       this.router.navigate(['/dashboard']);
-    }
-  }
-
-  onDropdownChange(): void {
-    if (this.selectedOptionDropdown === 'new') {
-      this.navigateTo('anomaly-detector/new-scenario');
-    } else if (this.selectedOptionDropdown === 'import') {
-      this.navigateTo('anomaly-detector/import-scenario');
     }
   }
 

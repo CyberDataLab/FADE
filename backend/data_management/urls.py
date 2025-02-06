@@ -30,4 +30,10 @@ urlpatterns = [
     path('check-sync-status/', views.check_sync_status, name='check_sync_status'),
     path('sync-data-sync/', views.sync_data_sync, name='sync_data_sync'),
     path('verify-sync-data/', views.verify_sync_data, name='verify_sync_data'),
+
+    # Scenarios URL
+    path('scenarios/create/', views.create_scenario, name='create_scenario'),
+    path('scenarios/', views.get_scenarios_by_user, name='get_scenarios_by_user'), 
+    path('scenarios/<uuid:uuid>/', views.get_scenario_by_uuid, name='get_scenario_by_uuid'), 
+    path('scenarios/delete/<uuid:uuid>/', views.delete_scenario_by_uuid, name='delete_scenario_by_uuid'),
 ]

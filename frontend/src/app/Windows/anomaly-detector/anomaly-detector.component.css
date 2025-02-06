@@ -3,37 +3,23 @@ html, body {
   padding: 0;
   height: 100%;
   font-family: Arial, sans-serif;
+  overflow: hidden;
+  overflow-y: hidden !important;
 }
 
-.dropdown-container {
+.options-container {
   display: inline-block;
   position: fixed; 
-  top: 150px;
-  left: 280px;  
+  top: 110px;
+  left: 220px;  
   z-index: 10; 
-}
-
-.dropdown-select {
-  background-color: #062f5b;
-  color: white;
-  padding: 10px 20px;
-  border: none;
-  font-size: 16px;
-  border-radius: 4px;
-  cursor: pointer;
-  width: 200px;
-  transition: background-color 0.2s;
-}
-
-.dropdown-select:hover {
-  background-color: #062f5b;
 }
 
 .separator-option {
   text-align: center;
-  color: #ccc; /* Color gris para el separador */
+  color: #ccc; 
   font-weight: bold;
-  border-top: 1px solid #ddd; /* Línea encima de la opción */
+  border-top: 1px solid #ddd; 
 }
 
 .content {
@@ -42,7 +28,75 @@ html, body {
   align-items: center;
   justify-content: center;
   flex: 1;
-  margin-top: 60px; 
+  height: 100%; /* Ocupar toda la altura de la pantalla */
+  overflow: hidden; /* Evita el desplazamiento en la página */
+}
+
+.table-container {
+  width: 100%;
+  height: 100%;
+  max-height: 80vh; /* Altura máxima ajustable */
+  overflow-y: auto; /* Scroll solo en la tabla */
+  display: flex;
+  flex-direction: column;
+}
+
+.scenario-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+  flex-grow: 1;
+  font-size: 18px;
+}
+
+.scenario-table tbody {
+  display: block;
+  width: 100%;
+  max-height: 60vh; /* Ajusta según el diseño */
+  overflow-y: auto;
+}
+
+.scenario-table thead, .scenario-table tbody tr {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+}
+
+.scenario-table th, .scenario-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #ddd;
+  color: white;
+}
+
+.scenario-table th {
+  background-color: #343a40;
+  color: #ffffff;
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #ddd;
+}
+
+.scenario-table th:nth-child(6),
+.scenario-table td:nth-child(6) {
+  width: 200px;
+}
+
+.action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-width: 100%;
+}
+
+.action-buttons button {
+  padding: 4px 8px;
+  font-size: 18px;
+  white-space: nowrap;
+  flex: 1 1 auto;
+  min-width: 60px;
+  max-width: 100%;
+  text-align: center;
 }
 
 .default-button {
@@ -61,4 +115,55 @@ html, body {
 
 .default-button:hover {
   background-color: #6c757d;
+}
+
+.finished {
+  color: #28a745;
+  font-weight: bold;
+}
+
+.empty-row {
+  text-align: center;
+  font-style: italic;
+  color: #ccc;
+  height: 50px;
+}
+
+.new-button, .import-button {
+  background-color: #f4f4f4;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  margin: 0 5px;
+  padding: 10px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.new-button:hover, .import-button:hover {
+  background-color: #e0e0e0;
+}
+
+.new-button i, .import-button i {
+  font-size: 16px;
+}
+
+.tooltip-text {
+  visibility: hidden;
+  width: 120px;
+  background-color: #343a40;
+  color: #fff;
+  text-align: center;
+  border-radius: 5px;
+  padding: 5px;
+  position: absolute;
+  z-index: 1;
+  bottom: 125%;
+  left: 50%;
+  margin-left: -60px;
+  transition: opacity 0.3s;
+}
+
+.new-button:hover .tooltip-text, .import-button:hover .tooltip-text {
+  visibility: visible;
+  opacity: 1;
 }

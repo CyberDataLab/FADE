@@ -1,4 +1,6 @@
 from django.db import models
+import uuid
+
 
 # Create your models here.
 class DataController(models.Model):
@@ -72,3 +74,14 @@ class DataSync(models.Model):
 
     def verify_sync_data(self):
         pass
+
+class Scenario(models.Model):
+    name = models.CharField(max_length=255, null=False, blank=True, default="Scenario name")
+    user = models.ForeignKey('accounts.CustomUser', on_delete=models.CASCADE) 
+    design = models.JSONField()
+    uuid = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    status = models.CharField(max_length=255, default='Draft')
+    date = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "Scenario"

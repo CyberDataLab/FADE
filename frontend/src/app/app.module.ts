@@ -8,6 +8,7 @@ import { AppComponent } from './app.component';
 import { AuthenticationService } from './Authentication/authentication.service';
 import { UserService } from './User/user.service';
 import { LoginComponent } from './Authentication/login/login.component';
+import { DragDropModule } from '@angular/cdk/drag-drop';
 
 @NgModule({
   declarations: [
@@ -16,6 +17,7 @@ import { LoginComponent } from './Authentication/login/login.component';
   ],
   imports: [
     BrowserModule,
+    DragDropModule,
     AppRoutingModule,
     FormsModule,
     BrowserAnimationsModule,

@@ -70,7 +70,7 @@ export class RegisterComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    if (this.autenticacionService.valorUsuarioActual != null) {
+    if (this.autenticacionService.actualUserValue != null) {
       this.router.navigate(['/dashboard']);
     }
   }

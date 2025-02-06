@@ -10,6 +10,9 @@ from django.core.mail import send_mail
 from django.conf import settings
 import jwt
 import json
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.exceptions import TokenError
+
 
 @api_view(['POST'])
 def register_view(request):
@@ -23,18 +26,24 @@ def register_view(request):
         return JsonResponse({'error': 'Admin not authorized or invalid credentials'}, status=status.HTTP_403_FORBIDDEN)
     
     if CustomUser.objects.filter(username=user_username).exists():
-        return JsonResponse({'error': 'User already registed'}, status=status.HTTP_409_CONFLICT)
+        return JsonResponse({'error': 'User already registered'}, status=status.HTTP_409_CONFLICT)
     
     if CustomUser.objects.filter(email=user_email).exists():
-        return JsonResponse({'error': 'Email already registed'}, status=status.HTTP_409_CONFLICT)
+        return JsonResponse({'error': 'Email already registered'}, status=status.HTTP_409_CONFLICT)
     
     user_data = request.data.copy()
     user_data.pop('admin_password', None)
     user_data.pop('confirm_password', None)
     serializer = UserSerializer(data=user_data)
+    
     if serializer.is_valid():
         user = serializer.save()
-        return JsonResponse({'user': serializer.data}, status=status.HTTP_201_CREATED)
+        refresh = RefreshToken.for_user(user)
+        return JsonResponse({
+            'user': serializer.data,
+            'access_token': str(refresh.access_token),
+            'refresh_token': str(refresh)
+        }, status=status.HTTP_201_CREATED)
     
     return JsonResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -46,10 +55,18 @@ def login_view(request):
     user = authenticate(username=username, password=password)
 
     if user is not None:
-        login(request, user)
-        return JsonResponse({'user': {'username': user.username}}, status=status.HTTP_200_OK)
-    else:
-        return JsonResponse({'error': 'Invalid credentials'}, status=status.HTTP_400_BAD_REQUEST)
+        refresh = RefreshToken.for_user(user)
+        return JsonResponse({
+            'access_token': str(refresh.access_token),
+            'refresh_token': str(refresh),
+            'user': {
+                'username': user.username,
+                'email': user.email,
+            }
+        }, status=status.HTTP_200_OK)
+    
+    return JsonResponse({'error': 'Invalid credentials'}, status=status.HTTP_400_BAD_REQUEST)
+
     
 @api_view(['POST'])
 def send_email_view(request):
@@ -102,3 +119,49 @@ def reset_password_view(request):
         return JsonResponse({'error': 'Invalid token'}, status=status.HTTP_400_BAD_REQUEST)
     except User.DoesNotExist:
         return JsonResponse({'error': 'User not found no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+
+@api_view(['POST'])
+def token_obtain_pair_view(request):
+    """
+    View for obtaining the JWT access and refresh tokens using username and password.
+    """
+    username = request.data.get('username')
+    password = request.data.get('password')
+
+    # Autenticar al usuario con las credenciales proporcionadas
+    user = authenticate(username=username, password=password)
+    
+    if user is None:
+        return JsonResponse({'error': 'Invalid credentials'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Generar los tokens de acceso y refresco
+    refresh = RefreshToken.for_user(user)
+
+    # Guardar los tokens en el localStorage (esto se hace en el cliente en Angular)
+    return JsonResponse({
+        'access_token': str(refresh.access_token),
+        'refresh_token': str(refresh),
+        'user': {
+            'username': user.username,
+            'email': user.email,
+        }
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+def token_refresh_view(request):
+    """
+    View for refreshing the JWT access token using a valid refresh token.
+    """
+    refresh_token = request.data.get('refresh')  # Asegúrate de que la clave sea 'refresh_token'
+
+    if not refresh_token:
+        return JsonResponse({'error': 'Refresh token is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        refresh = RefreshToken(refresh_token)
+        access_token = str(refresh.access_token)
+        return JsonResponse({'access_token': access_token}, status=status.HTTP_200_OK)
+
+    except TokenError:
+        return JsonResponse({'error': 'Invalid refresh token'}, status=status.HTTP_400_BAD_REQUEST)

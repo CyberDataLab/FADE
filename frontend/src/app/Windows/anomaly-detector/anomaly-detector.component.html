@@ -1,20 +1,55 @@
-<div class="top-bar">
-  <!-- Scenarios -->
-  <div class="dropdown-container" *ngIf="isRootSubRoute()">
-    <select [(ngModel)]="selectedOptionDropdown" class="dropdown-select" (change)="onDropdownChange()">
-      <option value="new">New scenario</option>
-      <option value="import">Import scenario</option>
-    </select>
-  </div>
+<div class="options-container" *ngIf="isRootSubRoute()">
+  <button class="new-button new-scenario" (click)="newScenario()">
+    <i class="fas fa-plus"></i>
+    <span class="tooltip-text">Click to design a new scenario</span>
+  </button>
+  <button class="import-button load-scenario" (click)="triggerFileInput()">
+    📂
+    <span class="tooltip-text">Click to import an existing scenario</span>
+  </button>
+
+  <!-- Input de archivo con atributo accept para solo permitir .json -->
+  <input type="file" id="fileInput" style="display: none;" (change)="loadScenario($event)" accept=".json">
 </div>
 
-<!-- Anomaly detector options -->
 <div class="content">
-  <ng-container *ngIf="isRootSubRoute()">
-    <button class="default-button" (click)="navigateTo('features')">Features</button>
-    <button class="default-button" (click)="navigateTo('timeline-ad')">Timeline AD</button>
-    <button class="default-button" (click)="navigateTo('metrics')">Metrics</button>
-  </ng-container>
-
-  <router-outlet *ngIf="!isRootSubRoute()"></router-outlet>
+  <div class="table-container" *ngIf="isRootSubRoute()">
+    <table class="scenario-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Name</th>
+          <th>Status</th>
+          <th>Date</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let scenario of scenarios">
+          <td>{{ scenario.uuid }}</td>
+          <td>{{ scenario.name }}</td>
+          <td [class.finished]="scenario.status === 'finished'">{{ scenario.status }}</td>
+          <td>{{ scenario.date | date:'dd/MM/yyyy HH:mm:ss' }}</td>
+          <td>
+            <div class="action-buttons">
+              <button class="default-button edit-button" (click)="editScenario(scenario.uuid)">Edit</button>
+              <button class="default-button" (click)="downloadScenario(scenario)">
+                <i class="fas fa-download"></i>
+              </button>
+              <button class="default-button delete-button" (click)="deleteScenario(scenario.uuid)">
+                <i class="fas fa-times"></i>
+              </button>
+              <button class="default-button" *ngIf="scenario.status === 'finished'" (click)="viewFeatures(scenario.id)">Features</button>
+              <button class="default-button" *ngIf="scenario.status === 'finished'" (click)="viewTimelineAD(scenario.id)">Timeline AD</button>
+              <button class="default-button" *ngIf="scenario.status === 'finished'" (click)="viewMetrics(scenario.id)">Metrics</button>
+            </div>
+          </td>
+        </tr>
+        <tr *ngIf="scenarios.length === 0">
+          <td colspan="5" class="empty-row">No scenarios available</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <router-outlet></router-outlet>
 </div>

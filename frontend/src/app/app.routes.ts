@@ -14,12 +14,6 @@ import { FeaturesComponent } from './Windows/anomaly-detector/features/features.
 import { MetricsComponent } from './Windows/anomaly-detector/metrics/metrics.component';
 import { TimelineADComponent } from './Windows/anomaly-detector/timeline-ad/timeline-ad.component';
 import { NewScenarioComponent } from './Windows/anomaly-detector/new-scenario/new-scenario.component';
-import { ImportScenarioComponent } from './Windows/anomaly-detector/import-scenario/import-scenario.component';
-import { DataSourceComponent } from './Windows/anomaly-detector/new-scenario/data-source/data-source.component';
-import { DataProcessingComponent } from './Windows/anomaly-detector/new-scenario/data-processing/data-processing.component';
-import { FeatureEngineeringComponent } from './Windows/anomaly-detector/new-scenario/feature-engineering/feature-engineering.component';
-import { ModelSelectionComponent } from './Windows/anomaly-detector/new-scenario/model-selection/model-selection.component';
-import { ModelTrainingComponent } from './Windows/anomaly-detector/new-scenario/model-training/model-training.component';
 
 export const routes: Routes = [
     { path: '', redirectTo: '/login', pathMatch: 'full'},
@@ -30,14 +24,8 @@ export const routes: Routes = [
             { path: 'features', component: FeaturesComponent },
             { path: 'timeline-ad', component: TimelineADComponent },
             { path: 'metrics', component: MetricsComponent },
-            { path: 'new-scenario', component: NewScenarioComponent, children: [
-                { path: 'data-source', component: DataSourceComponent },
-                { path: 'data-processing', component: DataProcessingComponent },
-                { path: 'feature-engineering', component: FeatureEngineeringComponent },
-                { path: 'model-selection', component: ModelSelectionComponent },
-                { path: 'model-training', component: ModelTrainingComponent }
-            ] },
-            { path: 'import-scenario', component: ImportScenarioComponent }
+            { path: 'new-scenario', component: NewScenarioComponent },
+            { path: 'edit-scenario/:id', component: NewScenarioComponent }
 
         ]},
         { path: 'xai', component: XaiComponent },

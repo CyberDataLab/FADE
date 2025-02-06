@@ -1,7 +1,17 @@
 # Create your views here.
 from django.shortcuts import render
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework import status
+from .models import Scenario
+from accounts.models import CustomUser
+from .serializers import ScenarioSerializer
 from django.http import JsonResponse
 from .models import DataController, DataReceiver, DataFilter, DataStorage, DataMixer, DataSync
+import logging
+
+# Obtén un logger
+logger = logging.getLogger(__name__)
 
 # Views for DataController
 def put_data_controller(request):
@@ -104,3 +114,60 @@ def verify_sync_data(request):
     sync = DataSync(name='Example Sync')
     sync.verify_sync_data()
     return JsonResponse({'message': 'Sync data verified'})
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def create_scenario(request):
+    user = request.user  # Obtenemos el usuario autenticado
+
+    data = request.data.copy()
+    #data.pop('confirm_password', None)  # Eliminar campos innecesarios
+    data['user'] = user.id  # Asignamos el usuario autenticado al campo `user`
+
+    serializer = ScenarioSerializer(data=data)
+    if serializer.is_valid():
+        serializer.save(user=user)  # Guardamos con el usuario autenticado
+        return JsonResponse({'message': 'Scenario created successfully'}, status=status.HTTP_201_CREATED)
+    
+    return JsonResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_scenarios_by_user(request):
+    user = request.user  # Usuario autenticado
+
+    # Filtrar los escenarios que pertenecen al usuario autenticado
+    scenarios = Scenario.objects.filter(user=user.id)
+
+    # Serializar los escenarios encontrados
+    serializer = ScenarioSerializer(scenarios, many=True)
+    
+    return JsonResponse(serializer.data, safe=False, status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_scenario_by_uuid(request, uuid):
+    user = request.user  # Usuario autenticado
+
+    try:
+        # Buscar el escenario por UUID y asegurarse de que pertenece al usuario autenticado
+        scenario = Scenario.objects.get(uuid=uuid, user=user.id)
+        serializer = ScenarioSerializer(scenario)  # Serializar el escenario
+        return JsonResponse(serializer.data, safe=False, status=status.HTTP_200_OK)  # Devolver el escenario serializado
+    except Scenario.DoesNotExist:
+        return JsonResponse({'error': 'Scenario not found or you do not have permission to access it'}, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_scenario_by_uuid(request, uuid):
+    user = request.user  # Usuario autenticado
+
+    try:
+        # Buscar el escenario por UUID y asegurarse de que pertenece al usuario autenticado
+        scenario = Scenario.objects.get(uuid=uuid, user=user.id)
+        scenario.delete()  # Eliminar el escenario
+        return JsonResponse({'message': 'Scenario deleted successfully'}, status=status.HTTP_200_OK)
+    except Scenario.DoesNotExist:
+        return JsonResponse({'error': 'Scenario not found or you do not have permission to delete it'}, status=status.HTTP_404_NOT_FOUND)
+
