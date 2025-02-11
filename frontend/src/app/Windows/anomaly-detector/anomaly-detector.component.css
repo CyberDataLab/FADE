@@ -28,8 +28,8 @@ html, body {
   align-items: center;
   justify-content: center;
   flex: 1;
-  height: 100%; /* Ocupar toda la altura de la pantalla */
-  overflow: hidden; /* Evita el desplazamiento en la página */
+  height: 100%; 
+  overflow: hidden; 
 }
 
 .table-container {

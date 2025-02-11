@@ -48,13 +48,12 @@ export class DashboardComponent {
 
   async goBack(): Promise<void> {
     if (this.isNewScenario()) {
-      // Obtener el estado actualizado del servicio
       const hasChanges = this.scenarioDesign.getUnsavedChanges();
       
       if (hasChanges) {
         const confirmSave = confirm('Do you want to save the scenario?');
         if (confirmSave) {
-          await this.scenarioDesign.requestSave(); // Usar await si saveDesign() es asíncrono
+          await this.scenarioDesign.requestSave(); 
         }
       }
     }

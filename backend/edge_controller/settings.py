@@ -94,15 +94,21 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'edge_controller.wsgi.application'
 
-# settings.py
 
 LOGGING = {
     'version': 1,
-    'disable_existing_loggers': False,  # No desactivar los loggers existentes
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '[{levelname}] {asctime} - {name} - {message}',
+            'style': '{',
+        },
+    },
     'handlers': {
         'console': {
-            'level': 'DEBUG',  # Cambia el nivel si lo necesitas
+            'level': 'DEBUG',
             'class': 'logging.StreamHandler',
+            'formatter': 'verbose', 
         },
     },
     'loggers': {
@@ -111,8 +117,14 @@ LOGGING = {
             'level': 'DEBUG',
             'propagate': True,
         },
+        'backend': {  
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
     },
 }
+
 
 
 # Database

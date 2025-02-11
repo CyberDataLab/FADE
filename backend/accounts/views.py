@@ -129,16 +129,13 @@ def token_obtain_pair_view(request):
     username = request.data.get('username')
     password = request.data.get('password')
 
-    # Autenticar al usuario con las credenciales proporcionadas
     user = authenticate(username=username, password=password)
     
     if user is None:
         return JsonResponse({'error': 'Invalid credentials'}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Generar los tokens de acceso y refresco
     refresh = RefreshToken.for_user(user)
 
-    # Guardar los tokens en el localStorage (esto se hace en el cliente en Angular)
     return JsonResponse({
         'access_token': str(refresh.access_token),
         'refresh_token': str(refresh),
@@ -154,7 +151,7 @@ def token_refresh_view(request):
     """
     View for refreshing the JWT access token using a valid refresh token.
     """
-    refresh_token = request.data.get('refresh')  # Asegúrate de que la clave sea 'refresh_token'
+    refresh_token = request.data.get('refresh')  
 
     if not refresh_token:
         return JsonResponse({'error': 'Refresh token is required'}, status=status.HTTP_400_BAD_REQUEST)

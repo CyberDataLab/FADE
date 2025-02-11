@@ -36,7 +36,7 @@ html, body {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  position: relative;  /* Cambiado de fixed a relative */
+  position: relative;  
   top: 60px;
   left: 0;
 }
@@ -83,8 +83,6 @@ html, body {
   padding: 10px 0;
 }
 
-/* Añadir esto para elementos creados dinámicamente */
-/* Asegurar que los estilos se apliquen incluso a elementos dinámicos */
 :host ::ng-deep .option {
   display: flex !important;
   flex-direction: column;
@@ -129,7 +127,7 @@ html, body {
   flex-grow: 1;
   position: relative;
   background-color: transparent;
-  overflow: visible; /* Cambiado a visible para evitar cortes */
+  overflow: visible;
   margin: 0;
   padding: 0;
 }
@@ -147,7 +145,7 @@ html, body {
   padding: 0;
   top: 60px;
   box-sizing: border-box;
-  position: relative; /* Asegurarse de que se ajuste al contenedor */
+  position: relative; 
 }
   
 .drop-area .draggable {
@@ -207,7 +205,7 @@ html, body {
 .workspace-element {
   position: relative;
   padding: 10px;
-  margin: 0; /* Quitar márgenes para evitar desplazamientos */
+  margin: 0; 
   background-color: #4a5c70;
   color: white;
   border-radius: 5px;
@@ -258,24 +256,23 @@ html, body {
   background-color: #f4f4f4;
 }
 
-/* Contenedor de configuración */
 .config-container {
   width: 400px;
   padding: 10px;
   background-color: #2a3d4f;
   color: white;
   position: fixed;
-  top: 60px; /* Asegúrate de mantener el espacio adecuado desde arriba */
-  right: 0; /* Alineado a la derecha */
+  top: 60px; 
+  right: 0; 
   height: calc(100vh - 60px);
   z-index: 10;
   box-sizing: border-box;
-  display: none; /* Inicialmente oculto */
-  transition: transform 0.3s ease-in-out; /* Agregar animación de transición */
+  display: none; 
+  transition: transform 0.3s ease-in-out; 
 }
 
 .config-container.show {
-  display: block; /* Mostrar cuando se agregue la clase 'show' */
+  display: block; 
 }
 
 .config-container .close-btn {
@@ -294,7 +291,7 @@ html, body {
 }
 
 svg {
-  z-index: -1;  /* Coloca el SVG detrás de otros elementos */
+  z-index: -1;  
 }
 
 :host ::ng-deep .gear-icon {
@@ -302,7 +299,7 @@ svg {
   font-size: 15px !important;
   right: 3px;
   top: 3px;
-  color: white;  /* Puedes cambiar el color si lo prefieres */
+  color: white;  
   cursor: pointer;
   display: none;
   z-index: 2;
@@ -313,18 +310,18 @@ svg {
   font-size: 15px !important;
   right: 3px;
   top: 21px;
-  color: white;  /* Puedes cambiar el color si lo prefieres */
+  color: white;  
   cursor: pointer;
   display: none;
   z-index: 2;
 }
 
 .control-point {
-  pointer-events: all; /* Permite que el círculo sea interactuado */
+  pointer-events: all; 
   position: absolute;
-  z-index: 10; /* Asegúrate de que el círculo está por encima de otros elementos */
+  z-index: 10; 
 }
 
 #drop-area svg circle {
-  pointer-events: all; /* Asegura que el punto de control sea interactivo */
+  pointer-events: all;
 }

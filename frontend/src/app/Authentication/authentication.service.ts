@@ -37,14 +37,14 @@ export class AuthenticationService {
 
   login(usuarioLogin: UserLogin): Observable<User> | null {
     if (this.actualUserSubject.value == null) {
-      return this.http.post<any>(this.url, usuarioLogin)  // Cambia el tipo a `any` para manejar los tokens
+      return this.http.post<any>(this.url, usuarioLogin) 
         .pipe(map((response: any) => {
           if (response.access_token && response.refresh_token) {
             localStorage.setItem('access_token', response.access_token);
             localStorage.setItem('refresh_token', response.refresh_token);
           }
   
-          const usuario: User = response.user;  // Extrae el usuario del response
+          const usuario: User = response.user; 
           localStorage.setItem('actual_user', JSON.stringify(usuario));
           this.actualUserSubject.next(usuario);
           return usuario;

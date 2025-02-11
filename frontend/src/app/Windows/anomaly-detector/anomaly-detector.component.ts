@@ -38,17 +38,17 @@ export class AnomalyDetectorComponent {
       
       if (tableBody) {
         tableBody.addEventListener('wheel', (e: Event) => {
-          const wheelEvent = e as WheelEvent; // Aseguramos que el evento es un WheelEvent
+          const wheelEvent = e as WheelEvent; 
           tableBody.scrollTop += wheelEvent.deltaY;
-          e.preventDefault(); // Prevenir el desplazamiento de la página
+          e.preventDefault(); 
         }, { passive: false });
       }
     }
-    this.getScenarios();  // Cargar escenarios al iniciar el componente
+    this.getScenarios();  
     this.scenarios.sort((a, b) => {
       const dateA = new Date(a.date).getTime();
       const dateB = new Date(b.date).getTime();
-      return dateA - dateB; // Orden descendente
+      return dateA - dateB; 
     });
   }
   
@@ -58,7 +58,7 @@ export class AnomalyDetectorComponent {
   }
 
   isRootSubRoute(): boolean {
-    return this.router.isActive('/dashboard/anomaly-detector', true); // Verificación exacta
+    return this.router.isActive('/dashboard/anomaly-detector', true); 
   }
 
   newScenario(): void {
@@ -103,7 +103,6 @@ export class AnomalyDetectorComponent {
       reader.readAsText(file);
     }
     
-    // Resetear el input de archivo
     input.value = '';
   }
 
@@ -145,7 +144,7 @@ export class AnomalyDetectorComponent {
     this.scenarios.sort((a, b) => {
       const dateA = new Date(a.date).getTime();
       const dateB = new Date(b.date).getTime();
-      return dateB - dateA; // Orden descendente (más reciente primero)
+      return dateB - dateA; 
     });
   }
 
@@ -153,7 +152,6 @@ export class AnomalyDetectorComponent {
     if (confirm('Are you sure you want to delete this scenario?')) {
       this.scenarioService.deleteScenario(uuid).subscribe({
         next: () => {
-          // Actualizar la lista de escenarios después de eliminar
           this.getScenarios();
           alert('Scenario deleted successfully');
         },
@@ -170,25 +168,19 @@ export class AnomalyDetectorComponent {
   }
 
   downloadScenario(scenario: any) {
-    // Crear un objeto Blob con el contenido del design del escenario
     const blob = new Blob([JSON.stringify(scenario.design)], { type: 'application/json' });
   
-    // Crear un enlace de descarga dinámicamente
     const link = document.createElement('a');
   
-    // Usar el nombre del escenario para el archivo
     const fileName = `${scenario.name}.json`;
   
-    // Establecer las propiedades del enlace de descarga
     link.href = URL.createObjectURL(blob);
     link.download = fileName;
   
-    // Simular un clic en el enlace para iniciar la descarga
-    document.body.appendChild(link); // Asegúrate de agregar el enlace al DOM antes de hacer clic
+    document.body.appendChild(link); 
     link.click();
-    document.body.removeChild(link); // Eliminar el enlace del DOM después de hacer clic
+    document.body.removeChild(link); 
   
-    // Liberar el objeto URL después de la descarga
     URL.revokeObjectURL(link.href);
   }
   

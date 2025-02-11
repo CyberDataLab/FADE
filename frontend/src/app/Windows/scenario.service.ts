@@ -11,8 +11,7 @@ export class ScenarioService {
   saveRequested$ = this.saveRequested.asObservable();
 
   private apiUrl = 'http://localhost:8000/data/scenarios/';
-  private authUrl = 'http://localhost:8000/token/'; // URL para refrescar el token
-
+  private authUrl = 'http://localhost:8000/token/'; 
   constructor(@Inject(PLATFORM_ID) private platformId: Object, private http: HttpClient) {}
 
   setUnsavedChanges(state: boolean): void {

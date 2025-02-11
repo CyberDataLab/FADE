@@ -22,7 +22,7 @@ export class NewScenarioComponent implements OnInit{
     dataModel: false
   };
 
-  scenario: Scenario | null = null;  // Puedes inicializarla como null
+  scenario: Scenario | null = null; 
 
   draggedElements: HTMLElement[] = [];  
   selectedElements: HTMLElement[] = [];  
@@ -42,10 +42,10 @@ export class NewScenarioComponent implements OnInit{
 
   connections: { startElement: HTMLElement, endElement: HTMLElement, line: SVGLineElement }[] = [];
 
-  zoomLevel: number = 1; // Nivel de zoom por defecto
-  zoomStep: number = 0.02; // Cuánto aumenta o disminuye el zoom
-  minZoom: number = 0.3;  // Mínimo nivel de zoom
-  maxZoom: number = 1.08;    // Máximo nivel de zoom
+  zoomLevel: number = 1; 
+  zoomStep: number = 0.02; 
+  minZoom: number = 0.3;  
+  maxZoom: number = 1.08;   
 
   nextElementId: number = 0;
 
@@ -82,17 +82,13 @@ export class NewScenarioComponent implements OnInit{
         saveScenario.addEventListener('click', () => this.saveScenario());
       }
 
-      // Registrar suscripción para guardar
       this.scenarioService.saveRequested$.subscribe(() => this.saveScenario());
       
-      // Actualizar estado cuando cambian los elementos
       this.scenarioService.setUnsavedChanges(this.droppedElements.length > 0);
 
-      // Obtener el parámetro 'id' de la ruta
       this.scenarioId = this.route.snapshot.paramMap.get('id');
 
       if (this.scenarioId) {
-        // Si 'id' está presente, es una edición
         this.isNewScenario = false;
         this.loadEditScenario(this.scenarioId);
       } 
@@ -100,7 +96,6 @@ export class NewScenarioComponent implements OnInit{
   }
 
   updateUnsavedState() {
-    // Enviar el estado actual al servicio
     this.scenarioService.setUnsavedChanges(this.droppedElements.length > 0);
   }
 
@@ -112,61 +107,47 @@ export class NewScenarioComponent implements OnInit{
     const draggableElements = document.querySelectorAll('.option');
   
     draggableElements.forEach((element: Element) => {
-      // Aseguramos que el elemento es de tipo HTMLElement
       const htmlElement = element as HTMLElement;
   
-      // Ahora puedes usar los métodos y propiedades específicos de HTMLElement
       htmlElement.addEventListener('dragstart', (event) => this.onDragStart(event, false));
       htmlElement.addEventListener('dragend', (event) => this.onDragEnd(event));
     });
   }
-  
 
-  // Detectar clics en los elementos para seleccionar
   onElementClick(event: MouseEvent, element: EventTarget | null): void {
-    // Verificar si el clic fue en los iconos (rueda o flecha)
     if (element instanceof HTMLElement && (element.classList.contains('gear-icon') || element.classList.contains('arrow-icon'))) {
-      // Si fue clic en la rueda o la flecha, no hacer nada para evitar la selección
-      event.stopPropagation(); // Evitar que el clic se propague a otros elementos
+      event.stopPropagation(); 
       return;
     }
   
-    // Si estamos en modo de conexión, procesar la conexión
     if (this.isConnecting && this.connectionStartElement) {
       if (element instanceof HTMLElement) {
-        // Crear la conexión entre `connectionStartElement` y el elemento seleccionado
         this.createConnection(this.connectionStartElement, element);
   
-        // Finalizar el modo de conexión
         this.isConnecting = false;
         this.connectionStartElement = null;
       }
       return;
     }
   
-    // Lógica para la selección de elementos
-    event.stopPropagation(); // Evitar que el clic se propague
+    event.stopPropagation(); 
   
     if (element instanceof HTMLElement) {
       const isCtrlOrCmdPressed = event.ctrlKey || event.metaKey;
   
       if (isCtrlOrCmdPressed) {
-        // Si el elemento ya está seleccionado, deseleccionarlo
         if (this.selectedElements.includes(element)) {
           this.deselectElement(element);
         } else {
-          // Agregar a la selección
           this.selectElement(element);
         }
       } else {
-        // Seleccionar solo este elemento
         this.clearSelection();
         this.selectElement(element);
       }
     }
   }
 
-  // Seleccionar un elemento
   selectElement(element: HTMLElement) {
     if (!this.selectedElements.includes(element)) {
       this.selectedElements.push(element);
@@ -180,17 +161,14 @@ export class NewScenarioComponent implements OnInit{
     element.classList.remove('selected');
   }
   
-  // Limpiar la selección de todos los elementos
   clearSelection() {
     this.selectedElements.forEach((el) => el.classList.remove('selected'));
     this.selectedElements = [];
   }
 
-  // Detectar clic fuera de los elementos seleccionados para deseleccionarlos
   onDocumentClick(event: MouseEvent) {
-    // Verificamos si el clic fue fuera de los elementos seleccionados
     if (!this.selectedElements.some((element) => element.contains(event.target as Node))) {
-      this.clearSelection(); // Limpiamos la selección si no se hizo clic dentro de los elementos seleccionados
+      this.clearSelection(); 
     }
   
     const menu = document.getElementById('context-menu');
@@ -199,22 +177,16 @@ export class NewScenarioComponent implements OnInit{
     }
   }
   
-
-  // Manejo de la tecla "Delete"
   onKeyDown(event: KeyboardEvent): void {
-    // Verificar si la tecla presionada es 'Backspace' (retroceso) o 'Delete' (borrar)
     if (event.key === 'Backspace' || event.key === 'Delete') {
       this.deleteSelectedElements();
     }
   }
   
-  // Método para eliminar los elementos seleccionados
   deleteSelectedElements(): void {
     if (this.selectedElements.length > 0) {
-        // 1. Guardar referencia de los elementos a eliminar
         const elementsToDelete = [...this.selectedElements];
 
-        // Eliminar conexiones
         this.connections = this.connections.filter((connection) => {
             const isConnected = elementsToDelete.includes(connection.startElement) || 
                               elementsToDelete.includes(connection.endElement);
@@ -225,24 +197,20 @@ export class NewScenarioComponent implements OnInit{
             return !isConnected;
         });
 
-        // Eliminar elementos del DOM
         elementsToDelete.forEach(element => {
             if (element.parentElement) {
                 element.parentElement.removeChild(element);
             }
         });
 
-        // 2. Actualizar droppedElements ANTES de limpiar selectedElements
         this.droppedElements = this.droppedElements.filter(el => !elementsToDelete.includes(el));
         
-        // 3. Ahora sí limpiar la selección
         this.selectedElements = [];
         
         this.updateUnsavedState();
     }
   }
 
-  // Arrastre de los elementos
   onDragStart(event: DragEvent, isWorkspace: boolean): void {
     const target = event.target as HTMLElement;
     if (target) {
@@ -265,7 +233,6 @@ export class NewScenarioComponent implements OnInit{
         event.dataTransfer.setDragImage(target, 0, 0);
       }
   
-      // Calcular las distancias relativas entre los elementos seleccionados
       if (this.selectedElements.length > 1) {
         const firstElement = this.selectedElements[0];
         const firstRect = firstElement.getBoundingClientRect();
@@ -283,7 +250,7 @@ export class NewScenarioComponent implements OnInit{
   }
 
   onDragEnd(event: DragEvent) {
-    this.draggedElements = []; // Resetear la lista de elementos arrastrados
+    this.draggedElements = []; 
   }
 
   onDragOver(event: DragEvent) {
@@ -296,8 +263,8 @@ export class NewScenarioComponent implements OnInit{
     const dropArea = document.getElementById('drop-area');
     if (dropArea) {
       const rect = dropArea.getBoundingClientRect();
-      const dropX = (event.clientX - rect.left) / this.zoomLevel;  // Ajustar con el zoom
-      const dropY = (event.clientY - rect.top) / this.zoomLevel;  // Ajustar con el zoom
+      const dropX = (event.clientX - rect.left) / this.zoomLevel;  
+      const dropY = (event.clientY - rect.top) / this.zoomLevel;  
   
       this.relativePositions.forEach(({ element, offsetX, offsetY }) => {
         if (!dropArea.contains(element)) {
@@ -305,41 +272,34 @@ export class NewScenarioComponent implements OnInit{
           element.addEventListener('click', (e) => this.onElementClick(e, element));
           element.addEventListener('contextmenu', (e) => this.onElementClickWorkspace(e, element));
   
-          // Crear el ícono de rueda dentada
           const gearIcon = document.createElement('i');
-          gearIcon.className = 'fa fa-cog gear-icon';  // Ajustar la clase para estilo
-          gearIcon.style.display = 'none';  // Inicialmente oculto
+          gearIcon.className = 'fa fa-cog gear-icon'; 
+          gearIcon.style.display = 'none';  
   
-          // Crear la flecha mirando hacia la derecha
           const arrowIcon = document.createElement('i');
-          arrowIcon.className = 'fa fa-arrow-right arrow-icon';  // Ajustar clase
-          arrowIcon.style.display = 'none';  // Inicialmente oculta
+          arrowIcon.className = 'fa fa-arrow-right arrow-icon';
+          arrowIcon.style.display = 'none'; 
   
-          // Mostrar íconos al pasar el ratón sobre el elemento
           element.addEventListener('mouseenter', () => {
             gearIcon.style.display = 'block';
             arrowIcon.style.display = 'block';
           });
   
-          // Ocultar íconos al salir del elemento
           element.addEventListener('mouseleave', () => {
             gearIcon.style.display = 'none';
             arrowIcon.style.display = 'none';
           });
   
-          // Evitar seleccionar el elemento y ejecutar la acción correspondiente al hacer clic en la rueda dentada
           gearIcon.addEventListener('click', (e) => {
-            e.stopPropagation();  // Prevenir selección
-            this.onConfigurationClick(element);  // Llamada a la función
+            e.stopPropagation(); 
+            this.onConfigurationClick(element);  
           });
   
-          // Evitar seleccionar el elemento y ejecutar la acción correspondiente al hacer clic en la flecha
           arrowIcon.addEventListener('click', (e) => {
-            e.stopPropagation();  // Prevenir selección
-            this.onConnectionClick(element);  // Llamada a la función
+            e.stopPropagation();
+            this.onConnectionClick(element); 
           });
   
-          // Agregar íconos al elemento
           element.appendChild(gearIcon);
           element.appendChild(arrowIcon);
           dropArea.appendChild(element);
@@ -347,19 +307,17 @@ export class NewScenarioComponent implements OnInit{
   
         element.style.position = 'absolute';
   
-        // Limitar las posiciones X e Y con el zoom
         const maxX = dropArea.offsetWidth / this.zoomLevel - element.offsetWidth;
         let newX = dropX + offsetX;
-        newX = Math.max(0, Math.min(newX, maxX));  // Limitar la posición X
+        newX = Math.max(0, Math.min(newX, maxX));
   
         const maxY = dropArea.offsetHeight / this.zoomLevel - element.offsetHeight;
         let newY = dropY + offsetY;
-        newY = Math.max(0, Math.min(newY, maxY));  // Limitar la posición Y
+        newY = Math.max(0, Math.min(newY, maxY));
   
-        element.style.left = `${newX * this.zoomLevel}px`;  // Ajustar con el zoom
-        element.style.top = `${newY * this.zoomLevel}px`;   // Ajustar con el zoom
+        element.style.left = `${newX * this.zoomLevel}px`;  
+        element.style.top = `${newY * this.zoomLevel}px`;
   
-        // Actualizar conexiones si el elemento está involucrado en alguna
         this.updateConnections(element);
         this.droppedElements.push(element);
         this.updateUnsavedState();
@@ -381,7 +339,6 @@ export class NewScenarioComponent implements OnInit{
     });
   }
 
-  // Detectar cuando el ratón se mueve para seleccionar todos los elementos por encima de ellos
   onMouseMove(event: MouseEvent) {
     const dropArea = document.getElementById('drop-area');
     if (!dropArea) return;
@@ -390,10 +347,9 @@ export class NewScenarioComponent implements OnInit{
     const mouseX = event.clientX - rect.left;
     const mouseY = event.clientY - rect.top;
   
-    // Verificar si el ratón está sobre algún elemento de la cuadrícula
     this.draggedElements = [];
   
-    const elements = Array.from(dropArea.querySelectorAll('.option')); // Obtener todos los elementos dentro del área
+    const elements = Array.from(dropArea.querySelectorAll('.option'));
     elements.forEach((element) => {
       const elRect = element.getBoundingClientRect();
       const elLeft = elRect.left - rect.left;
@@ -401,7 +357,6 @@ export class NewScenarioComponent implements OnInit{
       const elRight = elLeft + elRect.width;
       const elBottom = elTop + elRect.height;
   
-      // Si el mouse está dentro de los límites de un elemento, seleccionamos ese elemento
       if (mouseX >= elLeft && mouseX <= elRight && mouseY >= elTop && mouseY <= elBottom) {
         this.selectElement(element as HTMLElement);
       }
@@ -424,7 +379,7 @@ export class NewScenarioComponent implements OnInit{
       };
     }
   
-    this.clearSelection();  // Limpiar cualquier selección previa
+    this.clearSelection();  
   
     const selectionBox = document.getElementById('selection-box');
     if (selectionBox) {
@@ -461,7 +416,6 @@ export class NewScenarioComponent implements OnInit{
       selectionBox.style.width = `${width * this.zoomLevel}px`;
       selectionBox.style.height = `${height * this.zoomLevel}px`;
   
-      // Aquí solo seleccionamos elementos, no los deseleccionamos
       this.droppedElements.forEach((el) => {
         const elRect = el.getBoundingClientRect();
         const elementLeft = (elRect.left - rect.left) / this.zoomLevel;
@@ -476,12 +430,10 @@ export class NewScenarioComponent implements OnInit{
           elementBottom <= y + height;
   
         if (overlaps) {
-          // Asegúrate de no deseleccionar elementos ya seleccionados
           if (!this.selectedElements.includes(el)) {
             this.selectElement(el);
           }
         } else {
-          // Solo deseleccionamos si no está ya deseleccionado
           if (this.selectedElements.includes(el)) {
             this.deselectElement(el);
           }
@@ -495,12 +447,10 @@ export class NewScenarioComponent implements OnInit{
   
     this.isSelecting = false;
   
-    // Aplicar la clase .selected a los elementos que están en selectedElements
     this.selectedElements.forEach((el) => {
       el.classList.add('selected');
     });
   
-    // No necesitas restablecer la selección aquí, solo ocultar el área de selección
     const selectionBox = document.getElementById('selection-box');
     if (selectionBox) {
       selectionBox.style.display = 'none';
@@ -509,16 +459,15 @@ export class NewScenarioComponent implements OnInit{
   
 
   onElementClickWorkspace(event: MouseEvent, element: HTMLElement): void {
-    event.preventDefault();  // Evitar el menú contextual predeterminado
+    event.preventDefault(); 
     const menu = document.getElementById('context-menu');
     if (menu) {
-      // Obtener la posición del clic y mostrar el menú en esa ubicación
       const x = event.clientX;
       const y = event.clientY;
   
       menu.style.left = `${x}px`;
       menu.style.top = `${y}px`;
-      menu.style.display = 'block';  // Mostrar el menú
+      menu.style.display = 'block';  
       this.selectedElement = element;
     }
   }
@@ -531,7 +480,6 @@ export class NewScenarioComponent implements OnInit{
     }
   }
 
-
   createConnection(startElement: HTMLElement, endElement: HTMLElement): void {
     const dropArea = document.getElementById('drop-area');
     if (!dropArea) return;
@@ -541,55 +489,45 @@ export class NewScenarioComponent implements OnInit{
     const svgNamespace = 'http://www.w3.org/2000/svg';
     const svg = dropArea.querySelector('svg') || document.createElementNS(svgNamespace, 'svg');
 
-    // Asegurarse de que el SVG esté dentro del dropArea
     if (!dropArea.contains(svg)) {
         svg.setAttribute('width', `${dropArea.offsetWidth}`);
         svg.setAttribute('height', `${dropArea.offsetHeight}`);
         svg.style.position = 'absolute';
         svg.style.top = '0';
         svg.style.left = '0';
-        svg.style.pointerEvents = 'none'; // No interferir con otros elementos
+        svg.style.pointerEvents = 'none'; 
         dropArea.appendChild(svg);
     }
 
-    // Obtener el nivel de escala (zoom)
     const scale = this.getZoomScale();
 
-    // Obtener las coordenadas de ambos elementos
     const startRect = startElement.getBoundingClientRect();
     const endRect = endElement.getBoundingClientRect();
     const dropAreaRect = dropArea.getBoundingClientRect();
 
-    // Calcular las distancias entre todos los bordes posibles de ambos elementos
     const distances = this.calculateAllDistances(startRect, endRect);
 
-    // Obtener la combinación de bordes con la menor distancia
     const closestPair = this.getClosestPair(distances);
 
-    // Asegurarse de que las coordenadas están relativas al área de trabajo
     if (closestPair.startEdge && closestPair.endEdge) {
         let startX = (closestPair.startEdge.x - dropAreaRect.left) / scale;
         let startY = (closestPair.startEdge.y - dropAreaRect.top) / scale;
         let endX = (closestPair.endEdge.x - dropAreaRect.left) / scale;
         let endY = (closestPair.endEdge.y - dropAreaRect.top) / scale;
 
-        // Ajustar la línea para que no se desplace fuera ni dentro del elemento
         const startElementStyles = window.getComputedStyle(startElement);
         const endElementStyles = window.getComputedStyle(endElement);
 
-        // Ajuste de los bordes según el estilo del elemento
         const startAdjustmentX = parseInt(startElementStyles.borderLeftWidth, 10) || 0;
         const startAdjustmentY = parseInt(startElementStyles.borderTopWidth, 10) || 0;
         const endAdjustmentX = parseInt(endElementStyles.borderLeftWidth, 10) || 0;
         const endAdjustmentY = parseInt(endElementStyles.borderTopWidth, 10) || 0;
 
-        // Corregir la escala para los ajustes de los bordes
         startX += startAdjustmentX / scale;
         startY += startAdjustmentY / scale;
         endX += endAdjustmentX / scale;
         endY += endAdjustmentY / scale;
 
-        // Crear la línea entre los bordes más cercanos
         const line = document.createElementNS(svgNamespace, 'line');
         line.setAttribute('x1', `${startX}`);
         line.setAttribute('y1', `${startY}`);
@@ -600,7 +538,6 @@ export class NewScenarioComponent implements OnInit{
 
         svg.appendChild(line);
 
-        // Guardar la conexión
         this.connections.push({
             startElement,
             endElement,
@@ -610,17 +547,14 @@ export class NewScenarioComponent implements OnInit{
 
     this.isConnecting = false;
     this.connectionStartElement = null;
-}
+  }
 
-
-  // Método auxiliar para calcular las distancias entre todos los bordes posibles de ambos elementos
   private calculateAllDistances(startRect: DOMRect, endRect: DOMRect): { startEdge: { x: number, y: number }, endEdge: { x: number, y: number }, distance: number }[] {
       const startEdges = this.getEdges(startRect);
       const endEdges = this.getEdges(endRect);
 
       const distances: { startEdge: { x: number, y: number }, endEdge: { x: number, y: number }, distance: number }[] = [];
       
-      // Calcular la distancia entre todos los bordes
       startEdges.forEach((startEdge) => {
           endEdges.forEach((endEdge) => {
               const distance = Math.hypot(startEdge.x - endEdge.x, startEdge.y - endEdge.y);
@@ -631,17 +565,15 @@ export class NewScenarioComponent implements OnInit{
       return distances;
   }
 
-  // Método para obtener las coordenadas de los bordes de un rectángulo
   private getEdges(rect: DOMRect): { x: number, y: number }[] {
-      const left = { x: rect.left, y: rect.top + rect.height / 2 };     // Medio del borde izquierdo
-      const right = { x: rect.right, y: rect.top + rect.height / 2 };    // Medio del borde derecho
-      const top = { x: rect.left + rect.width / 2, y: rect.top };        // Medio del borde superior
-      const bottom = { x: rect.left + rect.width / 2, y: rect.bottom };  // Medio del borde inferior
+      const left = { x: rect.left, y: rect.top + rect.height / 2 };     
+      const right = { x: rect.right, y: rect.top + rect.height / 2 };  
+      const top = { x: rect.left + rect.width / 2, y: rect.top };        
+      const bottom = { x: rect.left + rect.width / 2, y: rect.bottom };  
 
       return [top, bottom, left, right];
   }
 
-  // Método para obtener la combinación de bordes con la menor distancia
   private getClosestPair(distances: { startEdge: { x: number, y: number }, endEdge: { x: number, y: number }, distance: number }[]): { startEdge: { x: number, y: number }, endEdge: { x: number, y: number } } {
       let minDistance = Infinity;
       let closestPair: { startEdge: { x: number, y: number }, endEdge: { x: number, y: number } } = { startEdge: { x: 0, y: 0 }, endEdge: { x: 0, y: 0 } };
@@ -658,36 +590,29 @@ export class NewScenarioComponent implements OnInit{
 
   updateConnections(element: HTMLElement) {
     this.connections.forEach((connection) => {
-        // Verificar si el elemento es parte de la conexión
         if (connection.startElement === element || connection.endElement === element) {
             const dropArea = document.getElementById('drop-area');
             if (!dropArea) return;
 
-            // Obtener el nivel de escala (zoom)
             const scale = this.getZoomScale();
 
             const startRect = connection.startElement.getBoundingClientRect();
             const endRect = connection.endElement.getBoundingClientRect();
             const dropAreaRect = dropArea.getBoundingClientRect();
 
-            // Calcular las distancias entre todos los bordes posibles de ambos elementos
             const distances = this.calculateAllDistances(startRect, endRect);
 
-            // Obtener la combinación de bordes con la menor distancia
             const closestPair = this.getClosestPair(distances);
 
-            // Asegurarse de que las coordenadas están relativas al área de trabajo
             if (closestPair.startEdge && closestPair.endEdge) {
                 let startX = (closestPair.startEdge.x - dropAreaRect.left) / scale;
                 let startY = (closestPair.startEdge.y - dropAreaRect.top) / scale;
                 let endX = (closestPair.endEdge.x - dropAreaRect.left) / scale;
                 let endY = (closestPair.endEdge.y - dropAreaRect.top) / scale;
 
-                // Ajustar la línea para que no se desplace fuera ni dentro del elemento
                 const startElementStyles = window.getComputedStyle(connection.startElement);
                 const endElementStyles = window.getComputedStyle(connection.endElement);
 
-                // Ajuste de los bordes según el estilo del elemento
                 const startAdjustmentX = (parseInt(startElementStyles.borderLeftWidth, 10) || 0) / scale;
                 const startAdjustmentY = (parseInt(startElementStyles.borderTopWidth, 10) || 0) / scale;
                 const endAdjustmentX = (parseInt(endElementStyles.borderLeftWidth, 10) || 0) / scale;
@@ -698,7 +623,6 @@ export class NewScenarioComponent implements OnInit{
                 endX += endAdjustmentX;
                 endY += endAdjustmentY;
 
-                // Actualizar la posición de la línea
                 const line = connection.line;
                 line.setAttribute('x1', `${startX}`);
                 line.setAttribute('y1', `${startY}`);
@@ -711,14 +635,11 @@ export class NewScenarioComponent implements OnInit{
 
   onConfigurationClick(selectedElement: HTMLElement): void {
     if (selectedElement) {
-      // Mostrar el contenedor de configuración
       if (this.configContainer) {
-        this.configContainer.nativeElement.classList.add('show'); // Mostrar el contenedor
+        this.configContainer.nativeElement.classList.add('show');
         
-        // Lógica para cambiar el contenido del contenedor de configuración
         const configContent = this.configContainer.nativeElement.querySelector('.config-content');
         if (configContent) {
-          // Dependiendo del tipo de elemento seleccionado, mostrar diferente contenido
           switch (selectedElement.innerText.trim()) {
             case 'CSV':
               configContent.innerHTML = `
@@ -882,24 +803,22 @@ export class NewScenarioComponent implements OnInit{
                   </label>
             
                   <script>
-                      // Manejador para mostrar/ocultar el input para el número
                       document.getElementById('rf-max-features').addEventListener('change', function() {
                           let maxFeaturesInput = document.getElementById('rf-max-features-number');
                           if (this.value === 'number') {
-                              maxFeaturesInput.style.display = 'inline-block'; // Mostrar el campo de número
+                              maxFeaturesInput.style.display = 'inline-block'; 
                           } else {
-                              maxFeaturesInput.style.display = 'none'; // Ocultar el campo de número
+                              maxFeaturesInput.style.display = 'none'; 
                           }
                       });
             
-                      // Asegura que el campo de número se muestre si "Number" está seleccionado inicialmente
                       window.addEventListener('load', function() {
                           let selectElement = document.getElementById('rf-max-features');
                           let numberInput = document.getElementById('rf-max-features-number');
                           if (selectElement.value === 'number') {
                               numberInput.style.display = 'inline-block';
                           } else {
-                              numberInput.style.display = 'none'; // Asegura que el campo se oculte si no es "Number"
+                              numberInput.style.display = 'none'; 
                           }
                       });
                   </script>
@@ -955,15 +874,12 @@ export class NewScenarioComponent implements OnInit{
                   <label style="display: block; margin-bottom: 60px;">Gamma: <input type="number" step="0.01" id="svm-gamma" value="0.1" disabled></label>
               
                   <script>
-                    // Obtener los elementos del DOM
                     const kernelSelect = document.getElementById("svm-kernel");
                     const gammaInput = document.getElementById("svm-gamma");
                 
-                    // Agregar un evento para cambiar el estado de Gamma según el kernel seleccionado
                     kernelSelect.addEventListener('change', function() {
                         const selectedKernel = kernelSelect.value;
                 
-                        // Si se selecciona un kernel RBF o Polynomial, habilitar el campo de Gamma
                         if (selectedKernel === 'rbf' || selectedKernel === 'poly' || selectedKernel === 'sigmoid') {
                             gammaInput.disabled = false;
                         } else {
@@ -971,7 +887,6 @@ export class NewScenarioComponent implements OnInit{
                         }
                     });
                 
-                    // Inicializar el estado del formulario (si ya se ha seleccionado RBF o Polynomial por defecto)
                     if (kernelSelect.value === 'rbf' || kernelSelect.value === 'poly' || kernelSelect.value === 'sigmoid') {
                         gammaInput.disabled = false;
                     } else {
@@ -1022,7 +937,7 @@ export class NewScenarioComponent implements OnInit{
         }
       }
     }
-    this.hideContextMenu();  // Ocultar el menú después de seleccionar una opción
+    this.hideContextMenu();  
   }
 
   onCSVFileSelected(event: Event): void {
@@ -1051,14 +966,14 @@ export class NewScenarioComponent implements OnInit{
   
   closeConfig(): void {
     if (this.configContainer) {
-      this.configContainer.nativeElement.classList.remove('show'); // Ocultar el contenedor
+      this.configContainer.nativeElement.classList.remove('show'); 
     }
   }
   
   hideContextMenu(): void {
     const menu = document.getElementById('context-menu');
     if (menu) {
-      menu.style.display = 'none';  // Ocultar el menú
+      menu.style.display = 'none';  
     }
   }
 
@@ -1084,51 +999,44 @@ export class NewScenarioComponent implements OnInit{
       const dropAreaRect = dropArea.getBoundingClientRect();
       const containerRect = container.getBoundingClientRect();
   
-      // Establecer el origen de la transformación en la esquina superior izquierda
       dropArea.style.transformOrigin = 'top left';
       dropArea.style.transform = `scale(${this.zoomLevel})`;
   
-      // Verificar el desbordamiento a la derecha
       if (dropAreaRect.right > containerRect.right) {
         const excessWidth = dropAreaRect.right - containerRect.right;
-        dropArea.style.left = `-${excessWidth}px`;  // Desplazar hacia la izquierda
+        dropArea.style.left = `-${excessWidth}px`;  
       } else {
-        dropArea.style.left = '0px';  // Ajustar a la posición original
+        dropArea.style.left = '0px';  
       }
   
-      // Verificar el desbordamiento hacia abajo
       if (dropAreaRect.bottom > containerRect.bottom) {
         const excessHeight = dropAreaRect.bottom - containerRect.bottom;
-        dropArea.style.top = `-${excessHeight}px`;  // Desplazar hacia arriba
+        dropArea.style.top = `-${excessHeight}px`;  
       } else {
-        dropArea.style.top = '0px';  // Ajustar a la posición original
+        dropArea.style.top = '0px';  
       }
     }
   
-    // Actualizar las posiciones de los elementos y las conexiones después de hacer zoom
     this.selectedElements.forEach((element) => {
       this.updateConnections(element);
     });
   }
   
-
-  // Obtener el nivel de escala del área de trabajo
   private getZoomScale(): number {
     const dropArea = document.getElementById('drop-area');
-    if (!dropArea) return 1; // Valor por defecto si no hay escala
+    if (!dropArea) return 1; 
 
-    // Extraer el valor de 'scale' del estilo transform
     const transform = window.getComputedStyle(dropArea).transform;
 
     if (transform && transform !== 'none') {
         const match = transform.match(/matrix\((.+)\)/);
         if (match) {
             const values = match[1].split(',').map(parseFloat);
-            return values[0]; // El primer valor de la matriz de transformación es la escala X
+            return values[0]; 
         }
     }
 
-    return 1; // Si no hay transform, asumimos escala 1 (sin zoom)
+    return 1; 
   }
 
   saveScenario(): void {
@@ -1152,11 +1060,9 @@ export class NewScenarioComponent implements OnInit{
     };
 
     if (this.isNewScenario) {
-      // Mostrar un prompt para pedir el nombre del escenario
       const name = window.prompt('Please enter the name of the scenario:');
     
       if (name) {
-        // Si el usuario introduce un nombre, enviar la solicitud al backend
         this.scenarioService.saveScenario(name, design)
           .subscribe({
             next: () => {
@@ -1168,7 +1074,6 @@ export class NewScenarioComponent implements OnInit{
             }
           });
       } else {
-        // Si el usuario cancela o no introduce nada
         alert('Error while saving the scenario, you must provide a name.');
       }
     }
@@ -1193,12 +1098,10 @@ export class NewScenarioComponent implements OnInit{
       (response: Scenario) => {
         this.scenario = response;
         
-        // Si design puede venir como string u objeto, verifica el tipo
         const designData = typeof this.scenario.design === 'string' 
           ? JSON.parse(this.scenario.design) 
           : this.scenario.design;
   
-        // Ahora usa designData directamente
         this.loadElementsFromJSON(designData.elements);
         this.loadConnectionsFromJSON(designData.connections || []);
       },
@@ -1218,17 +1121,15 @@ export class NewScenarioComponent implements OnInit{
   async loadScenario(event: Event): Promise<void> {
     const input = event.target as HTMLInputElement;
     
-    // Confirmar si se desea guardar el diseño actual
     if (this.droppedElements.length > 0) {
       const confirmSave = confirm('Do you want to save the current scenario before loading the new scenario?');
       
-      if (confirmSave === null) return; // Si el usuario cancela
+      if (confirmSave === null) return; 
       if (confirmSave) {
-        await this.saveScenario(); // Esperar a que se complete el guardado
+        await this.saveScenario();
       }
     }
 
-    // Limpiar diseño actual
     this.clearCurrentDesign();
 
     if (input?.files?.length) {
@@ -1239,7 +1140,7 @@ export class NewScenarioComponent implements OnInit{
         try {
           const data = JSON.parse(e.target?.result as string);
           this.loadElementsFromJSON(data.elements);
-          this.loadConnectionsFromJSON(data.connections || []); // <-- Cargar conexiones
+          this.loadConnectionsFromJSON(data.connections || []);
         } catch (err) {
           alert('Error loading the scenario. Invalid format.');
         }
@@ -1248,39 +1149,32 @@ export class NewScenarioComponent implements OnInit{
       reader.readAsText(file);
     }
     
-    // Resetear el input de archivo
     input.value = '';
   }
 
   private clearCurrentDesign(): void {
-    // 1. Eliminar elementos del DOM de forma explícita
     const container = document.getElementById('content-container');
     
     if (container) {
-      // Método más confiable para eliminar elementos
       while (container.firstChild) {
         container.removeChild(container.firstChild);
       }
   
-      // Alternativa adicional para SVG y elementos residuales
       const svgElements = container.getElementsByTagName('svg');
       while (svgElements.length > 0) {
         svgElements[0].parentNode?.removeChild(svgElements[0]);
       }
     }
   
-    // 2. Limpiar las referencias de los elementos
     this.droppedElements.forEach(element => {
       if (element.parentElement) {
         element.parentElement.removeChild(element);
       }
     });
   
-    // 3. Reiniciar los arrays
     this.droppedElements = [];
     this.selectedElements = [];
   
-    // 4. Eliminar conexiones del SVG
     this.connections.forEach(connection => {
       if (connection.line.parentElement) {
         connection.line.parentElement.removeChild(connection.line);
@@ -1288,13 +1182,10 @@ export class NewScenarioComponent implements OnInit{
     });
     this.connections = [];
   
-    // 5. Forzar actualización del renderizado
     setTimeout(() => {
       if (container) {
-        // Truco para forzar reflow
         void container.offsetHeight;
         
-        // Actualizar estilos
         container.style.display = 'none';
         container.style.display = 'block';
       }
@@ -1307,27 +1198,24 @@ export class NewScenarioComponent implements OnInit{
     let maxId = -1;
     savedElements.forEach((element: any) => {
       const newElement = this.createElement(element.type);
-      newElement.id = element.id; // <-- Restaurar ID
+      newElement.id = element.id; 
       
-      // Actualizar nextElementId
       const match = element.id.match(/element-(\d+)/);
       if (match) {
         const idNum = parseInt(match[1], 10);
         if (idNum > maxId) maxId = idNum;
       }
       
-      // Configurar posición
       newElement.style.position = 'absolute';
       newElement.style.left = `${element.position.left}px`;
       newElement.style.top = `${element.position.top}px`;
 
-      // Agregar eventos e íconos
       this.setupElementEvents(newElement);
       this.addControlIcons(newElement);
 
-      // Añadir al workspace
       document.getElementById('content-container')?.appendChild(newElement);
       this.droppedElements.push(newElement);
+
     });
 
     if (maxId !== -1) this.nextElementId = maxId + 1;
@@ -1363,7 +1251,6 @@ export class NewScenarioComponent implements OnInit{
     element.appendChild(gearIcon);
     element.appendChild(arrowIcon);
 
-    // Configurar eventos de hover
     element.addEventListener('mouseenter', () => {
       gearIcon.style.display = 'block';
       arrowIcon.style.display = 'block';
@@ -1374,7 +1261,6 @@ export class NewScenarioComponent implements OnInit{
       arrowIcon.style.display = 'none';
     });
 
-    // Configurar eventos de clic
     gearIcon.addEventListener('click', (e) => {
       e.stopPropagation();
       this.onConfigurationClick(element);
@@ -1390,7 +1276,7 @@ export class NewScenarioComponent implements OnInit{
     const newElement = document.createElement('div');
     newElement.className = 'option';
     newElement.setAttribute('draggable', 'true');
-    newElement.setAttribute('data-type', type); // Añadir esta línea
+    newElement.setAttribute('data-type', type); 
   
     const icon = document.createElement('i');
     icon.className = this.getIconClass(type);
@@ -1411,9 +1297,9 @@ export class NewScenarioComponent implements OnInit{
       case 'StandardScaler': return 'fa fa-sliders-h';
       case 'MinMaxScaler': return 'fa fa-random';
       case 'OneHotEncoding': return 'fa fa-random';
-      case 'PCA': return 'fa fa-cogs'; // PCA icon (same as a general settings icon)
-      case 'Normalizer': return 'fa fa-adjust'; // Adjust icon for Normalizer
-      case 'KNNImputer': return 'fa fa-users'; // KNN Imputer icon (same as KNN)
+      case 'PCA': return 'fa fa-cogs'; 
+      case 'Normalizer': return 'fa fa-adjust'; 
+      case 'KNNImputer': return 'fa fa-users'; 
       case 'CNN': return 'fa fa-brain';
       case 'RNN': return 'fa fa-sync-alt';
       case 'KNN': return 'fa fa-users';
@@ -1421,7 +1307,7 @@ export class NewScenarioComponent implements OnInit{
       case 'LogisticRegression': return 'fa fa-chart-line';
       case 'SVM': return 'fa fa-vector-square';
       case 'GradientBoosting': return 'fa fa-fire';
-      case 'DecisionTree': return 'fa fa-tree'; // Decision Tree icon (same as Random Forest)
+      case 'DecisionTree': return 'fa fa-tree';
       default: return 'fa fa-question';
     }
   }

@@ -1,7 +1,6 @@
 <div class="app-container">
   <div class="design-container">
     <div class="menu">
-      <!-- Data Source Section -->
       <div class="section" (click)="toggleSection('dataSource')">
         <div class="section-header">
           <i class="fa fa-database" aria-hidden="true"></i>
@@ -40,27 +39,27 @@
         </div>
         <div *ngIf="activeSections.dataProcessing" class="sub-section">
           <div class="option-grid">
-            <!-- Escalador estándar -->
+            <!-- Standard Scaler-->
             <div class="option" draggable="true" data-type="StandardScaler" (dragstart)="onDragStart($event, false)">
               <i class="fa fa-sliders-h"></i>
               <span>Standard Scaler</span>
             </div>
-            <!-- Escalador MinMax -->
+            <!-- MinMax Scaler -->
             <div class="option" draggable="true" data-type="MinMaxScaler" (dragstart)="onDragStart($event, false)">
               <i class="fa fa-random"></i>
               <span>MinMax Scaler</span>
             </div>
-            <!-- Codificación One-Hot -->
+            <!-- One-Hot Enoding -->
             <div class="option" draggable="true" data-type="OneHotEncoding" (dragstart)="onDragStart($event, false)">
               <i class="fa fa-random"></i>
               <span>One-Hot Encoding</span>
             </div>
-            <!-- Análisis de Componentes Principales -->
+            <!-- PCA -->
             <div class="option" draggable="true" data-type="PCA" (dragstart)="onDragStart($event, false)">
               <i class="fa fa-cogs"></i>
               <span>PCA</span>
             </div>
-            <!-- Normalización -->
+            <!-- Normalizer -->
             <div class="option" draggable="true" data-type="Normalizer" (dragstart)="onDragStart($event, false)">
               <i class="fa fa-adjust"></i>
               <span>Normalizer</span>
@@ -75,7 +74,6 @@
       </div>
 
       <!-- Data Model Section -->
-      <!-- Sección de modelos de datos -->
       <div class="section" (click)="toggleSection('dataModel')">
         <div class="section-header">
           <i class="fa fa-project-diagram" aria-hidden="true"></i>
@@ -141,7 +139,6 @@
           📂
         </button>
       
-        <!-- Input de archivo con atributo accept para solo permitir .json -->
         <input type="file" id="fileInput" style="display: none;" (change)="loadScenario($event)" accept=".json">
       </div>
       
@@ -153,19 +150,14 @@
         class="drop-area" 
         (dragover)="onDragOver($event)" 
         (drop)="onDrop($event)">
-      <!-- Los elementos se soltarán aquí -->
       <div id="content-container" class="content-container">
-        <!-- Aquí van los elementos, conexiones, y el grid -->
       </div>
     </div>
     <div id="selection-box" *ngIf="isSelecting"></div>
   </div>
-  <!-- Contenedor de configuración -->
-  <!-- Contenedor de configuración -->
   <div #configContainer class="config-container">
     <button class="close-btn" (click)="closeConfig()">X</button>
     <div class="config-content">
-      <!-- Aquí se mostrará el contenido dinámico según el elemento seleccionado -->
     </div>
   </div> 
 </div>
