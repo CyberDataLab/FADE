@@ -36,4 +36,5 @@ urlpatterns = [
     path('scenarios/', views.get_scenarios_by_user, name='get_scenarios_by_user'), 
     path('scenarios/<uuid:uuid>/', views.get_scenario_by_uuid, name='get_scenario_by_uuid'), 
     path('scenarios/delete/<uuid:uuid>/', views.delete_scenario_by_uuid, name='delete_scenario_by_uuid'),
+    path('scenarios/put/<uuid:uuid>/', views.put_scenario_by_uuid, name='put_scenario_by_uuid'),
 ]

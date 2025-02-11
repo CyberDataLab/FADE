@@ -100,6 +100,13 @@ export class ScenarioService {
     return EMPTY;
   }
 
+  editScenario(uuid: string, design: any): Observable<any> {
+    if (isPlatformBrowser(this.platformId)) {
+      return this.handleRequest(this.http.put(`${this.apiUrl}put/${uuid}/`, design, { headers: this.getAuthHeaders() }));
+    }
+    return EMPTY;
+  }
+
   getScenarios(): Observable<any> {
     if (isPlatformBrowser(this.platformId)) {
       return this.handleRequest(this.http.get(this.apiUrl, { headers: this.getAuthHeaders() }));

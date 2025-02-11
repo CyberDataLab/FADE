@@ -157,6 +157,26 @@ def get_scenario_by_uuid(request, uuid):
     except Scenario.DoesNotExist:
         return JsonResponse({'error': 'Scenario not found or you do not have permission to access it'}, status=status.HTTP_404_NOT_FOUND)
 
+@api_view(['PUT'])
+@permission_classes([IsAuthenticated])
+def put_scenario_by_uuid(request, uuid):
+    user = request.user  # Usuario autenticado
+
+    try:
+        # Buscar el escenario por UUID y asegurarse de que pertenece al usuario autenticado
+        scenario = Scenario.objects.get(uuid=uuid, user=user.id)
+        
+        # Actualizar los campos del escenario con los datos recibidos en la solicitud
+        scenario.design = request.data.get('design', scenario.design)  # Actualiza el diseño si se pasa uno nuevo
+        serializer = ScenarioSerializer(scenario)
+        serializer.save()  # Guardar los cambios
+        
+        # Opcionalmente, podrías serializar los datos actualizados para devolver la respuesta
+        
+        return JsonResponse(serializer.data, status=status.HTTP_200_OK)
+
+    except Scenario.DoesNotExist:
+        return JsonResponse({'error': 'Scenario not found or you do not have permission to update it'}, status=status.HTTP_404_NOT_FOUND)
 
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])

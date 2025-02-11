@@ -49,6 +49,10 @@ export class NewScenarioComponent implements OnInit{
 
   nextElementId: number = 0;
 
+  isNewScenario: boolean = true;
+
+  scenarioId: string | null = null;
+
   constructor(@Inject(PLATFORM_ID) private platformId: Object, private scenarioService: ScenarioService, private route: ActivatedRoute,) {}
 
   @ViewChild('configContainer', { static: false }) configContainer?: ElementRef;
@@ -85,11 +89,12 @@ export class NewScenarioComponent implements OnInit{
       this.scenarioService.setUnsavedChanges(this.droppedElements.length > 0);
 
       // Obtener el parámetro 'id' de la ruta
-      const scenarioId = this.route.snapshot.paramMap.get('id');
+      this.scenarioId = this.route.snapshot.paramMap.get('id');
 
-      if (scenarioId) {
+      if (this.scenarioId) {
         // Si 'id' está presente, es una edición
-        this.loadEditScenario(scenarioId);
+        this.isNewScenario = false;
+        this.loadEditScenario(this.scenarioId);
       } 
     }
   }
@@ -1145,26 +1150,42 @@ export class NewScenarioComponent implements OnInit{
       elements: savedElements,
       connections: savedConnections,
     };
-  
-    // Mostrar un prompt para pedir el nombre del escenario
-    const name = window.prompt('Please enter the name of the scenario:');
-  
-    if (name) {
-      // Si el usuario introduce un nombre, enviar la solicitud al backend
-      this.scenarioService.saveScenario(name, design)
-        .subscribe({
-          next: () => {
-            alert('Scenario saved correctly.');
-            this.scenarioService.setUnsavedChanges(false);
-          },
-          error: () => {
-            alert('Unexpected error while saving the scenario.');
-          }
-        });
-    } else {
-      // Si el usuario cancela o no introduce nada
-      alert('Error when saving the scenario, you must provide a name.');
+
+    if (this.isNewScenario) {
+      // Mostrar un prompt para pedir el nombre del escenario
+      const name = window.prompt('Please enter the name of the scenario:');
+    
+      if (name) {
+        // Si el usuario introduce un nombre, enviar la solicitud al backend
+        this.scenarioService.saveScenario(name, design)
+          .subscribe({
+            next: () => {
+              alert('Scenario saved correctly.');
+              this.scenarioService.setUnsavedChanges(false);
+            },
+            error: () => {
+              alert('Unexpected error while saving the scenario.');
+            }
+          });
+      } else {
+        // Si el usuario cancela o no introduce nada
+        alert('Error while saving the scenario, you must provide a name.');
+      }
     }
+    else {
+      if (this.scenarioId != null){
+        this.scenarioService.editScenario(this.scenarioId, design)
+          .subscribe({
+            next: () => {
+              alert('Scenario actualized correctly.');
+              this.scenarioService.setUnsavedChanges(false);
+            },
+            error: () => {
+              alert('Unexpected error while saving the scenario.');
+            }
+          });
+      } 
+    } 
   }
 
   loadEditScenario(uuid: string): void {

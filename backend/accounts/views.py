@@ -55,6 +55,7 @@ def login_view(request):
     user = authenticate(username=username, password=password)
 
     if user is not None:
+        login(request, user)
         refresh = RefreshToken.for_user(user)
         return JsonResponse({
             'access_token': str(refresh.access_token),
