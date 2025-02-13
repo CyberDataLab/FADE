@@ -269,6 +269,7 @@ html, body {
   box-sizing: border-box;
   display: none; 
   transition: transform 0.3s ease-in-out; 
+  overflow-y: auto;
 }
 
 .config-container.show {

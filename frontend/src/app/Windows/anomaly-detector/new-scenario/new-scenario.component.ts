@@ -53,6 +53,10 @@ export class NewScenarioComponent implements OnInit{
 
   scenarioId: string | null = null;
 
+  lastDesign: string | null = null;
+
+  actualDesign: string | null = null;
+
   constructor(@Inject(PLATFORM_ID) private platformId: Object, private scenarioService: ScenarioService, private route: ActivatedRoute,) {}
 
   @ViewChild('configContainer', { static: false }) configContainer?: ElementRef;
@@ -261,70 +265,133 @@ export class NewScenarioComponent implements OnInit{
     event.preventDefault();
   
     const dropArea = document.getElementById('drop-area');
-    if (dropArea) {
-      const rect = dropArea.getBoundingClientRect();
-      const dropX = (event.clientX - rect.left) / this.zoomLevel;  
-      const dropY = (event.clientY - rect.top) / this.zoomLevel;  
+    if (!dropArea) return;
   
-      this.relativePositions.forEach(({ element, offsetX, offsetY }) => {
-        if (!dropArea.contains(element)) {
-          element.id = `element-${this.nextElementId++}`;
-          element.addEventListener('click', (e) => this.onElementClick(e, element));
-          element.addEventListener('contextmenu', (e) => this.onElementClickWorkspace(e, element));
+    const rect = dropArea.getBoundingClientRect();
+    const scale = this.zoomLevel;
   
-          const gearIcon = document.createElement('i');
-          gearIcon.className = 'fa fa-cog gear-icon'; 
-          gearIcon.style.display = 'none';  
+    const dropX = (event.clientX - rect.left) / scale;
+    const dropY = (event.clientY - rect.top) / scale;
   
-          const arrowIcon = document.createElement('i');
-          arrowIcon.className = 'fa fa-arrow-right arrow-icon';
-          arrowIcon.style.display = 'none'; 
+    // Calcular nuevas posiciones
+    const intendedPositions = this.relativePositions.map(({ element, offsetX, offsetY }) => {
+      const maxX = dropArea.offsetWidth / scale - element.offsetWidth;
+      let newX = dropX + offsetX;
+      newX = Math.max(0, Math.min(newX, maxX));
   
-          element.addEventListener('mouseenter', () => {
-            gearIcon.style.display = 'block';
-            arrowIcon.style.display = 'block';
-          });
+      const maxY = dropArea.offsetHeight / scale - element.offsetHeight;
+      let newY = dropY + offsetY;
+      newY = Math.max(0, Math.min(newY, maxY));
   
-          element.addEventListener('mouseleave', () => {
-            gearIcon.style.display = 'none';
-            arrowIcon.style.display = 'none';
-          });
+      return { element, newX, newY };
+    });
   
-          gearIcon.addEventListener('click', (e) => {
-            e.stopPropagation(); 
-            this.onConfigurationClick(element);  
-          });
+    // Verificar colisiones
+    let hasCollision = false;
   
-          arrowIcon.addEventListener('click', (e) => {
-            e.stopPropagation();
-            this.onConnectionClick(element); 
-          });
+    intendedPositions.forEach(({ element, newX, newY }) => {
+      // Verificar contra elementos existentes
+      const collidesWithExisting = this.droppedElements.some(existing => 
+        !this.draggedElements.includes(existing) && 
+        this.isColliding(element, newX, newY, existing)
+      );
   
-          element.appendChild(gearIcon);
-          element.appendChild(arrowIcon);
-          dropArea.appendChild(element);
-        }
+      // Verificar contra otros elementos arrastrados
+      const collidesWithDragged = intendedPositions.some(other => 
+        other.element !== element && 
+        this.isColliding(element, newX, newY, other.element, other.newX, other.newY)
+      );
   
-        element.style.position = 'absolute';
+      if (collidesWithExisting || collidesWithDragged) hasCollision = true;
+    });
   
-        const maxX = dropArea.offsetWidth / this.zoomLevel - element.offsetWidth;
-        let newX = dropX + offsetX;
-        newX = Math.max(0, Math.min(newX, maxX));
-  
-        const maxY = dropArea.offsetHeight / this.zoomLevel - element.offsetHeight;
-        let newY = dropY + offsetY;
-        newY = Math.max(0, Math.min(newY, maxY));
-  
-        element.style.left = `${newX * this.zoomLevel}px`;  
-        element.style.top = `${newY * this.zoomLevel}px`;
-  
-        this.updateConnections(element);
-        this.droppedElements.push(element);
-        this.updateUnsavedState();
-      });
-  
+    if (hasCollision) {
       this.draggedElements = [];
+      return;
     }
+  
+    // Colocar elementos si no hay colisiones
+    intendedPositions.forEach(({ element, newX, newY }) => {
+      if (!dropArea.contains(element)) {
+        element.id = `element-${this.nextElementId++}`;
+        element.addEventListener('click', (e) => this.onElementClick(e, element));
+        element.addEventListener('contextmenu', (e) => this.onElementClickWorkspace(e, element));
+  
+        const gearIcon = document.createElement('i');
+        gearIcon.className = 'fa fa-cog gear-icon';
+        gearIcon.style.display = 'none';
+  
+        const arrowIcon = document.createElement('i');
+        arrowIcon.className = 'fa fa-arrow-right arrow-icon';
+        arrowIcon.style.display = 'none';
+  
+        element.addEventListener('mouseenter', () => {
+          gearIcon.style.display = 'block';
+          arrowIcon.style.display = 'block';
+        });
+  
+        element.addEventListener('mouseleave', () => {
+          gearIcon.style.display = 'none';
+          arrowIcon.style.display = 'none';
+        });
+  
+        gearIcon.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.onConfigurationClick(element);
+        });
+  
+        arrowIcon.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.onConnectionClick(element);
+        });
+  
+        element.appendChild(gearIcon);
+        element.appendChild(arrowIcon);
+        dropArea.appendChild(element);
+      }
+  
+      element.style.position = 'absolute';
+      element.style.left = `${newX * scale}px`;
+      element.style.top = `${newY * scale}px`;
+  
+      this.updateConnections(element);
+      if (!this.droppedElements.includes(element)) {
+        this.droppedElements.push(element);
+      }
+    });
+  
+    this.updateUnsavedState();
+    this.draggedElements = [];
+  }
+
+  isColliding(
+    element1: HTMLElement,
+    newX1: number,
+    newY1: number,
+    element2: HTMLElement,
+    newX2?: number,
+    newY2?: number
+  ): boolean {
+    const rect1 = {
+      x: newX1,
+      y: newY1,
+      width: element1.offsetWidth,
+      height: element1.offsetHeight
+    };
+  
+    const rect2 = {
+      x: newX2 ?? element2.offsetLeft,
+      y: newY2 ?? element2.offsetTop,
+      width: element2.offsetWidth,
+      height: element2.offsetHeight
+    };
+  
+    return !(
+      rect1.x + rect1.width < rect2.x ||
+      rect1.x > rect2.x + rect2.width ||
+      rect1.y + rect1.height < rect2.y ||
+      rect1.y > rect2.y + rect2.height
+    );
   }
   
   moveElementsToWorkspace(elements: HTMLElement[], x: number, y: number) {
@@ -657,93 +724,147 @@ export class NewScenarioComponent implements OnInit{
             break;
             case 'Standard Scaler':
               configContent.innerHTML = `
-                  <h3 style="margin-bottom: 40px;">Standard Scaler Configuration</h3>
-                  <label style="display: block; margin-bottom: 60px;">
-                      Mean: 
-                      <select id="standard-with-mean">
-                          <option value="true">Yes</option>
-                          <option value="false">No</option>
-                      </select>
-                  </label>
-                  <label style="display: block; margin-bottom: 60px;">
-                      Standard Deviation: 
-                      <select id="standard-with-std">
-                          <option value="true">Yes</option>
-                          <option value="false">No</option>
-                      </select>
-                  </label>
+                <h3 style="margin-bottom: 40px;">Standard Scaler Configuration</h3>
+                <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: center;">
+                    <label for="standard-with-mean" style="flex: 1;">Mean:</label>
+                    <select id="standard-with-mean" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; box-sizing: border-box; margin-top: -10px;">
+                        <option value="True">True</option>
+                        <option value="False">False</option>
+                    </select>
+                </div>
+                <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: center;">
+                    <label for="standard-with-std" style="flex: 1;">Standard Deviation:</label>
+                    <select id="standard-with-std" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; box-sizing: border-box; margin-top: -10px;">
+                        <option value="True">True</option>
+                        <option value="False">False</option>
+                    </select>
+                </div>
+
               `;
               break;
+
             case 'MinMax Scaler':
               configContent.innerHTML = `
-                  <h3 style="margin-bottom: 40px;">MinMax Scaler Configuration</h3>
-                  <label style="display: block; margin-bottom: 60px;">
-                      Min Value: <input type="number" id="minmax-min" placeholder="Min Value" value="0">
-                  </label>
-                  <label style="display: block; margin-bottom: 60px;">
-                      Max Value: <input type="number" id="minmax-max" placeholder="Max Value" value="1">
-                  </label>
-                  <label style="display: block; margin-bottom: 60px;">
-                      Clip Data: 
-                      <select id="minmax-clip">
-                          <option value="true">False</option>
-                          <option value="false">True</option>
-                      </select>
-                  </label>
+                <h3 style="margin-bottom: 40px;">MinMax Scaler Configuration</h3>
+                <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center;">
+                  <label style="text-align: left;">Min Value: </label>
+                  <input type="number" id="minmax-min" placeholder="Min value" value="0" min="0"
+                        style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px; margin-top: -10px;">
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center;">
+                  <label style="text-align: left;">Max Value: </label>
+                  <input type="number" id="minmax-max" placeholder="Max value" value="1" min="1"
+                        style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px; margin-top: -10px;">
+                </div>
+                <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: center;">
+                  <label for="minmax-clip" style="flex: 1;">Clip:</label>
+                  <select id="minmax-clip" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; box-sizing: border-box; margin-top: -10px;">
+                      <option value="False">False</option>
+                      <option value="True">True</option>
+                  </select>
+                </div>
               `;
               break;
+
             case 'One-Hot Encoding':
               configContent.innerHTML = `
-                  <h3 style="margin-bottom: 40px;">One-Hot Encoding Configuration</h3>
-                  <label style="display: block; margin-bottom: 60px;">
-                      Handle Unknown Categories: 
-                      <select id="onehot-handle">
-                          <option value="ignore">Ignore</option>
-                          <option value="error">Error</option>
-                      </select>
-                  </label>
-                  <label style="display: block; margin-bottom: 60px;">
-                      Drop First Category: 
-                      <select id="onehot-drop">
-                          <option value="first">First</option>
-                          <option value="if_binary">If Binary</option>
-                          <option value="none">None</option>
-                      </select>
-                  </label>
+                <h3 style="margin-bottom: 40px;">One-Hot Encoding Configuration</h3>
+                <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: center;">
+                  <label for="onehot-handle" style="flex: 1; ">Handle Unknown:</label>
+                  <select id="onehot-handle" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; box-sizing: border-box; margin-top: -10px;">
+                      <option value="error">Error</option>
+                      <option value="ignore">Ignore</option>
+                      <option value="infrequent_if_exist">Infrequent if exist</option>
+                      <option value="warn">Warn</option>
+                  </select>
+                </div>
+                <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: center;">
+                  <label for="onehot-drop" style="flex: 1; ">Drop:</label>
+                  <select id="onehot-drop" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; box-sizing: border-box; margin-top: -10px;">
+                      <option value="None">None</option>
+                      <option value="first">First</option>
+                      <option value="if_binary">If binary</option>
+                  </select>
+                </div>
               `;
               break;
-            case 'PCA':
-              configContent.innerHTML = `
-                  <h3 style="margin-bottom: 40px;">PCA Configuration</h3>
-                  <label style="display: block; margin-bottom: 60px;">
-                      Number of Components: 
-                      <input type="number" id="pca-components" placeholder="Number of Components" value="2">
-                  </label>
-                  <label style="display: block; margin-bottom: 60px;">
-                      Whiten: 
-                      <select id="pca-whiten">
-                          <option value="true">False</option>
-                          <option value="false">True</option>
-                      </select>
-                  </label>
-              `;
-              break;
+
+              case 'PCA':
+                configContent.innerHTML = `
+                    <h3 style="margin-bottom: 40px;">PCA Configuration</h3>
+                    
+                    <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: center;">
+                        <label for="pca-components-select" style="flex: 1;">Number of components:</label>
+                        <select id="pca-components-select" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; box-sizing: border-box; margin-top: -10px;">
+                            <option value="none">None</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                    </div>
+            
+                    <div id="pca-components-container" style="display: none; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center;">
+                        <label for="pca-components-input" style="text-align: left;">Custom Number of Components: </label>
+                        <input type="number" id="pca-components-input" placeholder="Number of components" value="1" min="1"
+                               style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px; margin-top: -10px;">
+                    </div>
+            
+                    <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: center;">
+                        <label for="pca-whiten" style="flex: 1;">Whiten:</label>
+                        <select id="pca-whiten" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; box-sizing: border-box; margin-top: -10px;">
+                            <option value="False">False</option>
+                            <option value="True">True</option>
+                        </select>
+                    </div>
+                `;
+
+                const scriptPCA = document.createElement('script');
+                scriptPCA.innerHTML = `
+            
+                  // Agregar funcionalidad para mostrar u ocultar el input de número de componentes
+                  const pcaSelect = document.getElementById('pca-components-select');
+                  const pcaContainer = document.getElementById('pca-components-container');
+              
+                  function updatePCAComponentsVisibility() {
+                      pcaContainer.style.display = (pcaSelect.value === 'custom') ? 'grid' : 'none';
+                  }
+              
+                  pcaSelect.addEventListener('change', updatePCAComponentsVisibility);
+                  updatePCAComponentsVisibility(); // Ejecutar al cargar
+                `;
+                document.body.appendChild(scriptPCA);
+                break;
+            
+
             case 'Normalizer':
               configContent.innerHTML = `
                   <h3 style="margin-bottom: 40px;">Normalizer Configuration</h3>
-                  <label style="display: block; margin-bottom: 60px;">
-                      Norm Type:
-                      <select id="normalizer-norm">
-                          <option value="l2">L2</option>
-                          <option value="l1">L1</option>
-                          <option value="max">Max</option>
-                      </select>
-                  </label>
+                  <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: flex-start;">
+                    <label for="normalizer-norm" style="flex: 1; ">Norm:</label>
+                    <select id="normalizer-norm" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; box-sizing: border-box;">
+                        <option value="l2">L2</option>
+                        <option value="l1">L1</option>
+                        <option value="max">Max</option>
+                    </select>
+                  </div>
               `;
               break;
+
             case 'KNN Imputer':
-              configContent.innerHTML = '<h3>KNN Imputer Configuration</h3><p>Configuration details for KNN Imputer.</p>';
-              break; 
+              configContent.innerHTML = `
+                <h3 style="margin-bottom: 40px;">KNN Imputer Configuration</h3>
+                <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center;">
+                  <label style="text-align: left;">Number of Neighbors: </label>
+                  <input type="number" id="knn-neighbors" placeholder="Number of neighbors" value="5" min="1"
+                        style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px; margin-top: -10px;">
+                </div>
+                <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: flex-start;">
+                  <label for="knn-weight" style="flex: 1; ">Weights:</label>
+                  <select id="knn-weight" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; box-sizing: border-box;">
+                      <option value="uniform">Uniform</option>
+                      <option value="distance">Distance</option>
+                  </select>
+                </div>
+              `;
+              break;
             case 'CNN':
               configContent.innerHTML = '<h3>CNN Configuration</h3><p>Configuration details for CNN.</p>';
               break;
@@ -753,182 +874,374 @@ export class NewScenarioComponent implements OnInit{
             case 'KNN':
               configContent.innerHTML = `
                   <h3 style="margin-bottom: 40px;">KNN Configuration</h3>
-                  <label style="display: block; margin-bottom: 60px;">
-                      Number of Neighbors: <input type="number" id="knn-neighbors" placeholder="Number of neighbors" value="5">
-                  </label>
-                  <label style="display: block; margin-bottom: 60px;">
-                      Weight Function: 
-                      <select id="knn-weight">
-                          <option value="uniform">Uniform</option>
-                          <option value="distance">Distance</option>
-                      </select>
-                  </label>
-                  <label style="display: block; margin-bottom: 60px;">
-                      Distance Metric:
-                      <select id="knn-metric">
-                          <option value="euclidean">Euclidean</option>
-                          <option value="manhattan">Manhattan</option>
-                          <option value="minkowski">Minkowski</option>
-                          <option value="chebyshev">Chebyshev</option>
-                          <option value="cosine">Cosine</option>
-                      </select>
-                  </label>
+                  <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center;">
+                    <label style="text-align: left;">Number of Neighbors: </label>
+                    <input type="number" id="knn-neighbors" placeholder="Number of neighbors" value="5" min="1"
+                          style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px; margin-top: -10px;">
+                  </div>
+                  <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: flex-start;">
+                    <label for="knn-weight" style="flex: 1; ">Weights:</label>
+                    <select id="knn-weight" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; box-sizing: border-box;">
+                        <option value="uniform">Uniform</option>
+                        <option value="distance">Distance</option>
+                    </select>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: flex-start;">
+                    <label for="knn-algorithm" style="flex: 1; ">Algorithm:</label>
+                    <select id="knn-algorithm" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; box-sizing: border-box; ">
+                        <option value="auto">Auto</option>
+                        <option value="ball_tree">BallTree</option>
+                        <option value="kd_tree">KDTree</option>
+                        <option value="brute">Brute</option>
+                    </select>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: flex-start;">
+                    <label for="knn-metric" style="flex: 1; ">Metric:</label>
+                    <select id="knn-metric" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; box-sizing: border-box; ">
+                        <option value="minkowski">Minkowski</option>
+                        <option value="euclidean">Euclidean</option>
+                        <option value="manhattan">Manhattan</option>
+                        <option value="chebyshev">Chebyshev</option>
+                        <option value="cosine">Cosine</option>
+                    </select>
+                  </div>
               `;
               break;
-            case 'Random Forest':
-              configContent.innerHTML = `
-                  <h3 style="margin-bottom: 40px;">Random Forest Configuration</h3>
-                  
-                  <label style="display: block; margin-bottom: 60px;">Number of Trees: 
-                      <input type="number" id="rf-trees" value="100" min="1" placeholder="Number of trees">
-                  </label>
-                  
-                  <label style="display: block; margin-bottom: 60px;">Max Depth: 
-                      <input type="number" id="rf-depth" placeholder="Max depth" min="1">
-                      <input type="checkbox" id="rf-depth-none" checked> None
-                  </label>
+              case 'Random Forest':
+                configContent.innerHTML = `
+                    <h3 style="margin-bottom: 40px;">Random Forest Configuration</h3>
             
-                  <label style="display: block; margin-bottom: 60px;">Random State: 
-                      <input type="number" id="rf-random-state" placeholder="Random state">
-                  </label>
+                    <!-- Número de árboles -->
+                    <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center;">
+                        <label style="text-align: left;">Number of Trees: </label>
+                        <input type="number" id="rf-trees" placeholder="Number of trees" value="100" min="1"
+                               style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px; margin-top: -10px;">
+                    </div>
             
-                  <label style="display: block; margin-bottom: 60px;">Max Features: 
-                      <select id="rf-max-features">
-                          <option value="auto">Auto</option>
-                          <option value="sqrt">Sqrt</option>
-                          <option value="log2">Log2</option>
-                          <option value="number">Number</option>
-                      </select>
-                      <input type="number" id="rf-max-features-number" placeholder="Enter number" style="display: none; margin-top: 10px;">
-                  </label>
+                    <!-- Max Depth -->
+                    <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: center;">
+                        <label for="rf-depth-select" style="flex: 1;">Max Depth:</label>
+                        <select id="rf-depth-select" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; margin-top: -10px;">
+                            <option value="none">None</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                    </div>
+                    <div id="rf-depth-container" style="display: none; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center;">
+                        <label for="rf-depth-input" style="text-align: left;">Custom Max Depth:</label>
+                        <input type="number" id="rf-depth-input" placeholder="Max depth" min="1" value="1"
+                               style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px; margin-top: -10px;">
+                    </div>
             
-                  <script>
-                      document.getElementById('rf-max-features').addEventListener('change', function() {
-                          let maxFeaturesInput = document.getElementById('rf-max-features-number');
-                          if (this.value === 'number') {
-                              maxFeaturesInput.style.display = 'inline-block'; 
-                          } else {
-                              maxFeaturesInput.style.display = 'none'; 
-                          }
-                      });
+                    <!-- Random State -->
+                    <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: center;">
+                        <label for="rf-random-state-select" style="flex: 1;">Random State:</label>
+                        <select id="rf-random-state-select" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; margin-top: -10px;">
+                            <option value="none">None</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                    </div>
+                    <div id="rf-random-state-container" style="display: none; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center;">
+                        <label for="rf-random-state-input" style="text-align: left;">Custom Random State:</label>
+                        <input type="number" id="rf-random-state-input" placeholder="Random State" min="0" value="0"
+                               style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px; margin-top: -10px;">
+                    </div>
             
-                      window.addEventListener('load', function() {
-                          let selectElement = document.getElementById('rf-max-features');
-                          let numberInput = document.getElementById('rf-max-features-number');
-                          if (selectElement.value === 'number') {
-                              numberInput.style.display = 'inline-block';
-                          } else {
-                              numberInput.style.display = 'none'; 
-                          }
-                      });
-                  </script>
-              `;
-              break;
+                    <!-- Max Features -->
+                    <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: center;">
+                        <label for="rf-max-features-select" style="flex: 1;">Max Features:</label>
+                        <select id="rf-max-features-select" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; margin-top: -10px;">
+                            <option value="sqrt">Sqrt</option>
+                            <option value="auto">Auto</option>
+                            <option value="log2">Log2</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                    </div>
+                    <div id="rf-max-features-container" style="display: none; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center;">
+                        <label for="rf-max-features-input" style="text-align: left;">Custom Max Features:</label>
+                        <input type="number" id="rf-max-features-input" placeholder="Max Features" min="1" value="1"
+                               style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px; margin-top: -10px;">
+                    </div>
+                `;
+
+                const scriptRF = document.createElement('script');
+                scriptRF.innerHTML = `
+            
+                  // Función para mostrar/ocultar los inputs personalizados
+                  function setupDropdownToggle(selectId, containerId) {
+                      const select = document.getElementById(selectId);
+                      const container = document.getElementById(containerId);
+              
+                      function updateVisibility() {
+                          container.style.display = (select.value === 'custom') ? 'grid' : 'none';
+                      }
+              
+                      select.addEventListener('change', updateVisibility);
+                      updateVisibility(); // Ejecutar al cargar
+                  }
+              
+                  // Aplicar a cada selector
+                  setupDropdownToggle('rf-depth-select', 'rf-depth-container');
+                  setupDropdownToggle('rf-random-state-select', 'rf-random-state-container');
+                  setupDropdownToggle('rf-max-features-select', 'rf-max-features-container');
+              
+                  `;
+                document.body.appendChild(scriptRF);
+                break;
+            
             case 'Logistic Regression':
               configContent.innerHTML = `
                   <h3 style="margin-bottom: 40px;">Logistic Regression Configuration</h3>
-                  <label style="display: block; margin-bottom: 60px;">Regularization: 
-                      <input type="number" step="0.1" id="logreg-c" value="1.0" placeholder="Regularization">
-                  </label>
-                  <br>
-                  <label style="display: block; margin-bottom: 60px;">Penalty: 
-                      <select id="logreg-penalty">
-                          <option value="l2">L2 (Ridge)</option>
-                          <option value="l1">L1 (Lasso)</option>
-                          <option value="elasticnet">ElasticNet</option>
-                      </select>
-                  </label>
-                  <br>
-                  <label style="display: block; margin-bottom: 60px;">Solver: 
-                      <select id="logreg-solver">
-                          <option value="lbfgs">lbfgs</option>
-                          <option value="liblinear">liblinear</option>
-                          <option value="newton-cg">newton-cg</option>
-                          <option value="saga">saga</option>
-                      </select>
-                  </label>
-                  <br>
-                  <label style="display: block; margin-bottom: 60px;">Maximum Iterations: 
-                      <input type="number" step="1" id="logreg-maxiter" value="100" placeholder="Maximun iterations">
-                  </label>
+                  <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center;">
+                    <label style="text-align: left;">C: </label>
+                    <input type="number" step="0.1" id="logreg-c" value="1.0" min="0.1" id="logreg-c" placeholder="C"
+                          style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px; margin-top: -10px;">
+                  </div>
+                  <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: flex-start;">
+                    <label for="rf-criterion" style="flex: 1; ">Criterion:</label>
+                    <select id="rf-criterion" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; box-sizing: border-box;">
+                      <option value="gini">Gini</option>
+                      <option value="entropy">Entropy</option>
+                      <option value="log_loss">Cross-Entropy Loss</option>
+                    </select>
+                  </div>
+
+                  <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: flex-start;">
+                    <label for="logreg-penalty" style="flex: 1; ">Penalty:</label>
+                    <select id="logreg-penalty" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; box-sizing: border-box;">
+                        <option value="l2">L2</option>
+                        <option value="l1">L1</option>
+                        <option value="elasticnet">Elasticnet</option>
+                        <option value="None">None</option>
+                    </select>
+                  </div>
+
+                  <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: flex-start;">
+                    <label for="logreg-solver" style="flex: 1; ">Solver:</label>
+                    <select id="logreg-solver" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; box-sizing: border-box;">
+                        <option value="lbfgs">Lbfgs</option>
+                        <option value="liblinear">Liblinear</option>
+                        <option value="newton-cg">Newton Cg</option>
+                        <option value="newton-cholesky">Newton Cholesky</option>
+                        <option value="sag">Sag</option>
+                        <option value="saga">Saga</option>
+                    </select>
+                  </div>
+
+                  <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center;">
+                    <label style="text-align: left;">Maximum Iterations: </label>
+                    <input type="number" id="logreg-maxiter" value="100" min="1" id="logreg-maxiter" placeholder="Maximum Iterations"
+                          style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px; margin-top: -10px;">
+                  </div>
               `;
               break;
-            case 'SVM':
-              configContent.innerHTML = `
-                  <h3 style="margin-bottom: 40px;">SVM Configuration</h3>
-                  <label style="display: block; margin-bottom: 60px;">Kernel: 
-                      <select id="svm-kernel">
-                          <option value="linear">Linear</option>
-                          <option value="poly">Polynomial</option>
-                          <option value="rbf">RBF</option>
-                          <option value="sigmoid">Sigmoid</option>
-                      </select>
-                  </label>
-                  <label style="display: block; margin-bottom: 60px;">Regularization (C): <input type="number" step="0.1" id="svm-c" value="1.0"></label>
-                  <label style="display: block; margin-bottom: 60px;">Class Weight: 
-                      <select id="svm-class-weight">
-                          <option value="balanced">Balanced</option>
-                          <option value="none" selected>None</option>
-                      </select>
-                  </label>
-                  <label style="display: block; margin-bottom: 60px;">Gamma: <input type="number" step="0.01" id="svm-gamma" value="0.1" disabled></label>
-              
-                  <script>
-                    const kernelSelect = document.getElementById("svm-kernel");
-                    const gammaInput = document.getElementById("svm-gamma");
-                
-                    kernelSelect.addEventListener('change', function() {
-                        const selectedKernel = kernelSelect.value;
-                
-                        if (selectedKernel === 'rbf' || selectedKernel === 'poly' || selectedKernel === 'sigmoid') {
-                            gammaInput.disabled = false;
-                        } else {
-                            gammaInput.disabled = true;
-                        }
-                    });
-                
-                    if (kernelSelect.value === 'rbf' || kernelSelect.value === 'poly' || kernelSelect.value === 'sigmoid') {
-                        gammaInput.disabled = false;
-                    } else {
-                        gammaInput.disabled = true;
-                    }
-                    </script>
+              case 'SVM':
+                configContent.innerHTML = `
+                    <h3 style="margin-bottom: 40px;">SVM Configuration</h3>
+                    <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: flex-start;">
+                        <label for="svm-kernel" style="flex: 1; ">Kernel:</label>
+                        <select id="svm-kernel" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; box-sizing: border-box;">
+                            <option value="rbf">RBF</option>
+                            <option value="linear">Linear</option>
+                            <option value="poly">Polynomial</option>
+                            <option value="sigmoid">Sigmoid</option>
+                            <option value="precomputed">Precomputed</option>
+                        </select>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center;">
+                        <label style="text-align: left;">C: </label>
+                        <input type="number" step="0.1" id="svm-c" value="1.0" min="0.1" placeholder="C"
+                               style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px; margin-top: -10px;">
+                    </div>
+                    <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: flex-start;">
+                        <label for="svm-class_weight" style="flex: 1; ">Class Weight:</label>
+                        <select id="svm-class_weight" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; box-sizing: border-box;">
+                            <option value="none" selected>None</option>
+                            <option value="balanced">Balanced</option>
+                        </select>
+                    </div>
+                    <div id="gamma-container" style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: flex-start;">
+                        <label for="svm-gamma" style="flex: 1; ">Gamma:</label>
+                        <select id="svm-gamma" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; box-sizing: border-box;">
+                            <option value="scale"selected>Scale</option>
+                            <option value="auto">Auto</option>
+                        </select>
+                    </div>
                 `;
-              break;
-            case 'Gradient Boosting':
-              configContent.innerHTML = `
-                  <h3 style="margin-bottom: 40px;">Gradient Boosting Configuration</h3>
-                  <label style="display: block; margin-bottom: 60px;">Number of Estimators: <input type="number" id="gb-n_estimators" value="100" placeholder="Number of estimators"></label>
-                  <label style="display: block; margin-bottom: 60px;">Learning rate: <input type="number" step="0.01" id="gb-learning_rate" value="0.1" placeholder="Learning rate"></label>
-                  <label style="display: block; margin-bottom: 60px;">Max Depth: <input type="number" id="gb-max_depth" value="3" placeholder="Max depth"></label>
-                  <label style="display: block; margin-bottom: 60px;">Random State: <input type="number" id="gb-random_state" value="42" placeholder="Random state"></label>
-              `;
-              break;
-            case 'Decision Tree':
-              configContent.innerHTML = `
+            
+                // Crear el script dinámicamente
+                const scriptSVM = document.createElement('script');
+                scriptSVM.innerHTML = `
+                    const kernelSelect = document.getElementById('svm-kernel');
+                    const gammaContainer = document.getElementById('gamma-container');
+                    
+                    function updateGammaVisibility() {
+                        const kernel = kernelSelect.value;
+                        gammaContainer.style.display = (kernel === 'rbf' || kernel === 'poly' || kernel === 'sigmoid') ? 'flex' : 'none';
+                    }
+                    
+                    kernelSelect.addEventListener('change', updateGammaVisibility);
+                    updateGammaVisibility(); // Ejecutar al cargar
+                `;
+                document.body.appendChild(scriptSVM);
+                break;
+            
+                case 'Gradient Boosting':
+                  configContent.innerHTML = `
+                    <h3 style="margin-bottom: 40px;">Gradient Boosting Configuration</h3>
+            
+                    <!-- Number of Estimators -->
+                    <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center;">
+                        <label style="text-align: left;">Number of Estimators: </label>
+                        <input type="number" id="gb-n_estimators" placeholder="Number of estimators" value="100" min="1"
+                               style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px; margin-top: -10px;">
+                    </div>
+            
+                    <!-- Learning Rate -->
+                    <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center;">
+                        <label style="text-align: left;">Learning Rate: </label>
+                        <input type="number" id="gb-learning_rate" placeholder="Learning rate" step="0.1" value="0.1" min="0.0" 
+                               style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px; margin-top: -10px;">
+                    </div>
+            
+                    <!-- Max Depth -->
+                    <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: center;">
+                        <label for="gb-depth-select" style="flex: 1;">Max Depth:</label>
+                        <select id="gb-depth-select" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; margin-top: -10px;">
+                            <option value="none">None</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                    </div>
+                    <div id="gb-depth-container" style="display: none; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center;">
+                        <label for="gb-depth-input" style="text-align: left;">Custom Max Depth:</label>
+                        <input type="number" id="gb-depth-input" placeholder="Max depth" min="1" value="3"
+                               style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px; margin-top: -10px;">
+                    </div>
+            
+                    <!-- Random State -->
+                    <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: center;">
+                        <label for="gb-random-state-select" style="flex: 1;">Random State:</label>
+                        <select id="gb-random-state-select" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; margin-top: -10px;">
+                            <option value="none">None</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                    </div>
+                    <div id="gb-random-state-container" style="display: none; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center;">
+                        <label for="gb-random-state-input" style="text-align: left;">Custom Random State:</label>
+                        <input type="number" id="gb-random-state-input" placeholder="Random State" min="0" value="0"
+                               style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px; margin-top: -10px;">
+                    </div>
+                  `;
+              
+                  // Script para mostrar/ocultar los inputs personalizados
+                  const scriptGB = document.createElement('script');
+                  scriptGB.innerHTML = `
+                    function setupDropdownToggle(selectId, containerId) {
+                        const select = document.getElementById(selectId);
+                        const container = document.getElementById(containerId);
+            
+                        function updateVisibility() {
+                            container.style.display = (select.value === 'custom') ? 'grid' : 'none';
+                        }
+            
+                        select.addEventListener('change', updateVisibility);
+                        updateVisibility(); // Ejecutar al cargar
+                    }
+            
+                    setupDropdownToggle('gb-depth-select', 'gb-depth-container');
+                    setupDropdownToggle('gb-random-state-select', 'gb-random-state-container');
+                  `;
+              
+                  document.body.appendChild(scriptGB);
+                  break;
+              
+              case 'Decision Tree':
+                configContent.innerHTML = `
                   <h3 style="margin-bottom: 40px;">Decision Tree Configuration</h3>
-                  <label style="display: block; margin-bottom: 60px;">Max Depth: <input type="number" id="dt-depth" value="None"></label>
-                  <label style="display: block; margin-bottom: 60px;">Criterion: 
-                      <select id="dt-criterion">
+          
+                  <!-- Criterion -->
+                  <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: flex-start;">
+                      <label for="dt-criterion" style="flex: 1;">Criterion:</label>
+                      <select id="dt-criterion" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2;">
                           <option value="gini">Gini</option>
                           <option value="entropy">Entropy</option>
                           <option value="log_loss">Cross-Entropy Loss</option>
                       </select>
-                  </label>
-                  <label style="display: block; margin-bottom: 60px;">Max Features: 
-                      <input type="number" id="dt-max-features" value="None" min="1">
-                  </label>
-                  <label style="display: block; margin-bottom: 60px;">Splitter: 
-                      <select id="dt-splitter">
+                  </div>
+          
+                  <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: flex-start;">
+                      <label for="dt-splitter" style="flex: 1;">Splitter:</label>
+                      <select id="dt-splitter" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2;">
                           <option value="best">Best</option>
                           <option value="random">Random</option>
                       </select>
-                  </label>
-                  <label style="display: block; margin-bottom: 60px;">Random State: 
-                      <input type="number" id="dt-random-state" value="None">
-                  </label>
-              `;
-              break;
+                  </div>
+          
+                  <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: center;">
+                      <label for="dt-max-depth-select" style="flex: 1;">Max Depth:</label>
+                      <select id="dt-max-depth-select" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; margin-top: -5px;">
+                          <option value="none">None</option>
+                          <option value="custom">Custom</option>
+                      </select>
+                  </div>
+                  <div id="dt-max-depth-container" style="display: none; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center; margin-top: -5px;">
+                      <label for="dt-max-depth-input" style="text-align: left;">Custom Depth:</label>
+                      <input type="number" id="dt-max-depth-input" placeholder="Max depth" min="1" value="1"
+                              style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px;">
+                  </div>
+          
+                  <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: center;">
+                      <label for="dt-max-features-select" style="flex: 1;">Max Features:</label>
+                      <select id="dt-max-features-select" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; margin-top: -5px;">
+                          <option value="none">None</option>
+                          <option value="sqrt">Sqrt</option>
+                          <option value="log2">Log2</option>
+                          <option value="custom">Custom</option>
+                      </select>
+                  </div>
+                  <div id="dt-max-features-container" style="display: none; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center; margin-top: -5px;">
+                      <label for="dt-max-features-input" style="text-align: left;">Custom Features:</label>
+                      <input type="number" id="dt-max-features-input" placeholder="Max Features" min="1" value="1"
+                              style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px;">
+                  </div>
+          
+                  <!-- Random State -->
+                  <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: center;">
+                      <label for="dt-random-state-select" style="flex: 1;">Random State:</label>
+                      <select id="dt-random-state-select" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; margin-top: -5px;">
+                          <option value="none">None</option>
+                          <option value="custom">Custom</option>
+                      </select>
+                  </div>
+                  <div id="dt-random-state-container" style="display: none; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center; margin-top: -5px;">
+                      <label for="dt-random-state-input" style="text-align: left;">Custom State:</label>
+                      <input type="number" id="dt-random-state-input" placeholder="Random State" min="0" value="0"
+                              style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px;">
+                  </div>
+                `;
+                const scriptDT = document.createElement('script');
+                scriptDT.innerHTML = `
+                  // Función para mostrar/ocultar los inputs personalizados
+                  function setupDropdownToggle(selectId, containerId) {
+                      const select = document.getElementById(selectId);
+                      const container = document.getElementById(containerId);
+              
+                      function updateVisibility() {
+                          container.style.display = (select.value === 'custom') ? 'grid' : 'none';
+                      }
+              
+                      select.addEventListener('change', updateVisibility);
+                      updateVisibility(); // Ejecutar al cargar
+                  }
+              
+                  // Aplicar la función a cada selector relevante
+                  setupDropdownToggle('dt-max-depth-select', 'dt-max-depth-container');
+                  setupDropdownToggle('dt-max-features-select', 'dt-max-features-container');
+                  setupDropdownToggle('dt-random-state-select', 'dt-random-state-container');
+            
+                `;
+                document.body.appendChild(scriptDT);
+                break;
+            
             
             default:
               configContent.innerHTML = '<h3>Configuration</h3><p>Unknown configuration content.</p>';
@@ -1059,6 +1372,8 @@ export class NewScenarioComponent implements OnInit{
       connections: savedConnections,
     };
 
+    this.actualDesign = typeof design;
+
     if (this.isNewScenario) {
       const name = window.prompt('Please enter the name of the scenario:');
     
@@ -1102,6 +1417,7 @@ export class NewScenarioComponent implements OnInit{
           ? JSON.parse(this.scenario.design) 
           : this.scenario.design;
   
+        this.lastDesign = typeof this.scenario.design;
         this.loadElementsFromJSON(designData.elements);
         this.loadConnectionsFromJSON(designData.connections || []);
       },

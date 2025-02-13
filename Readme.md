@@ -7,7 +7,7 @@
    git clone elopez@deeplearning.inf.um.es:/home/repositorios/defender_software.git
    ```
 
-2. To start the docker-compose.yml, run the following command:
+2. To start the docker-compose.yml, run the following command in the project root directory:
    ```sh
    docker-compose up --build
    ```
