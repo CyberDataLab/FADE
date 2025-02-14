@@ -17,7 +17,7 @@
    docker ps
    ```
 
-4. The last modification of the DB is stored in the backup.sql file located in the project root directory. To load the data, execute the following command from the terminal while in the project root directory. :
+4. The last modification of the DB is stored in the backup.sql file located in the project root directory. To load the data, execute the following command from the terminal while in the project root directory:
    ```sh
    docker cp backup.sql db_container_name:/backup.sql
    ```

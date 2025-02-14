@@ -57,6 +57,8 @@ export class NewScenarioComponent implements OnInit{
 
   actualDesign: string | null = null;
 
+  private elementParameters: { [elementId: string]: any } = {};
+
   constructor(@Inject(PLATFORM_ID) private platformId: Object, private scenarioService: ScenarioService, private route: ActivatedRoute,) {}
 
   @ViewChild('configContainer', { static: false }) configContainer?: ElementRef;
@@ -706,6 +708,7 @@ export class NewScenarioComponent implements OnInit{
         this.configContainer.nativeElement.classList.add('show');
         
         const configContent = this.configContainer.nativeElement.querySelector('.config-content');
+        let nameElement = "";
         if (configContent) {
           switch (selectedElement.innerText.trim()) {
             case 'CSV':
@@ -741,6 +744,7 @@ export class NewScenarioComponent implements OnInit{
                 </div>
 
               `;
+              nameElement = "Standard Scaler";
               break;
 
             case 'MinMax Scaler':
@@ -764,6 +768,7 @@ export class NewScenarioComponent implements OnInit{
                   </select>
                 </div>
               `;
+              nameElement = "MinMax Scaler";
               break;
 
             case 'One-Hot Encoding':
@@ -787,6 +792,7 @@ export class NewScenarioComponent implements OnInit{
                   </select>
                 </div>
               `;
+              nameElement = "One-Hot Encoding";
               break;
 
               case 'PCA':
@@ -796,7 +802,7 @@ export class NewScenarioComponent implements OnInit{
                     <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: center;">
                         <label for="pca-components-select" style="flex: 1;">Number of components:</label>
                         <select id="pca-components-select" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; box-sizing: border-box; margin-top: -10px;">
-                            <option value="none">None</option>
+                            <option value="None">None</option>
                             <option value="custom">Custom</option>
                         </select>
                     </div>
@@ -831,6 +837,7 @@ export class NewScenarioComponent implements OnInit{
                   updatePCAComponentsVisibility(); // Ejecutar al cargar
                 `;
                 document.body.appendChild(scriptPCA);
+                nameElement = "PCA";
                 break;
             
 
@@ -846,6 +853,7 @@ export class NewScenarioComponent implements OnInit{
                     </select>
                   </div>
               `;
+              nameElement = "Normalizer";
               break;
 
             case 'KNN Imputer':
@@ -864,6 +872,7 @@ export class NewScenarioComponent implements OnInit{
                   </select>
                 </div>
               `;
+              nameElement = "KNN Imputer";
               break;
             case 'CNN':
               configContent.innerHTML = '<h3>CNN Configuration</h3><p>Configuration details for CNN.</p>';
@@ -906,87 +915,89 @@ export class NewScenarioComponent implements OnInit{
                     </select>
                   </div>
               `;
+              nameElement = "KNN";
               break;
-              case 'Random Forest':
-                configContent.innerHTML = `
-                    <h3 style="margin-bottom: 40px;">Random Forest Configuration</h3>
-            
-                    <!-- Número de árboles -->
-                    <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center;">
-                        <label style="text-align: left;">Number of Trees: </label>
-                        <input type="number" id="rf-trees" placeholder="Number of trees" value="100" min="1"
-                               style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px; margin-top: -10px;">
-                    </div>
-            
-                    <!-- Max Depth -->
-                    <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: center;">
-                        <label for="rf-depth-select" style="flex: 1;">Max Depth:</label>
-                        <select id="rf-depth-select" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; margin-top: -10px;">
-                            <option value="none">None</option>
-                            <option value="custom">Custom</option>
-                        </select>
-                    </div>
-                    <div id="rf-depth-container" style="display: none; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center;">
-                        <label for="rf-depth-input" style="text-align: left;">Custom Max Depth:</label>
-                        <input type="number" id="rf-depth-input" placeholder="Max depth" min="1" value="1"
-                               style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px; margin-top: -10px;">
-                    </div>
-            
-                    <!-- Random State -->
-                    <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: center;">
-                        <label for="rf-random-state-select" style="flex: 1;">Random State:</label>
-                        <select id="rf-random-state-select" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; margin-top: -10px;">
-                            <option value="none">None</option>
-                            <option value="custom">Custom</option>
-                        </select>
-                    </div>
-                    <div id="rf-random-state-container" style="display: none; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center;">
-                        <label for="rf-random-state-input" style="text-align: left;">Custom Random State:</label>
-                        <input type="number" id="rf-random-state-input" placeholder="Random State" min="0" value="0"
-                               style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px; margin-top: -10px;">
-                    </div>
-            
-                    <!-- Max Features -->
-                    <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: center;">
-                        <label for="rf-max-features-select" style="flex: 1;">Max Features:</label>
-                        <select id="rf-max-features-select" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; margin-top: -10px;">
-                            <option value="sqrt">Sqrt</option>
-                            <option value="auto">Auto</option>
-                            <option value="log2">Log2</option>
-                            <option value="custom">Custom</option>
-                        </select>
-                    </div>
-                    <div id="rf-max-features-container" style="display: none; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center;">
-                        <label for="rf-max-features-input" style="text-align: left;">Custom Max Features:</label>
-                        <input type="number" id="rf-max-features-input" placeholder="Max Features" min="1" value="1"
-                               style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px; margin-top: -10px;">
-                    </div>
-                `;
+            case 'Random Forest':
+              configContent.innerHTML = `
+                  <h3 style="margin-bottom: 40px;">Random Forest Configuration</h3>
+          
+                  <!-- Número de árboles -->
+                  <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center;">
+                      <label style="text-align: left;">Number of Trees: </label>
+                      <input type="number" id="rf-trees" placeholder="Number of trees" value="100" min="1"
+                              style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px; margin-top: -10px;">
+                  </div>
+          
+                  <!-- Max Depth -->
+                  <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: center;">
+                      <label for="rf-depth-select" style="flex: 1;">Max Depth:</label>
+                      <select id="rf-depth-select" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; margin-top: -10px;">
+                          <option value="None">None</option>
+                          <option value="custom">Custom</option>
+                      </select>
+                  </div>
+                  <div id="rf-depth-container" style="display: none; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center;">
+                      <label for="rf-depth-input" style="text-align: left;">Custom Max Depth:</label>
+                      <input type="number" id="rf-depth-input" placeholder="Max depth" min="1" value="1"
+                              style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px; margin-top: -10px;">
+                  </div>
+          
+                  <!-- Random State -->
+                  <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: center;">
+                      <label for="rf-random-state-select" style="flex: 1;">Random State:</label>
+                      <select id="rf-random-state-select" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; margin-top: -10px;">
+                          <option value="None">None</option>
+                          <option value="custom">Custom</option>
+                      </select>
+                  </div>
+                  <div id="rf-random-state-container" style="display: none; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center;">
+                      <label for="rf-random-state-input" style="text-align: left;">Custom Random State:</label>
+                      <input type="number" id="rf-random-state-input" placeholder="Random State" min="0" value="0"
+                              style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px; margin-top: -10px;">
+                  </div>
+          
+                  <!-- Max Features -->
+                  <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: center;">
+                      <label for="rf-max-features-select" style="flex: 1;">Max Features:</label>
+                      <select id="rf-max-features-select" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; margin-top: -10px;">
+                          <option value="sqrt">Sqrt</option>
+                          <option value="auto">Auto</option>
+                          <option value="log2">Log2</option>
+                          <option value="custom">Custom</option>
+                      </select>
+                  </div>
+                  <div id="rf-max-features-container" style="display: none; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center;">
+                      <label for="rf-max-features-input" style="text-align: left;">Custom Max Features:</label>
+                      <input type="number" id="rf-max-features-input" placeholder="Max Features" min="1" value="1"
+                              style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px; margin-top: -10px;">
+                  </div>
+              `;
 
-                const scriptRF = document.createElement('script');
-                scriptRF.innerHTML = `
+              const scriptRF = document.createElement('script');
+              scriptRF.innerHTML = `
+          
+                // Función para mostrar/ocultar los inputs personalizados
+                function setupDropdownToggle(selectId, containerId) {
+                    const select = document.getElementById(selectId);
+                    const container = document.getElementById(containerId);
             
-                  // Función para mostrar/ocultar los inputs personalizados
-                  function setupDropdownToggle(selectId, containerId) {
-                      const select = document.getElementById(selectId);
-                      const container = document.getElementById(containerId);
-              
-                      function updateVisibility() {
-                          container.style.display = (select.value === 'custom') ? 'grid' : 'none';
-                      }
-              
-                      select.addEventListener('change', updateVisibility);
-                      updateVisibility(); // Ejecutar al cargar
-                  }
-              
-                  // Aplicar a cada selector
-                  setupDropdownToggle('rf-depth-select', 'rf-depth-container');
-                  setupDropdownToggle('rf-random-state-select', 'rf-random-state-container');
-                  setupDropdownToggle('rf-max-features-select', 'rf-max-features-container');
-              
-                  `;
-                document.body.appendChild(scriptRF);
-                break;
+                    function updateVisibility() {
+                        container.style.display = (select.value === 'custom') ? 'grid' : 'none';
+                    }
+            
+                    select.addEventListener('change', updateVisibility);
+                    updateVisibility(); // Ejecutar al cargar
+                }
+            
+                // Aplicar a cada selector
+                setupDropdownToggle('rf-depth-select', 'rf-depth-container');
+                setupDropdownToggle('rf-random-state-select', 'rf-random-state-container');
+                setupDropdownToggle('rf-max-features-select', 'rf-max-features-container');
+            
+                `;
+              document.body.appendChild(scriptRF);
+              nameElement = "Random Forest";
+              break;
             
             case 'Logistic Regression':
               configContent.innerHTML = `
@@ -997,8 +1008,8 @@ export class NewScenarioComponent implements OnInit{
                           style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px; margin-top: -10px;">
                   </div>
                   <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: flex-start;">
-                    <label for="rf-criterion" style="flex: 1; ">Criterion:</label>
-                    <select id="rf-criterion" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; box-sizing: border-box;">
+                    <label for="logreg-criterion" style="flex: 1; ">Criterion:</label>
+                    <select id="logreg-criterion" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; box-sizing: border-box;">
                       <option value="gini">Gini</option>
                       <option value="entropy">Entropy</option>
                       <option value="log_loss">Cross-Entropy Loss</option>
@@ -1033,6 +1044,7 @@ export class NewScenarioComponent implements OnInit{
                           style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px; margin-top: -10px;">
                   </div>
               `;
+              nameElement = "Logistic Regression";
               break;
               case 'SVM':
                 configContent.innerHTML = `
@@ -1055,7 +1067,7 @@ export class NewScenarioComponent implements OnInit{
                     <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: flex-start;">
                         <label for="svm-class_weight" style="flex: 1; ">Class Weight:</label>
                         <select id="svm-class_weight" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; box-sizing: border-box;">
-                            <option value="none" selected>None</option>
+                            <option value="None" selected>None</option>
                             <option value="balanced">Balanced</option>
                         </select>
                     </div>
@@ -1083,6 +1095,7 @@ export class NewScenarioComponent implements OnInit{
                     updateGammaVisibility(); // Ejecutar al cargar
                 `;
                 document.body.appendChild(scriptSVM);
+                nameElement = "SVM";
                 break;
             
                 case 'Gradient Boosting':
@@ -1107,7 +1120,7 @@ export class NewScenarioComponent implements OnInit{
                     <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: center;">
                         <label for="gb-depth-select" style="flex: 1;">Max Depth:</label>
                         <select id="gb-depth-select" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; margin-top: -10px;">
-                            <option value="none">None</option>
+                            <option value="None">None</option>
                             <option value="custom">Custom</option>
                         </select>
                     </div>
@@ -1121,7 +1134,7 @@ export class NewScenarioComponent implements OnInit{
                     <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: center;">
                         <label for="gb-random-state-select" style="flex: 1;">Random State:</label>
                         <select id="gb-random-state-select" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; margin-top: -10px;">
-                            <option value="none">None</option>
+                            <option value="None">None</option>
                             <option value="custom">Custom</option>
                         </select>
                     </div>
@@ -1152,6 +1165,7 @@ export class NewScenarioComponent implements OnInit{
                   `;
               
                   document.body.appendChild(scriptGB);
+                  nameElement = "Gradient Boosting";
                   break;
               
               case 'Decision Tree':
@@ -1179,7 +1193,7 @@ export class NewScenarioComponent implements OnInit{
                   <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: center;">
                       <label for="dt-max-depth-select" style="flex: 1;">Max Depth:</label>
                       <select id="dt-max-depth-select" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; margin-top: -5px;">
-                          <option value="none">None</option>
+                          <option value="None">None</option>
                           <option value="custom">Custom</option>
                       </select>
                   </div>
@@ -1192,7 +1206,7 @@ export class NewScenarioComponent implements OnInit{
                   <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: center;">
                       <label for="dt-max-features-select" style="flex: 1;">Max Features:</label>
                       <select id="dt-max-features-select" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; margin-top: -5px;">
-                          <option value="none">None</option>
+                          <option value="None">None</option>
                           <option value="sqrt">Sqrt</option>
                           <option value="log2">Log2</option>
                           <option value="custom">Custom</option>
@@ -1208,7 +1222,7 @@ export class NewScenarioComponent implements OnInit{
                   <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: center;">
                       <label for="dt-random-state-select" style="flex: 1;">Random State:</label>
                       <select id="dt-random-state-select" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; margin-top: -5px;">
-                          <option value="none">None</option>
+                          <option value="None">None</option>
                           <option value="custom">Custom</option>
                       </select>
                   </div>
@@ -1240,12 +1254,16 @@ export class NewScenarioComponent implements OnInit{
             
                 `;
                 document.body.appendChild(scriptDT);
+                nameElement = "Decision Tree";
                 break;
             
             
             default:
               configContent.innerHTML = '<h3>Configuration</h3><p>Unknown configuration content.</p>';
             break;            
+          }
+          if (nameElement) {
+            this.saveParameters(selectedElement, nameElement);
           }
         }
       }
@@ -1352,6 +1370,622 @@ export class NewScenarioComponent implements OnInit{
     return 1; 
   }
 
+  saveParameters(selectedElement: HTMLElement, nameElement: string): void {
+    const elementId = selectedElement.id;
+      if (!this.elementParameters[elementId]) {
+        this.elementParameters[elementId] = {};
+      }
+      const params = this.elementParameters[elementId];
+
+      switch (nameElement) {
+        case 'Standard Scaler':
+          // Inicializar valores
+          const withMeanSelect = document.getElementById('standard-with-mean') as HTMLSelectElement;
+          const withStdSelect = document.getElementById('standard-with-std') as HTMLSelectElement;
+
+          withMeanSelect.value = params.withMean ?? 'True';
+          withStdSelect.value = params.withStd ?? 'True';
+
+          this.elementParameters[elementId] = {
+            ...this.elementParameters[elementId],
+            withMean: withMeanSelect.value,
+            withStd: withStdSelect.value
+          };
+
+          withMeanSelect.addEventListener('change', () => {
+            this.elementParameters[elementId].withMean = withMeanSelect.value;
+          });
+
+          withStdSelect.addEventListener('change', () => {
+            this.elementParameters[elementId].withStd = withStdSelect.value;
+          });
+          break;
+        case 'MinMax Scaler':
+          // Inicializar valores
+          const minValueInput = document.getElementById('minmax-min') as HTMLInputElement;
+          const maxValueInput = document.getElementById('minmax-max') as HTMLInputElement;
+          const clipSelect = document.getElementById('minmax-clip') as HTMLSelectElement;
+
+          minValueInput.value = params.minValue ?? '0';
+          maxValueInput.value = params.maxValue ?? '1';
+          clipSelect.value = params.clip ?? 'False';
+
+          this.elementParameters[elementId] = {
+              ...this.elementParameters[elementId],
+              minValue: minValueInput.value,
+              maxValue: maxValueInput.value,
+              clip: clipSelect.value
+          };
+
+          minValueInput.addEventListener('input', () => {
+              this.elementParameters[elementId].minValue = minValueInput.value;
+          });
+
+          maxValueInput.addEventListener('input', () => {
+              this.elementParameters[elementId].maxValue = maxValueInput.value;
+          });
+
+          clipSelect.addEventListener('change', () => {
+              this.elementParameters[elementId].clip = clipSelect.value;
+          });
+          break;
+        case 'One-Hot Encoding':
+          // Inicializar valores
+          const handleUnknownSelect = document.getElementById('onehot-handle') as HTMLSelectElement;
+          const dropSelect = document.getElementById('onehot-drop') as HTMLSelectElement;
+
+          handleUnknownSelect.value = params.handleUnknown ?? 'error';
+          dropSelect.value = params.drop ?? 'None';
+
+          this.elementParameters[elementId] = {
+              ...this.elementParameters[elementId],
+              handleUnknown: handleUnknownSelect.value,
+              drop: dropSelect.value
+          };
+
+          handleUnknownSelect.addEventListener('change', () => {
+              this.elementParameters[elementId].handleUnknown = handleUnknownSelect.value;
+          });
+
+          dropSelect.addEventListener('change', () => {
+              this.elementParameters[elementId].drop = dropSelect.value;
+          });
+          break;
+
+        case 'PCA':
+          // Inicializar valores
+          const componentsSelect = document.getElementById('pca-components-select') as HTMLSelectElement;
+          const componentsContainer = document.getElementById('pca-components-container') as HTMLElement;
+          const componentsInput = document.getElementById('pca-components-input') as HTMLInputElement;
+          const whitenSelect = document.getElementById('pca-whiten') as HTMLSelectElement;
+      
+          componentsSelect.value = params.componentsOption ?? 'None';
+          componentsInput.value = params.customComponents ?? '1';
+          whitenSelect.value = params.whiten ?? 'False';
+      
+          // Mostrar u ocultar el input de componentes según la selección
+          if (componentsSelect.value === 'custom') {
+              componentsContainer.style.display = 'grid';
+          }
+      
+          // Inicializar los parámetros
+          this.elementParameters[elementId] = {
+              ...this.elementParameters[elementId],
+              componentsOption: componentsSelect.value,
+              whiten: whitenSelect.value
+          };
+      
+          componentsSelect.addEventListener('change', () => {
+              this.elementParameters[elementId].componentsOption = componentsSelect.value;
+      
+              // Mostrar u ocultar el input de componentes según la selección
+              if (componentsSelect.value === 'custom') {
+                  componentsContainer.style.display = 'grid';
+      
+                  // Guardar customComponents solo si 'custom' está seleccionado
+                  this.elementParameters[elementId].customComponents = componentsInput.value;
+              } else {
+                  componentsContainer.style.display = 'none';
+      
+                  // No guardar customComponents si 'None' está seleccionado
+                  delete this.elementParameters[elementId].customComponents;
+              }
+          });
+      
+          componentsInput.addEventListener('input', () => {
+              // Guardar el valor de customComponents solo si 'custom' está seleccionado
+              if (componentsSelect.value === 'custom') {
+                  this.elementParameters[elementId].customComponents = componentsInput.value;
+              }
+          });
+      
+          whitenSelect.addEventListener('change', () => {
+              this.elementParameters[elementId].whiten = whitenSelect.value;
+          });
+      
+          break;
+        
+
+        case 'Normalizer':
+          // Obtener el select del Norm
+          const normSelect = document.getElementById('normalizer-norm') as HTMLSelectElement;
+
+          // Asignar valor por defecto si no existe
+          normSelect.value = params.norm ?? 'l2';
+
+          // Guardar el valor seleccionado
+          this.elementParameters[elementId] = {
+              ...this.elementParameters[elementId],
+              norm: normSelect.value
+          };
+
+          // Agregar el event listener
+          normSelect.addEventListener('change', () => {
+              this.elementParameters[elementId].norm = normSelect.value;
+          });
+          break;
+
+        case 'KNN Imputer':
+          // Obtener los elementos del DOM
+          const neighborsInputKNNImputer = document.getElementById('knn-neighbors') as HTMLInputElement;
+          const weightSelectKNNImputer = document.getElementById('knn-weight') as HTMLSelectElement;
+
+          // Asignar valores por defecto si no existen
+          neighborsInputKNNImputer.value = params.neighbors ?? '5';
+          weightSelectKNNImputer.value = params.weight ?? 'uniform';
+
+          // Guardar los valores
+          this.elementParameters[elementId] = {
+              ...this.elementParameters[elementId],
+              neighbors: neighborsInputKNNImputer.value,
+              weight: weightSelectKNNImputer.value
+          };
+
+          // Event listeners
+          neighborsInputKNNImputer.addEventListener('input', () => {
+              this.elementParameters[elementId].neighbors = neighborsInputKNNImputer.value;
+          });
+
+          weightSelectKNNImputer.addEventListener('change', () => {
+              this.elementParameters[elementId].weight = weightSelectKNNImputer.value;
+          });
+          break;
+
+        case 'KNN':
+          // Obtener los elementos del DOM
+          const neighborsInput = document.getElementById('knn-neighbors') as HTMLInputElement;
+          const weightSelect = document.getElementById('knn-weight') as HTMLSelectElement;
+          const algorithmSelect = document.getElementById('knn-algorithm') as HTMLSelectElement;
+          const metricSelect = document.getElementById('knn-metric') as HTMLSelectElement;
+
+          // Asignar valores por defecto si no existen
+          neighborsInput.value = params.neighbors ?? '5';
+          weightSelect.value = params.weight ?? 'uniform';
+          algorithmSelect.value = params.algorithm ?? 'auto';
+          metricSelect.value = params.metric ?? 'minkowski';
+
+          // Guardar los valores
+          this.elementParameters[elementId] = {
+              ...this.elementParameters[elementId],
+              neighbors: neighborsInput.value,
+              weight: weightSelect.value,
+              algorithm: algorithmSelect.value,
+              metric: metricSelect.value
+          };
+
+          // Agregar event listeners
+          neighborsInput.addEventListener('input', () => {
+              this.elementParameters[elementId].neighbors = neighborsInput.value;
+          });
+
+          weightSelect.addEventListener('change', () => {
+              this.elementParameters[elementId].weight = weightSelect.value;
+          });
+
+          algorithmSelect.addEventListener('change', () => {
+              this.elementParameters[elementId].algorithm = algorithmSelect.value;
+          });
+
+          metricSelect.addEventListener('change', () => {
+              this.elementParameters[elementId].metric = metricSelect.value;
+          });
+          break;
+
+        case 'Random Forest':
+          // Inicializar valores
+          const treesInput = document.getElementById('rf-trees') as HTMLInputElement;
+          const depthSelect = document.getElementById('rf-depth-select') as HTMLSelectElement;
+          const depthContainer = document.getElementById('rf-depth-container') as HTMLElement;
+          const depthInput = document.getElementById('rf-depth-input') as HTMLInputElement;
+          const randomStateSelect = document.getElementById('rf-random-state-select') as HTMLSelectElement;
+          const randomStateContainer = document.getElementById('rf-random-state-container') as HTMLElement;
+          const randomStateInput = document.getElementById('rf-random-state-input') as HTMLInputElement;
+          const maxFeaturesSelect = document.getElementById('rf-max-features-select') as HTMLSelectElement;
+          const maxFeaturesContainer = document.getElementById('rf-max-features-container') as HTMLElement;
+          const maxFeaturesInput = document.getElementById('rf-max-features-input') as HTMLInputElement;
+      
+          treesInput.value = params.trees ?? '100';
+          depthSelect.value = params.depthOption ?? 'None';
+          depthInput.value = params.customDepth ?? '1';
+          randomStateSelect.value = params.randomStateOption ?? 'None';
+          randomStateInput.value = params.customRandomState ?? '0';
+          maxFeaturesSelect.value = params.maxFeaturesOption ?? 'sqrt';
+          maxFeaturesInput.value = params.customMaxFeatures ?? '1';
+      
+          // Mostrar u ocultar los inputs personalizados
+          if (depthSelect.value === 'custom') {
+              depthContainer.style.display = 'grid';
+          }
+          if (randomStateSelect.value === 'custom') {
+              randomStateContainer.style.display = 'grid';
+          }
+          if (maxFeaturesSelect.value === 'custom') {
+              maxFeaturesContainer.style.display = 'grid';
+          }
+      
+          // Inicializar los parámetros
+          this.elementParameters[elementId] = {
+              ...this.elementParameters[elementId],
+              trees: treesInput.value,
+              depthOption: depthSelect.value,
+              randomStateOption: randomStateSelect.value,
+              maxFeaturesOption: maxFeaturesSelect.value
+          };
+      
+          depthSelect.addEventListener('change', () => {
+              this.elementParameters[elementId].depthOption = depthSelect.value;
+              if (depthSelect.value === 'custom') {
+                  depthContainer.style.display = 'grid';
+                  this.elementParameters[elementId].customDepth = depthInput.value;
+              } else {
+                  depthContainer.style.display = 'none';
+                  delete this.elementParameters[elementId].customDepth;
+              }
+          });
+      
+          randomStateSelect.addEventListener('change', () => {
+              this.elementParameters[elementId].randomStateOption = randomStateSelect.value;
+              if (randomStateSelect.value === 'custom') {
+                  randomStateContainer.style.display = 'grid';
+                  this.elementParameters[elementId].customRandomState = randomStateInput.value;
+              } else {
+                  randomStateContainer.style.display = 'none';
+                  delete this.elementParameters[elementId].customRandomState;
+              }
+          });
+      
+          maxFeaturesSelect.addEventListener('change', () => {
+              this.elementParameters[elementId].maxFeaturesOption = maxFeaturesSelect.value;
+              if (maxFeaturesSelect.value === 'custom') {
+                  maxFeaturesContainer.style.display = 'grid';
+                  this.elementParameters[elementId].customMaxFeatures = maxFeaturesInput.value;
+              } else {
+                  maxFeaturesContainer.style.display = 'none';
+                  delete this.elementParameters[elementId].customMaxFeatures;
+              }
+          });
+      
+          treesInput.addEventListener('input', () => {
+              this.elementParameters[elementId].trees = treesInput.value;
+          });
+      
+          depthInput.addEventListener('input', () => {
+              if (depthSelect.value === 'custom') {
+                  this.elementParameters[elementId].customDepth = depthInput.value;
+              }
+          });
+      
+          randomStateInput.addEventListener('input', () => {
+              if (randomStateSelect.value === 'custom') {
+                  this.elementParameters[elementId].customRandomState = randomStateInput.value;
+              }
+          });
+      
+          maxFeaturesInput.addEventListener('input', () => {
+              if (maxFeaturesSelect.value === 'custom') {
+                  this.elementParameters[elementId].customMaxFeatures = maxFeaturesInput.value;
+              }
+          });
+      
+          break;
+
+        case 'Logistic Regression':
+          const cInputLR =  document.getElementById('logreg-c') as HTMLInputElement;
+          const criterionSelect =  document.getElementById('logreg-criterion') as HTMLInputElement;
+          const penaltySelect =  document.getElementById('logreg-penalty') as HTMLInputElement;
+          const solverSelect =  document.getElementById('logreg-solver') as HTMLInputElement;
+          const maxIterInput =  document.getElementById('logreg-maxiter') as HTMLInputElement;
+          
+          // Inicializar valores de configuración (si están disponibles)
+          cInputLR.value = params.c ?? '1.0';
+          criterionSelect.value = params.criterion ?? 'gini';
+          penaltySelect.value = params.penalty ?? 'l2';
+          solverSelect.value = params.solver ?? 'lbfgs';
+          maxIterInput.value = params.maxIter ?? '100';
+          
+          // Guardar parámetros de configuración
+          this.elementParameters[elementId] = {
+              ...this.elementParameters[elementId],
+              c: cInputLR.value,
+              criterion: criterionSelect.value,
+              penalty: penaltySelect.value,
+              solver: solverSelect.value,
+              maxIter: maxIterInput.value
+          };
+
+          // Escuchar cambios y actualizar los parámetros
+          cInputLR.addEventListener('input', () => {
+              this.elementParameters[elementId].c = cInputLR.value;
+          });
+
+          criterionSelect.addEventListener('change', () => {
+            this.elementParameters[elementId].criterion = criterionSelect.value;
+          });
+          
+          penaltySelect.addEventListener('change', () => {
+              this.elementParameters[elementId].penalty = penaltySelect.value;
+          });
+          
+          solverSelect.addEventListener('change', () => {
+              this.elementParameters[elementId].solver = solverSelect.value;
+          });
+          
+          maxIterInput.addEventListener('input', () => {
+              this.elementParameters[elementId].maxIter = maxIterInput.value;
+          });
+
+          break;
+        
+        case 'Gradient Boosting':
+          const nEstimatorsInput = document.getElementById('gb-n_estimators') as HTMLInputElement;
+          const learningRateInput = document.getElementById('gb-learning_rate') as HTMLInputElement;
+          const depthSelectGB = document.getElementById('gb-depth-select') as HTMLSelectElement;
+          const depthContainerGB = document.getElementById('gb-depth-container') as HTMLElement;
+          const depthInputGB = document.getElementById('gb-depth-input') as HTMLInputElement;
+          const randomStateSelectGB = document.getElementById('gb-random-state-select') as HTMLSelectElement;
+          const randomStateContainerGB = document.getElementById('gb-random-state-container') as HTMLElement;
+          const randomStateInputGB = document.getElementById('gb-random-state-input') as HTMLInputElement;
+      
+          // Inicializar los valores de los parámetros
+          nEstimatorsInput.value = params.n_estimators ?? '100';
+          learningRateInput.value = params.learning_rate ?? '0.1';
+          depthSelectGB.value = params.max_depth ?? 'None';
+          depthInputGB.value = params.customMaxDepth ?? '3';
+          randomStateSelectGB.value = params.random_state ?? 'None';
+          randomStateInputGB.value = params.customRandomState ?? '0';
+      
+          // Mostrar u ocultar el input de Max Depth según la selección
+          if (depthSelectGB.value === 'custom') {
+              depthContainerGB.style.display = 'grid';
+          } else {
+              depthContainerGB.style.display = 'none';
+          }
+      
+          // Mostrar u ocultar el input de Random State según la selección
+          if (randomStateSelectGB.value === 'custom') {
+              randomStateContainerGB.style.display = 'grid';
+          } else {
+              randomStateContainerGB.style.display = 'none';
+          }
+      
+          // Inicializar los parámetros
+          this.elementParameters[elementId] = {
+              ...this.elementParameters[elementId],
+              n_estimators: nEstimatorsInput.value,
+              learning_rate: learningRateInput.value,
+              max_depth: depthSelectGB.value,
+              random_state: randomStateSelectGB.value
+          };
+      
+          // Event listener para el selector de Max Depth
+          depthSelectGB.addEventListener('change', () => {
+              this.elementParameters[elementId].max_depth = depthSelectGB.value;
+      
+              // Mostrar u ocultar el input de Max Depth según la selección
+              if (depthSelectGB.value === 'custom') {
+                  depthContainerGB.style.display = 'grid';
+                  // Guardar el customMaxDepth solo si 'custom' está seleccionado
+                  this.elementParameters[elementId].customMaxDepth = depthInputGB.value;
+              } else {
+                  depthContainerGB.style.display = 'none';
+                  // No guardar customMaxDepth si 'none' está seleccionado
+                  delete this.elementParameters[elementId].customMaxDepth;
+              }
+          });
+      
+          // Event listener para el input de Max Depth
+          depthInputGB.addEventListener('input', () => {
+              // Guardar el valor de customMaxDepth solo si 'custom' está seleccionado
+              if (depthSelectGB.value === 'custom') {
+                  this.elementParameters[elementId].customMaxDepth = depthInputGB.value;
+              }
+          });
+      
+          // Event listener para el selector de Random State
+          randomStateSelectGB.addEventListener('change', () => {
+              this.elementParameters[elementId].random_state = randomStateSelectGB.value;
+      
+              // Mostrar u ocultar el input de Random State según la selección
+              if (randomStateSelectGB.value === 'custom') {
+                  randomStateContainerGB.style.display = 'grid';
+                  // Guardar customRandomState solo si 'custom' está seleccionado
+                  this.elementParameters[elementId].customRandomState = randomStateInputGB.value;
+              } else {
+                  randomStateContainerGB.style.display = 'none';
+                  // No guardar customRandomState si 'none' está seleccionado
+                  delete this.elementParameters[elementId].customRandomState;
+              }
+          });
+      
+          // Event listener para el input de Random State
+          randomStateInputGB.addEventListener('input', () => {
+              // Guardar el valor de customRandomState solo si 'custom' está seleccionado
+              if (randomStateSelectGB.value === 'custom') {
+                  this.elementParameters[elementId].customRandomState = randomStateInputGB.value;
+              }
+          });
+      
+          // Event listener para el input de Número de Estimadores
+          nEstimatorsInput.addEventListener('input', () => {
+              this.elementParameters[elementId].n_estimators = nEstimatorsInput.value;
+          });
+      
+          // Event listener para el input de Learning Rate
+          learningRateInput.addEventListener('input', () => {
+              this.elementParameters[elementId].learning_rate = learningRateInput.value;
+          });
+      
+          break;
+
+        case 'Decision Tree':
+          // Inicializar valores
+          const criterionSelectDT = document.getElementById('dt-criterion') as HTMLSelectElement;
+          const splitterSelectDT = document.getElementById('dt-splitter') as HTMLSelectElement;
+          const maxDepthSelectDT = document.getElementById('dt-max-depth-select') as HTMLSelectElement;
+          const maxDepthContainerDT = document.getElementById('dt-max-depth-container') as HTMLElement;
+          const maxDepthInputDT = document.getElementById('dt-max-depth-input') as HTMLInputElement;
+          const maxFeaturesSelectDT = document.getElementById('dt-max-features-select') as HTMLSelectElement;
+          const maxFeaturesContainerDT = document.getElementById('dt-max-features-container') as HTMLElement;
+          const maxFeaturesInputDT = document.getElementById('dt-max-features-input') as HTMLInputElement;
+          const randomStateSelectDT = document.getElementById('dt-random-state-select') as HTMLSelectElement;
+          const randomStateContainerDT = document.getElementById('dt-random-state-container') as HTMLElement;
+          const randomStateInputDT = document.getElementById('dt-random-state-input') as HTMLInputElement;
+      
+          // Inicializar los valores de los parámetros
+          criterionSelectDT.value = params.criterion ?? 'gini';
+          splitterSelectDT.value = params.splitter ?? 'best';
+          maxDepthSelectDT.value = params.max_depth ?? 'None';
+          maxDepthInputDT.value = params.customMaxDepth ?? '1';
+          maxFeaturesSelectDT.value = params.max_features ?? 'None';
+          maxFeaturesInputDT.value = params.customMaxFeatures ?? '1';
+          randomStateSelectDT.value = params.random_state ?? 'None';
+          randomStateInputDT.value = params.customRandomState ?? '0';
+      
+          // Mostrar u ocultar el input de Max Depth según la selección
+          if (maxDepthSelectDT.value === 'custom') {
+              maxDepthContainerDT.style.display = 'grid';
+          } else {
+              maxDepthContainerDT.style.display = 'none';
+          }
+      
+          // Mostrar u ocultar el input de Max Features según la selección
+          if (maxFeaturesSelectDT.value === 'custom') {
+              maxFeaturesContainerDT.style.display = 'grid';
+          } else {
+              maxFeaturesContainerDT.style.display = 'none';
+          }
+      
+          // Mostrar u ocultar el input de Random State según la selección
+          if (randomStateSelectDT.value === 'custom') {
+              randomStateContainerDT.style.display = 'grid';
+          } else {
+              randomStateContainerDT.style.display = 'none';
+          }
+      
+          // Inicializar los parámetros
+          this.elementParameters[elementId] = {
+              ...this.elementParameters[elementId],
+              criterion: criterionSelectDT.value,
+              splitter: splitterSelectDT.value,
+              max_depth: maxDepthSelectDT.value,
+              max_features: maxFeaturesSelectDT.value,
+              random_state: randomStateSelectDT.value
+          };
+      
+          // Event listener para el selector de Max Depth
+          maxDepthSelectDT.addEventListener('change', () => {
+              this.elementParameters[elementId].max_depth = maxDepthSelectDT.value;
+      
+              // Mostrar u ocultar el input de Max Depth según la selección
+              if (maxDepthSelectDT.value === 'custom') {
+                  maxDepthContainerDT.style.display = 'grid';
+                  // Guardar el customMaxDepth solo si 'custom' está seleccionado
+                  this.elementParameters[elementId].customMaxDepth = maxDepthInputDT.value;
+              } else {
+                  maxDepthContainerDT.style.display = 'none';
+                  // No guardar customMaxDepth si 'none' está seleccionado
+                  delete this.elementParameters[elementId].customMaxDepth;
+              }
+          });
+      
+          // Event listener para el input de Max Depth
+          maxDepthInputDT.addEventListener('input', () => {
+              // Guardar el valor de customMaxDepth solo si 'custom' está seleccionado
+              if (maxDepthSelectDT.value === 'custom') {
+                  this.elementParameters[elementId].customMaxDepth = maxDepthInputDT.value;
+              }
+          });
+      
+          // Event listener para el selector de Max Features
+          maxFeaturesSelectDT.addEventListener('change', () => {
+              this.elementParameters[elementId].max_features = maxFeaturesSelectDT.value;
+      
+              // Mostrar u ocultar el input de Max Features según la selección
+              if (maxFeaturesSelectDT.value === 'custom') {
+                  maxFeaturesContainerDT.style.display = 'grid';
+                  // Guardar el customMaxFeatures solo si 'custom' está seleccionado
+                  this.elementParameters[elementId].customMaxFeatures = maxFeaturesInputDT.value;
+              } else {
+                  maxFeaturesContainerDT.style.display = 'none';
+                  // No guardar customMaxFeatures si 'none' está seleccionado
+                  delete this.elementParameters[elementId].customMaxFeatures;
+              }
+          });
+      
+          // Event listener para el input de Max Features
+          maxFeaturesInputDT.addEventListener('input', () => {
+              // Guardar el valor de customMaxFeatures solo si 'custom' está seleccionado
+              if (maxFeaturesSelectDT.value === 'custom') {
+                  this.elementParameters[elementId].customMaxFeatures = maxFeaturesInputDT.value;
+              }
+          });
+      
+          // Event listener para el selector de Random State
+          randomStateSelectDT.addEventListener('change', () => {
+              this.elementParameters[elementId].random_state = randomStateSelectDT.value;
+      
+              // Mostrar u ocultar el input de Random State según la selección
+              if (randomStateSelectDT.value === 'custom') {
+                  randomStateContainerDT.style.display = 'grid';
+                  // Guardar customRandomState solo si 'custom' está seleccionado
+                  this.elementParameters[elementId].customRandomState = randomStateInputDT.value;
+              } else {
+                  randomStateContainerDT.style.display = 'none';
+                  // No guardar customRandomState si 'none' está seleccionado
+                  delete this.elementParameters[elementId].customRandomState;
+              }
+          });
+      
+          // Event listener para el input de Random State
+          randomStateInputDT.addEventListener('input', () => {
+              // Guardar el valor de customRandomState solo si 'custom' está seleccionado
+              if (randomStateSelectDT.value === 'custom') {
+                  this.elementParameters[elementId].customRandomState = randomStateInputDT.value;
+              }
+          });
+      
+          // Event listener para el selector de Criterion
+          criterionSelectDT.addEventListener('change', () => {
+              this.elementParameters[elementId].criterion = criterionSelectDT.value;
+          });
+      
+          // Event listener para el selector de Splitter
+          splitterSelectDT.addEventListener('change', () => {
+              this.elementParameters[elementId].splitter = splitterSelectDT.value;
+          });
+      
+          break;
+        
+
+        default:
+          
+
+      }
+
+
+      
+  }
+
   saveScenario(): void {
     const savedElements = this.droppedElements.map((element: HTMLElement) => ({
       id: element.id,
@@ -1360,6 +1994,7 @@ export class NewScenarioComponent implements OnInit{
         left: element.offsetLeft,
         top: element.offsetTop,
       },
+      parameters: this.elementParameters[element.id] || {}
     }));
   
     const savedConnections = this.connections.map(conn => ({
@@ -1515,6 +2150,10 @@ export class NewScenarioComponent implements OnInit{
     savedElements.forEach((element: any) => {
       const newElement = this.createElement(element.type);
       newElement.id = element.id; 
+
+      if (element.parameters) {
+        this.elementParameters[element.id] = element.parameters;
+      }
       
       const match = element.id.match(/element-(\d+)/);
       if (match) {
