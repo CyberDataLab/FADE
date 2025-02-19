@@ -1,5 +1,5 @@
 import { Component, OnInit, Inject, ViewChild, ElementRef } from '@angular/core';
-import { PLATFORM_ID } from '@angular/core';
+import { PLATFORM_ID, Renderer2 } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { ScenarioService } from '../../scenario.service';
@@ -43,9 +43,9 @@ export class NewScenarioComponent implements OnInit{
   connections: { startElement: HTMLElement, endElement: HTMLElement, line: SVGLineElement }[] = [];
 
   zoomLevel: number = 1; 
-  zoomStep: number = 0.02; 
-  minZoom: number = 0.3;  
-  maxZoom: number = 1.08;   
+  zoomStep: number = 0.02;
+  minZoom: number = 0.3;
+  maxZoom: number = 1.08;
 
   nextElementId: number = 0;
 
@@ -57,9 +57,11 @@ export class NewScenarioComponent implements OnInit{
 
   actualDesign: string | null = null;
 
+  selectedCSVFile: File | null = null
+
   private elementParameters: { [elementId: string]: any } = {};
 
-  constructor(@Inject(PLATFORM_ID) private platformId: Object, private scenarioService: ScenarioService, private route: ActivatedRoute,) {}
+  constructor(@Inject(PLATFORM_ID) private platformId: Object, private scenarioService: ScenarioService, private route: ActivatedRoute, private renderer: Renderer2) {}
 
   @ViewChild('configContainer', { static: false }) configContainer?: ElementRef;
 
@@ -712,11 +714,27 @@ export class NewScenarioComponent implements OnInit{
         if (configContent) {
           switch (selectedElement.innerText.trim()) {
             case 'CSV':
-              configContent.innerHTML = `
-                <h3>CSV file configuration</h3>
-                <p>Please select a CSV file:</p>
-                <input type="file" id="csv-upload" accept=".csv" (change)="onCSVFileSelected($event)">
-              `;
+            // Limpiar contenido anterior
+            configContent.innerHTML = `<h3>CSV file configuration</h3><p>Please select a CSV file:</p>`;
+
+            // Crear input dinámicamente
+            const input = this.renderer.createElement('input');
+            this.renderer.setAttribute(input, 'type', 'file');
+            this.renderer.setAttribute(input, 'id', 'csv-upload');
+            this.renderer.setAttribute(input, 'accept', '.csv');
+
+            // Agregar evento manualmente
+            this.renderer.listen(input, 'change', (event:any) => this.onCSVFileSelected(event));
+
+            // Agregar input al contenedor
+            this.renderer.appendChild(configContent, input);
+
+            // Crear elemento para mostrar el nombre del archivo
+            const fileNameElement = this.renderer.createElement('p');
+            this.renderer.setAttribute(fileNameElement, 'id', 'file-name');
+            this.renderer.appendChild(configContent, fileNameElement);
+
+            nameElement = 'CSV';
             break;
             case 'Network':
               configContent.innerHTML = `
@@ -1007,14 +1025,6 @@ export class NewScenarioComponent implements OnInit{
                     <input type="number" step="0.1" id="logreg-c" value="1.0" min="0.1" id="logreg-c" placeholder="C"
                           style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px; margin-top: -10px;">
                   </div>
-                  <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: flex-start;">
-                    <label for="logreg-criterion" style="flex: 1; ">Criterion:</label>
-                    <select id="logreg-criterion" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; box-sizing: border-box;">
-                      <option value="gini">Gini</option>
-                      <option value="entropy">Entropy</option>
-                      <option value="log_loss">Cross-Entropy Loss</option>
-                    </select>
-                  </div>
 
                   <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: flex-start;">
                     <label for="logreg-penalty" style="flex: 1; ">Penalty:</label>
@@ -1080,7 +1090,6 @@ export class NewScenarioComponent implements OnInit{
                     </div>
                 `;
             
-                // Crear el script dinámicamente
                 const scriptSVM = document.createElement('script');
                 scriptSVM.innerHTML = `
                     const kernelSelect = document.getElementById('svm-kernel');
@@ -1145,7 +1154,6 @@ export class NewScenarioComponent implements OnInit{
                     </div>
                   `;
               
-                  // Script para mostrar/ocultar los inputs personalizados
                   const scriptGB = document.createElement('script');
                   scriptGB.innerHTML = `
                     function setupDropdownToggle(selectId, containerId) {
@@ -1276,6 +1284,7 @@ export class NewScenarioComponent implements OnInit{
     if (input && input.files) {
       const file = input.files[0];
       if (file && file.name.endsWith('.csv')) {
+        this.selectedCSVFile = file;
         alert('File upload correctly')
       } else {
         alert('Please, select a CSV file.');
@@ -1378,8 +1387,41 @@ export class NewScenarioComponent implements OnInit{
       const params = this.elementParameters[elementId];
 
       switch (nameElement) {
+        case 'CSV':
+          const csvInput = document.getElementById('csv-upload') as HTMLInputElement;
+          
+          const savedFileName = this.elementParameters[elementId]?.csvFileName;
+
+          const fileNameElement = document.getElementById('file-name');
+          if (savedFileName && fileNameElement) {
+            fileNameElement.textContent = `File selected: ${savedFileName}`;
+          }
+
+          csvInput.addEventListener('change', (event) => {
+            const file = (event.target as HTMLInputElement).files?.[0];
+            
+            if (file) {
+              if (fileNameElement) {
+                fileNameElement.textContent = `File selected: ${file.name}`;
+              }
+
+              const reader = new FileReader();
+              reader.onload = () => {
+                this.elementParameters[elementId] = {
+                  ...this.elementParameters[elementId],
+                  csvFileName: file.name
+                  //csvFileContent: reader.result 
+                };
+              };
+              reader.readAsText(file); 
+            } else {
+              if (fileNameElement) {
+                fileNameElement.textContent = "No file has been selected.";
+              }
+            }
+          });
+          break;
         case 'Standard Scaler':
-          // Inicializar valores
           const withMeanSelect = document.getElementById('standard-with-mean') as HTMLSelectElement;
           const withStdSelect = document.getElementById('standard-with-std') as HTMLSelectElement;
 
@@ -1401,7 +1443,6 @@ export class NewScenarioComponent implements OnInit{
           });
           break;
         case 'MinMax Scaler':
-          // Inicializar valores
           const minValueInput = document.getElementById('minmax-min') as HTMLInputElement;
           const maxValueInput = document.getElementById('minmax-max') as HTMLInputElement;
           const clipSelect = document.getElementById('minmax-clip') as HTMLSelectElement;
@@ -1430,7 +1471,6 @@ export class NewScenarioComponent implements OnInit{
           });
           break;
         case 'One-Hot Encoding':
-          // Inicializar valores
           const handleUnknownSelect = document.getElementById('onehot-handle') as HTMLSelectElement;
           const dropSelect = document.getElementById('onehot-drop') as HTMLSelectElement;
 
@@ -1453,7 +1493,6 @@ export class NewScenarioComponent implements OnInit{
           break;
 
         case 'PCA':
-          // Inicializar valores
           const componentsSelect = document.getElementById('pca-components-select') as HTMLSelectElement;
           const componentsContainer = document.getElementById('pca-components-container') as HTMLElement;
           const componentsInput = document.getElementById('pca-components-input') as HTMLInputElement;
@@ -1463,12 +1502,10 @@ export class NewScenarioComponent implements OnInit{
           componentsInput.value = params.customComponents ?? '1';
           whitenSelect.value = params.whiten ?? 'False';
       
-          // Mostrar u ocultar el input de componentes según la selección
           if (componentsSelect.value === 'custom') {
               componentsContainer.style.display = 'grid';
           }
       
-          // Inicializar los parámetros
           this.elementParameters[elementId] = {
               ...this.elementParameters[elementId],
               componentsOption: componentsSelect.value,
@@ -1478,22 +1515,18 @@ export class NewScenarioComponent implements OnInit{
           componentsSelect.addEventListener('change', () => {
               this.elementParameters[elementId].componentsOption = componentsSelect.value;
       
-              // Mostrar u ocultar el input de componentes según la selección
               if (componentsSelect.value === 'custom') {
                   componentsContainer.style.display = 'grid';
       
-                  // Guardar customComponents solo si 'custom' está seleccionado
                   this.elementParameters[elementId].customComponents = componentsInput.value;
               } else {
                   componentsContainer.style.display = 'none';
       
-                  // No guardar customComponents si 'None' está seleccionado
                   delete this.elementParameters[elementId].customComponents;
               }
           });
       
           componentsInput.addEventListener('input', () => {
-              // Guardar el valor de customComponents solo si 'custom' está seleccionado
               if (componentsSelect.value === 'custom') {
                   this.elementParameters[elementId].customComponents = componentsInput.value;
               }
@@ -1507,41 +1540,33 @@ export class NewScenarioComponent implements OnInit{
         
 
         case 'Normalizer':
-          // Obtener el select del Norm
           const normSelect = document.getElementById('normalizer-norm') as HTMLSelectElement;
 
-          // Asignar valor por defecto si no existe
           normSelect.value = params.norm ?? 'l2';
 
-          // Guardar el valor seleccionado
           this.elementParameters[elementId] = {
               ...this.elementParameters[elementId],
               norm: normSelect.value
           };
 
-          // Agregar el event listener
           normSelect.addEventListener('change', () => {
               this.elementParameters[elementId].norm = normSelect.value;
           });
           break;
 
         case 'KNN Imputer':
-          // Obtener los elementos del DOM
           const neighborsInputKNNImputer = document.getElementById('knn-neighbors') as HTMLInputElement;
           const weightSelectKNNImputer = document.getElementById('knn-weight') as HTMLSelectElement;
 
-          // Asignar valores por defecto si no existen
           neighborsInputKNNImputer.value = params.neighbors ?? '5';
           weightSelectKNNImputer.value = params.weight ?? 'uniform';
 
-          // Guardar los valores
           this.elementParameters[elementId] = {
               ...this.elementParameters[elementId],
               neighbors: neighborsInputKNNImputer.value,
               weight: weightSelectKNNImputer.value
           };
 
-          // Event listeners
           neighborsInputKNNImputer.addEventListener('input', () => {
               this.elementParameters[elementId].neighbors = neighborsInputKNNImputer.value;
           });
@@ -1552,19 +1577,16 @@ export class NewScenarioComponent implements OnInit{
           break;
 
         case 'KNN':
-          // Obtener los elementos del DOM
           const neighborsInput = document.getElementById('knn-neighbors') as HTMLInputElement;
           const weightSelect = document.getElementById('knn-weight') as HTMLSelectElement;
           const algorithmSelect = document.getElementById('knn-algorithm') as HTMLSelectElement;
           const metricSelect = document.getElementById('knn-metric') as HTMLSelectElement;
 
-          // Asignar valores por defecto si no existen
           neighborsInput.value = params.neighbors ?? '5';
           weightSelect.value = params.weight ?? 'uniform';
           algorithmSelect.value = params.algorithm ?? 'auto';
           metricSelect.value = params.metric ?? 'minkowski';
 
-          // Guardar los valores
           this.elementParameters[elementId] = {
               ...this.elementParameters[elementId],
               neighbors: neighborsInput.value,
@@ -1573,7 +1595,6 @@ export class NewScenarioComponent implements OnInit{
               metric: metricSelect.value
           };
 
-          // Agregar event listeners
           neighborsInput.addEventListener('input', () => {
               this.elementParameters[elementId].neighbors = neighborsInput.value;
           });
@@ -1592,7 +1613,6 @@ export class NewScenarioComponent implements OnInit{
           break;
 
         case 'Random Forest':
-          // Inicializar valores
           const treesInput = document.getElementById('rf-trees') as HTMLInputElement;
           const depthSelect = document.getElementById('rf-depth-select') as HTMLSelectElement;
           const depthContainer = document.getElementById('rf-depth-container') as HTMLElement;
@@ -1612,7 +1632,6 @@ export class NewScenarioComponent implements OnInit{
           maxFeaturesSelect.value = params.maxFeaturesOption ?? 'sqrt';
           maxFeaturesInput.value = params.customMaxFeatures ?? '1';
       
-          // Mostrar u ocultar los inputs personalizados
           if (depthSelect.value === 'custom') {
               depthContainer.style.display = 'grid';
           }
@@ -1623,7 +1642,6 @@ export class NewScenarioComponent implements OnInit{
               maxFeaturesContainer.style.display = 'grid';
           }
       
-          // Inicializar los parámetros
           this.elementParameters[elementId] = {
               ...this.elementParameters[elementId],
               trees: treesInput.value,
@@ -1691,35 +1709,25 @@ export class NewScenarioComponent implements OnInit{
 
         case 'Logistic Regression':
           const cInputLR =  document.getElementById('logreg-c') as HTMLInputElement;
-          const criterionSelect =  document.getElementById('logreg-criterion') as HTMLInputElement;
           const penaltySelect =  document.getElementById('logreg-penalty') as HTMLInputElement;
           const solverSelect =  document.getElementById('logreg-solver') as HTMLInputElement;
           const maxIterInput =  document.getElementById('logreg-maxiter') as HTMLInputElement;
           
-          // Inicializar valores de configuración (si están disponibles)
           cInputLR.value = params.c ?? '1.0';
-          criterionSelect.value = params.criterion ?? 'gini';
           penaltySelect.value = params.penalty ?? 'l2';
           solverSelect.value = params.solver ?? 'lbfgs';
           maxIterInput.value = params.maxIter ?? '100';
           
-          // Guardar parámetros de configuración
           this.elementParameters[elementId] = {
               ...this.elementParameters[elementId],
               c: cInputLR.value,
-              criterion: criterionSelect.value,
               penalty: penaltySelect.value,
               solver: solverSelect.value,
               maxIter: maxIterInput.value
           };
 
-          // Escuchar cambios y actualizar los parámetros
           cInputLR.addEventListener('input', () => {
               this.elementParameters[elementId].c = cInputLR.value;
-          });
-
-          criterionSelect.addEventListener('change', () => {
-            this.elementParameters[elementId].criterion = criterionSelect.value;
           });
           
           penaltySelect.addEventListener('change', () => {
@@ -1735,7 +1743,42 @@ export class NewScenarioComponent implements OnInit{
           });
 
           break;
-        
+          case 'SVM':
+            const kernelSelect = document.getElementById('svm-kernel') as HTMLInputElement;
+            const cInput = document.getElementById('svm-c') as HTMLSelectElement;
+            const classWeightSelect = document.getElementById('svm-class_weight') as HTMLSelectElement;
+            const gammaSelect = document.getElementById('svm-gamma') as HTMLSelectElement;
+  
+            kernelSelect.value = params.kernel ?? 'rbf';
+            cInput.value = params.c ?? '1.0';
+            classWeightSelect.value = params.classWeight ?? 'None';
+            gammaSelect.value = params.gamma ?? 'scale';
+  
+            this.elementParameters[elementId] = {
+                ...this.elementParameters[elementId],
+                kernel: kernelSelect.value,
+                c: cInput.value,
+                classWeight: classWeightSelect.value,
+                gamma: gammaSelect.value
+            };
+  
+            kernelSelect.addEventListener('change', () => {
+              this.elementParameters[elementId].kernel = kernelSelect.value;
+            });
+            
+            cInput.addEventListener('input', () => {
+                this.elementParameters[elementId].c = cInput.value;
+            });
+            
+            classWeightSelect.addEventListener('change', () => {
+                this.elementParameters[elementId].classWeight = classWeightSelect.value;
+            });
+            
+            gammaSelect.addEventListener('change', () => {
+                this.elementParameters[elementId].gamma = gammaSelect.value;
+            });
+            break;
+
         case 'Gradient Boosting':
           const nEstimatorsInput = document.getElementById('gb-n_estimators') as HTMLInputElement;
           const learningRateInput = document.getElementById('gb-learning_rate') as HTMLInputElement;
@@ -1746,7 +1789,6 @@ export class NewScenarioComponent implements OnInit{
           const randomStateContainerGB = document.getElementById('gb-random-state-container') as HTMLElement;
           const randomStateInputGB = document.getElementById('gb-random-state-input') as HTMLInputElement;
       
-          // Inicializar los valores de los parámetros
           nEstimatorsInput.value = params.n_estimators ?? '100';
           learningRateInput.value = params.learning_rate ?? '0.1';
           depthSelectGB.value = params.max_depth ?? 'None';
@@ -1754,21 +1796,18 @@ export class NewScenarioComponent implements OnInit{
           randomStateSelectGB.value = params.random_state ?? 'None';
           randomStateInputGB.value = params.customRandomState ?? '0';
       
-          // Mostrar u ocultar el input de Max Depth según la selección
           if (depthSelectGB.value === 'custom') {
               depthContainerGB.style.display = 'grid';
           } else {
               depthContainerGB.style.display = 'none';
           }
       
-          // Mostrar u ocultar el input de Random State según la selección
           if (randomStateSelectGB.value === 'custom') {
               randomStateContainerGB.style.display = 'grid';
           } else {
               randomStateContainerGB.style.display = 'none';
           }
       
-          // Inicializar los parámetros
           this.elementParameters[elementId] = {
               ...this.elementParameters[elementId],
               n_estimators: nEstimatorsInput.value,
@@ -1777,60 +1816,46 @@ export class NewScenarioComponent implements OnInit{
               random_state: randomStateSelectGB.value
           };
       
-          // Event listener para el selector de Max Depth
           depthSelectGB.addEventListener('change', () => {
               this.elementParameters[elementId].max_depth = depthSelectGB.value;
       
-              // Mostrar u ocultar el input de Max Depth según la selección
               if (depthSelectGB.value === 'custom') {
                   depthContainerGB.style.display = 'grid';
-                  // Guardar el customMaxDepth solo si 'custom' está seleccionado
                   this.elementParameters[elementId].customMaxDepth = depthInputGB.value;
               } else {
                   depthContainerGB.style.display = 'none';
-                  // No guardar customMaxDepth si 'none' está seleccionado
                   delete this.elementParameters[elementId].customMaxDepth;
               }
           });
       
-          // Event listener para el input de Max Depth
           depthInputGB.addEventListener('input', () => {
-              // Guardar el valor de customMaxDepth solo si 'custom' está seleccionado
               if (depthSelectGB.value === 'custom') {
                   this.elementParameters[elementId].customMaxDepth = depthInputGB.value;
               }
           });
       
-          // Event listener para el selector de Random State
           randomStateSelectGB.addEventListener('change', () => {
               this.elementParameters[elementId].random_state = randomStateSelectGB.value;
       
-              // Mostrar u ocultar el input de Random State según la selección
               if (randomStateSelectGB.value === 'custom') {
                   randomStateContainerGB.style.display = 'grid';
-                  // Guardar customRandomState solo si 'custom' está seleccionado
                   this.elementParameters[elementId].customRandomState = randomStateInputGB.value;
               } else {
                   randomStateContainerGB.style.display = 'none';
-                  // No guardar customRandomState si 'none' está seleccionado
                   delete this.elementParameters[elementId].customRandomState;
               }
           });
       
-          // Event listener para el input de Random State
           randomStateInputGB.addEventListener('input', () => {
-              // Guardar el valor de customRandomState solo si 'custom' está seleccionado
               if (randomStateSelectGB.value === 'custom') {
                   this.elementParameters[elementId].customRandomState = randomStateInputGB.value;
               }
           });
       
-          // Event listener para el input de Número de Estimadores
           nEstimatorsInput.addEventListener('input', () => {
               this.elementParameters[elementId].n_estimators = nEstimatorsInput.value;
           });
       
-          // Event listener para el input de Learning Rate
           learningRateInput.addEventListener('input', () => {
               this.elementParameters[elementId].learning_rate = learningRateInput.value;
           });
@@ -1838,7 +1863,6 @@ export class NewScenarioComponent implements OnInit{
           break;
 
         case 'Decision Tree':
-          // Inicializar valores
           const criterionSelectDT = document.getElementById('dt-criterion') as HTMLSelectElement;
           const splitterSelectDT = document.getElementById('dt-splitter') as HTMLSelectElement;
           const maxDepthSelectDT = document.getElementById('dt-max-depth-select') as HTMLSelectElement;
@@ -1851,7 +1875,6 @@ export class NewScenarioComponent implements OnInit{
           const randomStateContainerDT = document.getElementById('dt-random-state-container') as HTMLElement;
           const randomStateInputDT = document.getElementById('dt-random-state-input') as HTMLInputElement;
       
-          // Inicializar los valores de los parámetros
           criterionSelectDT.value = params.criterion ?? 'gini';
           splitterSelectDT.value = params.splitter ?? 'best';
           maxDepthSelectDT.value = params.max_depth ?? 'None';
@@ -1861,28 +1884,24 @@ export class NewScenarioComponent implements OnInit{
           randomStateSelectDT.value = params.random_state ?? 'None';
           randomStateInputDT.value = params.customRandomState ?? '0';
       
-          // Mostrar u ocultar el input de Max Depth según la selección
           if (maxDepthSelectDT.value === 'custom') {
               maxDepthContainerDT.style.display = 'grid';
           } else {
               maxDepthContainerDT.style.display = 'none';
           }
       
-          // Mostrar u ocultar el input de Max Features según la selección
           if (maxFeaturesSelectDT.value === 'custom') {
               maxFeaturesContainerDT.style.display = 'grid';
           } else {
               maxFeaturesContainerDT.style.display = 'none';
           }
       
-          // Mostrar u ocultar el input de Random State según la selección
           if (randomStateSelectDT.value === 'custom') {
               randomStateContainerDT.style.display = 'grid';
           } else {
               randomStateContainerDT.style.display = 'none';
           }
       
-          // Inicializar los parámetros
           this.elementParameters[elementId] = {
               ...this.elementParameters[elementId],
               criterion: criterionSelectDT.value,
@@ -1892,84 +1911,64 @@ export class NewScenarioComponent implements OnInit{
               random_state: randomStateSelectDT.value
           };
       
-          // Event listener para el selector de Max Depth
           maxDepthSelectDT.addEventListener('change', () => {
               this.elementParameters[elementId].max_depth = maxDepthSelectDT.value;
       
-              // Mostrar u ocultar el input de Max Depth según la selección
               if (maxDepthSelectDT.value === 'custom') {
                   maxDepthContainerDT.style.display = 'grid';
-                  // Guardar el customMaxDepth solo si 'custom' está seleccionado
                   this.elementParameters[elementId].customMaxDepth = maxDepthInputDT.value;
               } else {
                   maxDepthContainerDT.style.display = 'none';
-                  // No guardar customMaxDepth si 'none' está seleccionado
                   delete this.elementParameters[elementId].customMaxDepth;
               }
           });
       
-          // Event listener para el input de Max Depth
           maxDepthInputDT.addEventListener('input', () => {
-              // Guardar el valor de customMaxDepth solo si 'custom' está seleccionado
               if (maxDepthSelectDT.value === 'custom') {
                   this.elementParameters[elementId].customMaxDepth = maxDepthInputDT.value;
               }
           });
       
-          // Event listener para el selector de Max Features
           maxFeaturesSelectDT.addEventListener('change', () => {
               this.elementParameters[elementId].max_features = maxFeaturesSelectDT.value;
       
-              // Mostrar u ocultar el input de Max Features según la selección
               if (maxFeaturesSelectDT.value === 'custom') {
                   maxFeaturesContainerDT.style.display = 'grid';
-                  // Guardar el customMaxFeatures solo si 'custom' está seleccionado
                   this.elementParameters[elementId].customMaxFeatures = maxFeaturesInputDT.value;
               } else {
                   maxFeaturesContainerDT.style.display = 'none';
-                  // No guardar customMaxFeatures si 'none' está seleccionado
                   delete this.elementParameters[elementId].customMaxFeatures;
               }
           });
       
-          // Event listener para el input de Max Features
           maxFeaturesInputDT.addEventListener('input', () => {
-              // Guardar el valor de customMaxFeatures solo si 'custom' está seleccionado
               if (maxFeaturesSelectDT.value === 'custom') {
                   this.elementParameters[elementId].customMaxFeatures = maxFeaturesInputDT.value;
               }
           });
       
-          // Event listener para el selector de Random State
           randomStateSelectDT.addEventListener('change', () => {
               this.elementParameters[elementId].random_state = randomStateSelectDT.value;
       
-              // Mostrar u ocultar el input de Random State según la selección
               if (randomStateSelectDT.value === 'custom') {
                   randomStateContainerDT.style.display = 'grid';
-                  // Guardar customRandomState solo si 'custom' está seleccionado
                   this.elementParameters[elementId].customRandomState = randomStateInputDT.value;
               } else {
                   randomStateContainerDT.style.display = 'none';
-                  // No guardar customRandomState si 'none' está seleccionado
                   delete this.elementParameters[elementId].customRandomState;
               }
           });
       
-          // Event listener para el input de Random State
           randomStateInputDT.addEventListener('input', () => {
-              // Guardar el valor de customRandomState solo si 'custom' está seleccionado
               if (randomStateSelectDT.value === 'custom') {
                   this.elementParameters[elementId].customRandomState = randomStateInputDT.value;
               }
           });
       
-          // Event listener para el selector de Criterion
           criterionSelectDT.addEventListener('change', () => {
               this.elementParameters[elementId].criterion = criterionSelectDT.value;
           });
       
-          // Event listener para el selector de Splitter
           splitterSelectDT.addEventListener('change', () => {
               this.elementParameters[elementId].splitter = splitterSelectDT.value;
           });
@@ -1978,12 +1977,8 @@ export class NewScenarioComponent implements OnInit{
         
 
         default:
-          
-
-      }
-
-
-      
+          break;
+      }     
   }
 
   saveScenario(): void {
@@ -2013,10 +2008,12 @@ export class NewScenarioComponent implements OnInit{
       const name = window.prompt('Please enter the name of the scenario:');
     
       if (name) {
-        this.scenarioService.saveScenario(name, design)
+        this.scenarioService.saveScenario(name, design, this.selectedCSVFile || undefined)
           .subscribe({
-            next: () => {
+            next: (response:any) => {
               alert('Scenario saved correctly.');
+              this.scenarioId = response.uuid
+              this.isNewScenario = false;
               this.scenarioService.setUnsavedChanges(false);
             },
             error: () => {
@@ -2029,7 +2026,7 @@ export class NewScenarioComponent implements OnInit{
     }
     else {
       if (this.scenarioId != null){
-        this.scenarioService.editScenario(this.scenarioId, design)
+        this.scenarioService.editScenario(this.scenarioId, design, this.selectedCSVFile || undefined)
           .subscribe({
             next: () => {
               alert('Scenario actualized correctly.');

@@ -27,7 +27,7 @@
         <tr *ngFor="let scenario of scenarios">
           <td>{{ scenario.uuid }}</td>
           <td>{{ scenario.name }}</td>
-          <td [class.finished]="scenario.status === 'finished'">{{ scenario.status }}</td>
+          <td [class.finished]="scenario.status === 'Finished'">{{ scenario.status }}</td>
           <td>{{ scenario.date | date:'dd/MM/yyyy HH:mm:ss' }}</td>
           <td>
             <div class="action-buttons">
@@ -35,12 +35,16 @@
               <button class="default-button" (click)="downloadScenario(scenario)">
                 <i class="fas fa-download"></i>
               </button>
+              <button class="default-button" (click)="runScenario(scenario.status, scenario.uuid)">
+                <i class="fas fa-play"></i>
+              </button>
+              
+              <button class="default-button" *ngIf="scenario.status === 'Finished'" (click)="viewFeatures(scenario.uuid)">Features</button>
+              <button class="default-button" *ngIf="scenario.status === 'Finished'" (click)="viewTimelineAD(scenario.uuid)">Timeline AD</button>
+              <button class="default-button" *ngIf="scenario.status === 'Finished'" (click)="viewMetrics(scenario.uuid)">Metrics</button>
               <button class="default-button delete-button" (click)="deleteScenario(scenario.uuid)">
                 <i class="fas fa-times"></i>
               </button>
-              <button class="default-button" *ngIf="scenario.status === 'finished'" (click)="viewFeatures(scenario.id)">Features</button>
-              <button class="default-button" *ngIf="scenario.status === 'finished'" (click)="viewTimelineAD(scenario.id)">Timeline AD</button>
-              <button class="default-button" *ngIf="scenario.status === 'finished'" (click)="viewMetrics(scenario.id)">Metrics</button>
             </div>
           </td>
         </tr>

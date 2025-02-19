@@ -45,6 +45,10 @@ export class DashboardComponent {
     return this.router.url.includes('/anomaly-detector/edit-scenario');
   }
 
+  isFinishedScenario(): boolean {
+    return this.router.url.includes('/anomaly-detector/features') || this.router.url.includes('/anomaly-detector/timeline-ad') || this.router.url.includes('/anomaly-detector/metrics');
+  }
+
 
   async goBack(): Promise<void> {
     if (this.isNewScenario()) {
@@ -66,7 +70,7 @@ export class DashboardComponent {
     const urlParts = currentUrl.split('/');
 
     if (urlParts.length > 3) {
-      if (this.isEditScenario()) {
+      if (this.isEditScenario() || this.isFinishedScenario()) {
         urlParts.pop();
       }
       urlParts.pop();

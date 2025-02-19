@@ -35,6 +35,8 @@ urlpatterns = [
     path('scenarios/create/', views.create_scenario, name='create_scenario'),
     path('scenarios/', views.get_scenarios_by_user, name='get_scenarios_by_user'), 
     path('scenarios/<uuid:uuid>/', views.get_scenario_by_uuid, name='get_scenario_by_uuid'), 
+    path('scenarios/run/<uuid:uuid>/', views.run_scenario_by_uuid, name='run_scenario_by_uuid'),
     path('scenarios/delete/<uuid:uuid>/', views.delete_scenario_by_uuid, name='delete_scenario_by_uuid'),
     path('scenarios/put/<uuid:uuid>/', views.put_scenario_by_uuid, name='put_scenario_by_uuid'),
+    path('scenarios/<uuid:uuid>/metrics/', views.get_scenario_metrics_by_uuid, name='get_scenario_metrics_by_uuid'),
 ]

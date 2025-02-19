@@ -55,6 +55,13 @@ export class ScenarioService {
     });
   }
 
+  private getAuthHeadersWithoutContentType(): HttpHeaders {
+    const token = this.getToken();
+    return new HttpHeaders({
+      Authorization: token ? `Bearer ${token}` : '',
+    });
+  }
+
   private refreshToken(): Observable<any> {
     const refreshToken = this.getRefreshToken();
     if (!refreshToken) {
@@ -91,17 +98,35 @@ export class ScenarioService {
     );
   }
 
-  saveScenario(name: string, design: any): Observable<any> {
+  saveScenario(name: string, design: any, csvFile?: File): Observable<any> {
     if (isPlatformBrowser(this.platformId)) {
-      const data = { name, design };
-      return this.handleRequest(this.http.post(this.apiUrl + 'create/', data, { headers: this.getAuthHeaders() }));
+      const formData = new FormData();
+      formData.append('name', name);
+      formData.append('design', JSON.stringify(design));
+  
+      if (csvFile) {
+        formData.append('csv_file', csvFile);
+      }
+  
+      return this.handleRequest(this.http.post(this.apiUrl + 'create/', formData, {
+        headers: this.getAuthHeadersWithoutContentType(), // No incluir 'Content-Type', ya que FormData lo maneja automáticamente
+      }));
     }
     return EMPTY;
   }
-
-  editScenario(uuid: string, design: any): Observable<any> {
+  
+  editScenario(uuid: string, design: any, csvFile?: File): Observable<any> {
     if (isPlatformBrowser(this.platformId)) {
-      return this.handleRequest(this.http.put(`${this.apiUrl}put/${uuid}/`, design, { headers: this.getAuthHeaders() }));
+      const formData = new FormData();
+      formData.append('design', new Blob([JSON.stringify(design)], { type: 'application/json' }));
+  
+      if (csvFile) {
+        formData.append('csv_file', csvFile);
+      }
+  
+      return this.handleRequest(this.http.put(`${this.apiUrl}put/${uuid}/`, formData, {
+        headers: this.getAuthHeadersWithoutContentType(),
+      }));
     }
     return EMPTY;
   }
@@ -119,6 +144,13 @@ export class ScenarioService {
     }
     return EMPTY;
   }
+
+  runScenario(uuid: string): Observable<any> {
+    if (isPlatformBrowser(this.platformId)) {
+      return this.handleRequest(this.http.patch(`${this.apiUrl}run/${uuid}/`, null, { headers: this.getAuthHeaders() }));
+    }
+    return EMPTY;
+  }
   
   deleteScenario(uuid: string): Observable<any> {
     if (isPlatformBrowser(this.platformId)) {
@@ -126,7 +158,16 @@ export class ScenarioService {
     }
     return EMPTY;
   }
-
+  
+  getScenarioMetrics(uuid: string): Observable<any> {
+    if (isPlatformBrowser(this.platformId)) {
+      return this.handleRequest(
+        this.http.get(`${this.apiUrl}${uuid}/metrics/`, { headers: this.getAuthHeaders() })
+      );
+    }
+    return EMPTY;
+  }
+  
   logout(): void {
     if (isPlatformBrowser(this.platformId)) {
       localStorage.removeItem('access_token');

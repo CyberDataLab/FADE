@@ -21,9 +21,9 @@ export const routes: Routes = [
     { path: 'register', component: RegisterComponent },
     { path: 'dashboard', component: DashboardComponent, children: [
         { path: 'anomaly-detector', component: AnomalyDetectorComponent, children: [
-            { path: 'features', component: FeaturesComponent },
-            { path: 'timeline-ad', component: TimelineADComponent },
-            { path: 'metrics', component: MetricsComponent },
+            { path: ':id/features', component: FeaturesComponent },
+            { path: ':id/timeline-ad', component: TimelineADComponent },
+            { path: ':id/metrics', component: MetricsComponent },
             { path: 'new-scenario', component: NewScenarioComponent },
             { path: 'edit-scenario/:id', component: NewScenarioComponent }
 

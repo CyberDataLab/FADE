@@ -75,6 +75,21 @@ class DataSync(models.Model):
     def verify_sync_data(self):
         pass
 
+class File(models.Model):
+    FILE_TYPES = [
+        ('csv', 'CSV'),
+        ('red', 'Network'),
+    ]
+
+    id = models.AutoField(primary_key=True)
+    name = models.CharField(max_length=255)
+    file_type = models.CharField(max_length=10, choices=FILE_TYPES)
+    entry_count = models.IntegerField(default=0)
+    content = models.FileField(upload_to='uploads/')  
+
+    class Meta:
+        db_table = "File"
+        
 class Scenario(models.Model):
     name = models.CharField(max_length=255, null=False, blank=True, default="Scenario name")
     user = models.ForeignKey('accounts.CustomUser', on_delete=models.CASCADE) 
@@ -82,6 +97,26 @@ class Scenario(models.Model):
     uuid = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     status = models.CharField(max_length=255, default='Draft')
     date = models.DateTimeField(auto_now_add=True)
+    file = models.ForeignKey(File, on_delete=models.CASCADE, null=True, blank=True)  
 
     class Meta:
         db_table = "Scenario"
+
+class AnomalyDetector(models.Model):
+    scenario = models.ForeignKey(Scenario, on_delete=models.CASCADE, null=True, blank=True)
+    
+    class Meta:
+        db_table = "AnomalyDetector"
+
+class Metric(models.Model):
+    detector = models.ForeignKey(AnomalyDetector, on_delete=models.CASCADE, null=True, blank=True)
+    model_name = models.CharField(max_length=255, default='model_name')
+    accuracy = models.DecimalField(max_digits=5, decimal_places=2)
+    precision = models.DecimalField(max_digits=5, decimal_places=2)
+    recall = models.DecimalField(max_digits=5, decimal_places=2)
+    f1_score = models.DecimalField(max_digits=5, decimal_places=2)
+    confusion_matrix = models.TextField()
+    date = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "Metric"

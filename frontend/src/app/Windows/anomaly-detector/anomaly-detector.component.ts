@@ -106,18 +106,19 @@ export class AnomalyDetectorComponent {
     input.value = '';
   }
 
-  viewFeatures(scenarioId: number) {
-    this.router.navigate(['/features', scenarioId]);
-  }
-  
-  viewTimelineAD(scenarioId: number) {
-    this.router.navigate(['/timeline-ad', scenarioId]);
-  }
-  
-  viewMetrics(scenarioId: number) {
-    this.router.navigate(['/metrics', scenarioId]);
+  viewFeatures(uuid: string) {
+    this.router.navigate([`/dashboard/anomaly-detector/${uuid}/features`]);
   }
 
+  viewTimelineAD(uuid: string) {
+    this.router.navigate([`/dashboard/anomaly-detector/${uuid}/timeline-ad`]);
+  }
+
+  viewMetrics(uuid: string) {
+    this.router.navigate([`/dashboard/anomaly-detector/${uuid}/metrics`]);
+  }
+  
+  
   getScenarios(): void {
     this.scenarioService.getScenarios().subscribe(
       (response: Scenario[]) => {
@@ -165,6 +166,27 @@ export class AnomalyDetectorComponent {
 
   editScenario(uuid: string): void {
     this.router.navigate([`/dashboard/anomaly-detector/edit-scenario/${uuid}`]);
+  }
+
+  runScenario(status: string, uuid: string): void {
+    if (status == 'Running') {
+      alert("Scenario running. Wait for the scenario to finish before running it again.");
+    }
+    
+    if (confirm('Are you sure you want to run this scenario?')) {
+      this.scenarioService.runScenario(uuid).subscribe({
+        next: (response:any) => {
+          alert('Scenario running successfully');
+  
+          // Handle and display metrics
+          const metrics = response.metrics;
+        },
+        error: (error: any) => {
+          console.error('Error running scenario:', error);
+          alert('Error running scenario');
+        }
+      });
+    }
   }
 
   downloadScenario(scenario: any) {

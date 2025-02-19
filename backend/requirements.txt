@@ -5,3 +5,5 @@ django-cors-headers
 mysqlclient
 python-decouple
 pyjwt
+pandas>=1.1.0
+scikit-learn>=1.0.0
