@@ -6,13 +6,12 @@ import { ScenarioService } from '../../scenario.service';
 import { Scenario } from '../../../DTOs/Scenario';
 
 @Component({
-  selector: 'app-new-scenario',
-  standalone: true,
-  imports: [
-    CommonModule
-  ],
-  templateUrl: './new-scenario.component.html',
-  styleUrl: './new-scenario.component.css'
+    selector: 'app-new-scenario',
+    imports: [
+        CommonModule
+    ],
+    templateUrl: './new-scenario.component.html',
+    styleUrl: './new-scenario.component.css'
 })
 
 export class NewScenarioComponent implements OnInit{
@@ -277,7 +276,6 @@ export class NewScenarioComponent implements OnInit{
     const dropX = (event.clientX - rect.left) / scale;
     const dropY = (event.clientY - rect.top) / scale;
   
-    // Calcular nuevas posiciones
     const intendedPositions = this.relativePositions.map(({ element, offsetX, offsetY }) => {
       const maxX = dropArea.offsetWidth / scale - element.offsetWidth;
       let newX = dropX + offsetX;
@@ -290,17 +288,14 @@ export class NewScenarioComponent implements OnInit{
       return { element, newX, newY };
     });
   
-    // Verificar colisiones
     let hasCollision = false;
   
     intendedPositions.forEach(({ element, newX, newY }) => {
-      // Verificar contra elementos existentes
       const collidesWithExisting = this.droppedElements.some(existing => 
         !this.draggedElements.includes(existing) && 
         this.isColliding(element, newX, newY, existing)
       );
   
-      // Verificar contra otros elementos arrastrados
       const collidesWithDragged = intendedPositions.some(other => 
         other.element !== element && 
         this.isColliding(element, newX, newY, other.element, other.newX, other.newY)
@@ -314,7 +309,6 @@ export class NewScenarioComponent implements OnInit{
       return;
     }
   
-    // Colocar elementos si no hay colisiones
     intendedPositions.forEach(({ element, newX, newY }) => {
       if (!dropArea.contains(element)) {
         element.id = `element-${this.nextElementId++}`;
@@ -714,22 +708,17 @@ export class NewScenarioComponent implements OnInit{
         if (configContent) {
           switch (selectedElement.innerText.trim()) {
             case 'CSV':
-            // Limpiar contenido anterior
             configContent.innerHTML = `<h3>CSV file configuration</h3><p>Please select a CSV file:</p>`;
 
-            // Crear input dinámicamente
             const input = this.renderer.createElement('input');
             this.renderer.setAttribute(input, 'type', 'file');
             this.renderer.setAttribute(input, 'id', 'csv-upload');
             this.renderer.setAttribute(input, 'accept', '.csv');
 
-            // Agregar evento manualmente
             this.renderer.listen(input, 'change', (event:any) => this.onCSVFileSelected(event));
 
-            // Agregar input al contenedor
             this.renderer.appendChild(configContent, input);
 
-            // Crear elemento para mostrar el nombre del archivo
             const fileNameElement = this.renderer.createElement('p');
             this.renderer.setAttribute(fileNameElement, 'id', 'file-name');
             this.renderer.appendChild(configContent, fileNameElement);
@@ -843,7 +832,6 @@ export class NewScenarioComponent implements OnInit{
                 const scriptPCA = document.createElement('script');
                 scriptPCA.innerHTML = `
             
-                  // Agregar funcionalidad para mostrar u ocultar el input de número de componentes
                   const pcaSelect = document.getElementById('pca-components-select');
                   const pcaContainer = document.getElementById('pca-components-container');
               
@@ -852,7 +840,7 @@ export class NewScenarioComponent implements OnInit{
                   }
               
                   pcaSelect.addEventListener('change', updatePCAComponentsVisibility);
-                  updatePCAComponentsVisibility(); // Ejecutar al cargar
+                  updatePCAComponentsVisibility(); 
                 `;
                 document.body.appendChild(scriptPCA);
                 nameElement = "PCA";
@@ -994,7 +982,6 @@ export class NewScenarioComponent implements OnInit{
               const scriptRF = document.createElement('script');
               scriptRF.innerHTML = `
           
-                // Función para mostrar/ocultar los inputs personalizados
                 function setupDropdownToggle(selectId, containerId) {
                     const select = document.getElementById(selectId);
                     const container = document.getElementById(containerId);
@@ -1004,10 +991,9 @@ export class NewScenarioComponent implements OnInit{
                     }
             
                     select.addEventListener('change', updateVisibility);
-                    updateVisibility(); // Ejecutar al cargar
+                    updateVisibility();
                 }
             
-                // Aplicar a cada selector
                 setupDropdownToggle('rf-depth-select', 'rf-depth-container');
                 setupDropdownToggle('rf-random-state-select', 'rf-random-state-container');
                 setupDropdownToggle('rf-max-features-select', 'rf-max-features-container');
@@ -1101,7 +1087,7 @@ export class NewScenarioComponent implements OnInit{
                     }
                     
                     kernelSelect.addEventListener('change', updateGammaVisibility);
-                    updateGammaVisibility(); // Ejecutar al cargar
+                    updateGammaVisibility();
                 `;
                 document.body.appendChild(scriptSVM);
                 nameElement = "SVM";
@@ -1165,7 +1151,7 @@ export class NewScenarioComponent implements OnInit{
                         }
             
                         select.addEventListener('change', updateVisibility);
-                        updateVisibility(); // Ejecutar al cargar
+                        updateVisibility();
                     }
             
                     setupDropdownToggle('gb-depth-select', 'gb-depth-container');
@@ -1242,7 +1228,6 @@ export class NewScenarioComponent implements OnInit{
                 `;
                 const scriptDT = document.createElement('script');
                 scriptDT.innerHTML = `
-                  // Función para mostrar/ocultar los inputs personalizados
                   function setupDropdownToggle(selectId, containerId) {
                       const select = document.getElementById(selectId);
                       const container = document.getElementById(containerId);
@@ -1252,10 +1237,9 @@ export class NewScenarioComponent implements OnInit{
                       }
               
                       select.addEventListener('change', updateVisibility);
-                      updateVisibility(); // Ejecutar al cargar
+                      updateVisibility();
                   }
               
-                  // Aplicar la función a cada selector relevante
                   setupDropdownToggle('dt-max-depth-select', 'dt-max-depth-container');
                   setupDropdownToggle('dt-max-features-select', 'dt-max-features-container');
                   setupDropdownToggle('dt-random-state-select', 'dt-random-state-container');
@@ -1410,7 +1394,6 @@ export class NewScenarioComponent implements OnInit{
                 this.elementParameters[elementId] = {
                   ...this.elementParameters[elementId],
                   csvFileName: file.name
-                  //csvFileContent: reader.result 
                 };
               };
               reader.readAsText(file); 

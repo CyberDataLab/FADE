@@ -28,7 +28,6 @@ from sklearn.metrics import f1_score, precision_score, recall_score, accuracy_sc
 
 logger = logging.getLogger('backend')
 
-# Views for DataController
 def put_data_controller(request):
     controller = DataController(name='Example Controller')
     controller.put_data() 
@@ -140,7 +139,6 @@ def create_scenario(request):
     data = request.data.dict() 
     data['user'] = user.id 
 
-    # Obtener el archivo CSV desde request.FILES
     csv_file = request.FILES.get('csv_file')
 
     logger.info(csv_file)
@@ -155,7 +153,6 @@ def create_scenario(request):
     except Exception as e:
         return JsonResponse({"error": f"Error while reading the CSV file: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Guardar el archivo en la base de datos
     file_instance = File.objects.create(
         name=csv_file.name,
         file_type='csv', 
@@ -228,26 +225,33 @@ def get_scenario_metrics_by_uuid(request, uuid):
 
 @api_view(['PUT'])
 @permission_classes([IsAuthenticated])
+@parser_classes([MultiPartParser])
 def put_scenario_by_uuid(request, uuid):
     user = request.user
 
     try:
         scenario = Scenario.objects.get(uuid=uuid, user=user)
 
-        design = request.data
+        design_json = request.POST.get('design')  
+        csv_file = request.FILES.get('csv_file')  
 
-        if design is not None:
-            scenario.design = design
+        if not design_json:
+            return JsonResponse({'error': 'Design field is required'}, status=status.HTTP_400_BAD_REQUEST)
 
-            serializer = ScenarioSerializer(instance=scenario, data=request.data, partial=True)  
-            if serializer.is_valid():
-                serializer.save(user=user)  
-                return JsonResponse({'message': 'Scenario updated correctly'}, status=status.HTTP_200_OK)
-            else:
-                logger.error("Serializer errors: %s", serializer.errors)
-                return JsonResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            design = json.loads(design_json)
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid design JSON'}, status=status.HTTP_400_BAD_REQUEST)
 
-        return JsonResponse({'error': 'Design field is required'}, status=status.HTTP_400_BAD_REQUEST)
+        scenario.design = design
+
+        serializer = ScenarioSerializer(instance=scenario, data={'design': design}, partial=True)
+        if serializer.is_valid():
+            serializer.save(user=user)
+            return JsonResponse({'message': 'Scenario updated correctly'}, status=status.HTTP_200_OK)
+        else:
+            logger.error("Serializer errors: %s", serializer.errors)
+            return JsonResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     except Scenario.DoesNotExist:
         return JsonResponse({'error': 'Scenario not found or without permits'}, status=status.HTTP_404_NOT_FOUND)
@@ -290,11 +294,6 @@ def run_scenario_by_uuid(request, uuid):
 
         anomaly_detector, created = AnomalyDetector.objects.get_or_create(scenario=scenario)
 
-        if created:
-            logger.info("Anomaly Detector created for scenario: %s", scenario.uuid)
-        else:
-            logger.info("Anomaly Detector already exists for scenario: %s", scenario.uuid)
-
         design = scenario.design
         if isinstance(design, str):  
             design = json.loads(design)
@@ -306,8 +305,6 @@ def run_scenario_by_uuid(request, uuid):
 
         scenario.status = 'Finished'
         scenario.save()
-
-        logger.info(result.get('message'))
 
         return JsonResponse({
             'message': 'Scenario run successfully'
@@ -367,7 +364,6 @@ def execute_scenario(anomaly_detector, design):
         logger.info(scaler_params)
         logger.info(rf_params)
 
-        # Verificar si el archivo CSV existe en la base de datos
         try:
             file = File.objects.get(name=csv_file_name)
         except File.DoesNotExist:
@@ -375,23 +371,19 @@ def execute_scenario(anomaly_detector, design):
     
         logger.info(file)
 
-        # Cargar el CSV desde el sistema de archivos
-        csv_file_path = file.content  # Asumimos que `content` almacena la ruta del archivo
+        csv_file_path = file.content  
         df = pd.read_csv(csv_file_path)
         logger.info(df)
 
-        # Aplicar StandardScaler si existen parámetros
         if scaler_params:
-            df_numeric = df.iloc[:, :-1]  # Todas menos la última columna
+            df_numeric = df.iloc[:, :-1]  
             scaler = StandardScaler(with_std=scaler_params.get('withStd') == 'True', 
                                     with_mean=scaler_params.get('withMean') == 'True')
 
-            # Aplicar transformación solo a las columnas numéricas de X
             df.iloc[:, :-1] = scaler.fit_transform(df_numeric)
 
         logger.info("LLEGO")
 
-        # Procesar con MinMaxScaler (si está presente)
         if minmax_params:
             min_value = float(minmax_params.get('minValue', 0))
             max_value = float(minmax_params.get('maxValue', 1))
@@ -399,140 +391,108 @@ def execute_scenario(anomaly_detector, design):
             scaler = MinMaxScaler(feature_range=(min_value, max_value), clip=clip)
             df = pd.DataFrame(scaler.fit_transform(df), columns=df.columns)
 
-        # Procesar con OneHotEncoder (si está presente)
         if encoder_params:
             df_categorical = df.select_dtypes(include=['object', 'category'])
 
-            handle_unknown = encoder_params.get('handleUnknown', 'error')  # 'error' es el valor por defecto
-            drop = encoder_params.get('drop', None)  # None equivale a no eliminar ninguna categoría
+            handle_unknown = encoder_params.get('handleUnknown', 'error')  
+            drop = encoder_params.get('drop', None)  
 
             encoder = OneHotEncoder(handle_unknown=handle_unknown, drop=drop, sparse_output=False)
             df_encoded = encoder.fit_transform(df_categorical)
 
-            # Convertir a DataFrame con los nombres de las columnas
             encoded_columns = encoder.get_feature_names_out(df_categorical.columns)
             df_encoded = pd.DataFrame(df_encoded, columns=encoded_columns, index=df.index)
 
-            # Reemplazar las columnas categóricas originales con las nuevas codificadas
             df = df.drop(columns=df_categorical.columns).join(df_encoded)
 
-        # Procesar con PCA (si está presente)
         if pca_params:
             df_numeric = df.select_dtypes(include=['float64', 'int64'])
 
-            # Determinar el número de componentes principales
-            components_option = pca_params.get('componentsOption', 'None')  # 'None' significa usar todos los componentes
-            custom_components = int(pca_params.get('customComponents', 1))  # Si es 'custom', usa este valor
-            whiten = pca_params.get('whiten', 'False') == 'True'  # Convertir a booleano
+            components_option = pca_params.get('componentsOption', 'None')  
+            custom_components = int(pca_params.get('customComponents', 1))  
+            whiten = pca_params.get('whiten', 'False') == 'True' 
 
             if components_option == 'custom':
                 n_components = custom_components
             else:
-                n_components = None  # Si es 'None', PCA usará todos los componentes posibles
+                n_components = None  
 
-            # Aplicar PCA
             pca = PCA(n_components=n_components, whiten=whiten)
             df_pca = pca.fit_transform(df_numeric)
 
-            # Crear DataFrame con las nuevas columnas de PCA
             pca_columns = [f'PC{i+1}' for i in range(df_pca.shape[1])]
             df_pca = pd.DataFrame(df_pca, columns=pca_columns, index=df.index)
 
-            # Reemplazar las columnas originales con las nuevas transformadas
             df = df.drop(columns=df_numeric.columns).join(df_pca)
 
-        # Procesar con Normalizer (si está presente)
         if normalizer_params:
             df_numeric = df.select_dtypes(include=['float64', 'int64'])
 
-            # Obtener el tipo de normalización ('l1', 'l2' o 'max')
-            norm_type = normalizer_params.get('norm', 'l2')  # 'l2' por defecto
+            norm_type = normalizer_params.get('norm', 'l2') 
 
-            # Aplicar Normalizer
             normalizer = Normalizer(norm=norm_type)
             df_normalized = normalizer.fit_transform(df_numeric)
 
-            # Crear DataFrame con los datos normalizados
             df_normalized = pd.DataFrame(df_normalized, columns=df_numeric.columns, index=df.index)
 
-            # Reemplazar las columnas originales con las normalizadas
             df[df_numeric.columns] = df_normalized
             
-        # Procesar con KNNImputer (si está presente)
         if knnImputer_params:
             df_numeric = df.select_dtypes(include=['float64', 'int64'])
 
-            # Obtener valores de los parámetros con valores por defecto
-            n_neighbors = int(knnImputer_params.get('neighbors', 5))  # Número de vecinos (por defecto 5)
-            weights = knnImputer_params.get('weight', 'uniform')  # 'uniform' o 'distance'
+            n_neighbors = int(knnImputer_params.get('neighbors', 5)) 
+            weights = knnImputer_params.get('weight', 'uniform') 
 
-            # Aplicar KNN Imputer
             imputer = KNNImputer(n_neighbors=n_neighbors, weights=weights)
             df_imputed = imputer.fit_transform(df_numeric)
 
-            # Convertir de nuevo a DataFrame con los mismos nombres de columnas
             df_imputed = pd.DataFrame(df_imputed, columns=df_numeric.columns, index=df.index)
 
-            # Reemplazar las columnas originales con los valores imputados
             df[df_numeric.columns] = df_imputed
 
-        X = df.iloc[:, :-1]  # todas las columnas excepto la última (que sería la etiqueta)
-        y = df.iloc[:, -1]   # última columna como etiqueta
+        X = df.iloc[:, :-1]  
+        y = df.iloc[:, -1]   
 
-        # Dividir el conjunto de datos en train y test (80% para entrenamiento, 20% para prueba)
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
         logger.info("COMIENZO MODELO")
-        # Aplicar KNN si está presente
         if knn_params:
-            # Obtener valores de los parámetros con valores por defecto
-            n_neighbors = int(knn_params.get('neighbors', 5))  # Número de vecinos
-            weights = knn_params.get('weight', 'uniform')  # 'uniform' o 'distance'
-            algorithm = knn_params.get('algorithm', 'auto')  # Algoritmo de búsqueda
-            metric = knn_params.get('metric', 'minkowski')  # Métrica de distancia
+            n_neighbors = int(knn_params.get('neighbors', 5))
+            weights = knn_params.get('weight', 'uniform')
+            algorithm = knn_params.get('algorithm', 'auto')
+            metric = knn_params.get('metric', 'minkowski')
 
-            # Crear y entrenar el modelo KNN
             knn = KNeighborsClassifier(n_neighbors=n_neighbors, weights=weights, algorithm=algorithm, metric=metric)
             knn.fit(X_train, y_train)
 
-            # Realizar predicciones en el conjunto de prueba
             y_pred_knn = knn.predict(X_test)
 
-            # Calcular F1-score
-            f1 = f1_score(y_test, y_pred_knn, average='weighted')  # 'weighted' para datos desbalanceados
-
+            f1 = f1_score(y_test, y_pred_knn, average='weighted')
             logger.info(f"KNN Model - F1 Score: {f1:.2f}")
             metrics['KNN'] = {
                 'f1_score': round(f1, 2)
             }
 
-        # Aplicar RandomForest (si está presente)
         if rf_params:
-            # Número de árboles
-            n_estimators = int(rf_params.get('trees', 100))  # Número de árboles
-            # Máxima profundidad
+            n_estimators = int(rf_params.get('trees', 100))
             max_depth_option = rf_params.get('depthOption', 'None')
             max_depth = None if max_depth_option == 'None' else int(rf_params.get('customDepth', 1))
-            # Estado aleatorio
+
             random_state_option = rf_params.get('randomStateOption', 'None')
             if random_state_option == 'None':
                 random_state = None
             elif random_state_option == 'custom':
-                # Aquí se debe obtener el valor de rf-random-state-input
-                random_state = int(rf_params.get('customRandomState', 0))  # Cambia esto según cómo se pase en el JSON
+                random_state = int(rf_params.get('customRandomState', 0))
             else:
                 random_state = None
-            # Máximas características
             max_features_option = rf_params.get('maxFeaturesOption', 'sqrt')
             if max_features_option == 'custom':
-                # Aquí se debe obtener el valor de rf-max-features-input
-                max_features = int(rf_params.get('customMaxFeatures', 1))  # Cambia esto según cómo se pase en el JSON
+                max_features = int(rf_params.get('customMaxFeatures', 1))
             else:
                 max_features = max_features_option
 
             logger.info("DENTRO RF")
 
-            # Crear el modelo RandomForestClassifier
             rf = RandomForestClassifier(
                 n_estimators=n_estimators,
                 max_depth=max_depth,
@@ -540,27 +500,11 @@ def execute_scenario(anomaly_detector, design):
                 max_features=max_features
             )
 
-            logger.info("CREADO RF")
-            logger.info("X Train")
-
-            logger.info(X_train)
-
-            logger.info("y train")
-            logger.info(y_train)
-            logger.info("FIT")
-
-            # Entrenar el modelo con el conjunto de entrenamiento
             rf.fit(X_train, y_train)
 
-            logger.info("FIN FIT")
-
-            # Realizar predicciones con el conjunto de prueba
             y_pred = rf.predict(X_test)
 
-            logger.info("FIN PREDICT")
-
-            # Calcular métricas
-            f1_rf = f1_score(y_test, y_pred, average='weighted')  # 'weighted' para datos desbalanceados
+            f1_rf = f1_score(y_test, y_pred, average='weighted') 
             precision_rf = precision_score(y_test, y_pred, average='weighted')
             recall_rf = recall_score(y_test, y_pred, average='weighted')
             accuracy_rf = accuracy_score(y_test, y_pred)
@@ -580,8 +524,6 @@ def execute_scenario(anomaly_detector, design):
                 'confusion_matrix': conf_matrix_rf.tolist()
             }
 
-            logger.info(" METRICAS")
-
             Metric.objects.create(
                 detector=anomaly_detector,
                 model_name='RandomForest',
@@ -592,17 +534,12 @@ def execute_scenario(anomaly_detector, design):
                 confusion_matrix=json.dumps(metrics_rf['confusion_matrix'])
             )
 
-            logger.info("CREO METRICAS")
-
-        # Aplicar LogisticRegression (si está presente)
         if lr_params:
-            # Parámetros de Logistic Regression
-            c = float(lr_params.get('c', 1.0))  # Valor de c (penalización)
-            penalty = lr_params.get('penalty', 'l2')  # Tipo de penalización (default 'l2')
-            solver = lr_params.get('solver', 'lbfgs')  # Algoritmo de solución (default 'lbfgs')
-            max_iter = int(lr_params.get('maxIter', 100))  # Número máximo de iteraciones
+            c = float(lr_params.get('c', 1.0))
+            penalty = lr_params.get('penalty', 'l2')
+            solver = lr_params.get('solver', 'lbfgs')
+            max_iter = int(lr_params.get('maxIter', 100))
 
-            # Crear el modelo LogisticRegression
             lr = LogisticRegression(
                 C=c,
                 penalty=penalty,
@@ -610,39 +547,31 @@ def execute_scenario(anomaly_detector, design):
                 max_iter=max_iter
             )
 
-            # Entrenar el modelo con el conjunto de entrenamiento
             lr.fit(X_train, y_train)
 
-            # Realizar predicciones con el conjunto de prueba
             y_pred = lr.predict(X_test)
 
-            # Calcular la precisión o alguna otra métrica
-            f1 = f1_score(y_test, y_pred, average='weighted')  # 'weighted' para datos desbalanceados
+            f1 = f1_score(y_test, y_pred, average='weighted')
             logger.info(f"Logistic Regression Model - F1 Score: {f1:.2f}")
             metrics['LogisticRegression'] = {
                 'f1_score': round(f1, 2)
             }
 
-        # Aplicar GradientBoosting (si está presente)
         if gb_params:
-            # Parámetros de Gradient Boosting
-            n_estimators = int(gb_params.get('n_estimators', 100))  # Número de estimadores (default 100)
-            learning_rate = float(gb_params.get('learning_rate', 0.1))  # Tasa de aprendizaje (default 0.1)
+            n_estimators = int(gb_params.get('n_estimators', 100))
+            learning_rate = float(gb_params.get('learning_rate', 0.1))
             
-            # Profundidad máxima
             max_depth_option = gb_params.get('max_depth', 'None')
             max_depth = None if max_depth_option == 'None' else int(gb_params.get('customMaxDepth', 3))
             
-            # Estado aleatorio
             random_state_option = gb_params.get('random_state', 'None')
             if random_state_option == 'None':
                 random_state = None
             elif random_state_option == 'custom':
-                random_state = int(gb_params.get('customRandomState', 0))  # Cambia esto según cómo se pase en el JSON
+                random_state = int(gb_params.get('customRandomState', 0))
             else:
                 random_state = None
 
-            # Crear el modelo GradientBoostingClassifier
             gb = GradientBoostingClassifier(
                 n_estimators=n_estimators,
                 learning_rate=learning_rate,
@@ -650,43 +579,34 @@ def execute_scenario(anomaly_detector, design):
                 random_state=random_state
             )
 
-            # Entrenar el modelo con el conjunto de entrenamiento
             gb.fit(X_train, y_train)
 
-            # Realizar predicciones con el conjunto de prueba
             y_pred = gb.predict(X_test)
 
-            # Calcular la precisión o alguna otra métrica
-            f1 = f1_score(y_test, y_pred, average='weighted')  # 'weighted' para datos desbalanceados
+            f1 = f1_score(y_test, y_pred, average='weighted')
             logger.info(f"Gradient Boosting Model - F1 Score: {f1:.2f}")
             metrics['GradientBoosting'] = {
                 'f1_score': round(f1, 2)
             }
 
-        # Aplicar DecisionTree (si está presente)
         if dt_params:
-            # Parámetros de Decision Tree
-            criterion = dt_params.get('criterion', 'gini')  # Criterio de partición, por defecto 'gini'
-            splitter = dt_params.get('splitter', 'best')  # Método de división, por defecto 'best'
+            criterion = dt_params.get('criterion', 'gini')
+            splitter = dt_params.get('splitter', 'best')
             
-            # Profundidad máxima
             max_depth_option = dt_params.get('max_depth', 'None')
             max_depth = None if max_depth_option == 'None' else int(dt_params.get('customMaxDepth', 1))
             
-            # Máximo número de características
             max_features_option = dt_params.get('max_features', 'None')
             max_features = None if max_features_option == 'None' else int(dt_params.get('customMaxFeatures', 1))
             
-            # Estado aleatorio
             random_state_option = dt_params.get('random_state', 'None')
             if random_state_option == 'None':
                 random_state = None
             elif random_state_option == 'custom':
-                random_state = int(dt_params.get('customRandomState', 0))  # Cambia esto según cómo se pase en el JSON
+                random_state = int(dt_params.get('customRandomState', 0))
             else:
                 random_state = None
 
-            # Crear el modelo DecisionTreeClassifier
             dt = DecisionTreeClassifier(
                 criterion=criterion,
                 splitter=splitter,
@@ -695,23 +615,18 @@ def execute_scenario(anomaly_detector, design):
                 random_state=random_state
             )
 
-            # Entrenar el modelo con el conjunto de entrenamiento
             dt.fit(X_train, y_train)
 
-            # Realizar predicciones con el conjunto de prueba
             y_pred = dt.predict(X_test)
 
-            # Calcular la precisión o alguna otra métrica
-            f1 = f1_score(y_test, y_pred, average='weighted')  # 'weighted' para datos desbalanceados
+            f1 = f1_score(y_test, y_pred, average='weighted')
             logger.info(f"Decision Tree Model - F1 Score: {f1:.2f}")
             metrics['DecisionTree'] = {
                 'f1_score': round(f1, 2)
             }
 
         return {'message': 'Model trained successfully', 'metrics': metrics}
-        
 
     except Exception as e:
-        # En caso de error, devolver el error
         return {'error': str(e)}
     

@@ -8,14 +8,13 @@ import { UserLogin } from '../../DTOs/UserLogin';
 import { AuthenticationService } from '../authentication.service';
 
 @Component({
-  selector: 'app-login',
-  standalone: true,
-  imports: [CommonModule,
-    FormsModule,
-    RouterModule
-  ],
-  templateUrl: './login.component.html',
-  styleUrl: './login.component.css'
+    selector: 'app-login',
+    imports: [CommonModule,
+        FormsModule,
+        RouterModule
+    ],
+    templateUrl: './login.component.html',
+    styleUrl: './login.component.css'
 })
 export class LoginComponent implements OnInit {
 

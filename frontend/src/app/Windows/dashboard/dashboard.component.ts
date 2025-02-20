@@ -11,12 +11,11 @@ import { Location } from '@angular/common';
 import { ScenarioService } from '../scenario.service';
 
 @Component({
-  selector: 'app-dashboard',
-  standalone: true,
-  imports: [CommonModule,
-    RouterModule],
-  templateUrl: './dashboard.component.html',
-  styleUrl: './dashboard.component.css'
+    selector: 'app-dashboard',
+    imports: [CommonModule,
+        RouterModule],
+    templateUrl: './dashboard.component.html',
+    styleUrl: './dashboard.component.css'
 })
 export class DashboardComponent {
 
@@ -46,7 +45,7 @@ export class DashboardComponent {
   }
 
   isFinishedScenario(): boolean {
-    return this.router.url.includes('/anomaly-detector/features') || this.router.url.includes('/anomaly-detector/timeline-ad') || this.router.url.includes('/anomaly-detector/metrics');
+    return this.router.url.includes('features') || this.router.url.includes('timeline-ad') || this.router.url.includes('metrics');
   }
 
 

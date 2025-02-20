@@ -1,31 +1,7 @@
-<h2>Métricas del Escenario</h2>
+<h2>Scenario metrics</h2>
 
-<table *ngIf="metrics && metrics.length > 0; else noData" border="1">
-  <thead>
-    <tr>
-      <th>Modelo</th>
-      <th>Precisión</th>
-      <th>Exactitud</th>
-      <th>Recall</th>
-      <th>F1 Score</th>
-      <th>Matriz de Confusión</th>
-      <th>Fecha</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr *ngFor="let metric of metrics">
-      <td>{{ metric.model_name }}</td>
-      <td>{{ metric.accuracy }}</td>
-      <td>{{ metric.precision }}</td>
-      <td>{{ metric.recall }}</td>
-      <td>{{ metric.f1_score }}</td>
-      <td>{{ metric.confusion_matrix }}</td>
-      <td>{{ metric.date | date:'short' }}</td>
-    </tr>
-  </tbody>
-</table>
+<canvas id="metricsChart" width="600" height="400"></canvas>
 
-<!-- Mostrar mensaje si no hay datos -->
-<ng-template #noData>
-  <p>No hay métricas disponibles.</p>
-</ng-template>
+
+<canvas id="confussionMatrixChart"></canvas>
+

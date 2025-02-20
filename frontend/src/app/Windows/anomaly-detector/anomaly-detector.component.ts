@@ -11,18 +11,14 @@ import { Scenario } from '../../DTOs/Scenario';
 import { PLATFORM_ID } from '@angular/core';
 
 @Component({
-  selector: 'app-anomaly-detector',
-  standalone: true,
-  imports: [
-    CommonModule,
-    FormsModule,
-    RouterModule,
-    FeaturesComponent,
-    TimelineADComponent,
-    MetricsComponent
-  ],
-  templateUrl: './anomaly-detector.component.html',
-  styleUrl: './anomaly-detector.component.css'
+    selector: 'app-anomaly-detector',
+    imports: [
+        CommonModule,
+        FormsModule,
+        RouterModule
+    ],
+    templateUrl: './anomaly-detector.component.html',
+    styleUrl: './anomaly-detector.component.css'
 })
 
 export class AnomalyDetectorComponent {
@@ -178,7 +174,6 @@ export class AnomalyDetectorComponent {
         next: (response:any) => {
           alert('Scenario running successfully');
   
-          // Handle and display metrics
           const metrics = response.metrics;
         },
         error: (error: any) => {

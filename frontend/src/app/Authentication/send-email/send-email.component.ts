@@ -8,15 +8,14 @@ import { UserService } from '../../User/user.service';
 
 
 @Component({
-  selector: 'app-send-email',
-  standalone: true,
-  imports: [    
-    CommonModule,
-    FormsModule,
-    RouterModule
-  ],
-  templateUrl: './send-email.component.html',
-  styleUrl: './send-email.component.css'
+    selector: 'app-send-email',
+    imports: [
+        CommonModule,
+        FormsModule,
+        RouterModule
+    ],
+    templateUrl: './send-email.component.html',
+    styleUrl: './send-email.component.css'
 })
 export class SendEmailComponent {
   userPatchDTO: UserPatch = {

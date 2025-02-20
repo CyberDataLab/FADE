@@ -109,7 +109,7 @@ export class ScenarioService {
       }
   
       return this.handleRequest(this.http.post(this.apiUrl + 'create/', formData, {
-        headers: this.getAuthHeadersWithoutContentType(), // No incluir 'Content-Type', ya que FormData lo maneja automáticamente
+        headers: this.getAuthHeadersWithoutContentType(),
       }));
     }
     return EMPTY;
@@ -118,7 +118,7 @@ export class ScenarioService {
   editScenario(uuid: string, design: any, csvFile?: File): Observable<any> {
     if (isPlatformBrowser(this.platformId)) {
       const formData = new FormData();
-      formData.append('design', new Blob([JSON.stringify(design)], { type: 'application/json' }));
+      formData.append('design', JSON.stringify(design));
   
       if (csvFile) {
         formData.append('csv_file', csvFile);

@@ -8,15 +8,14 @@ import { AuthenticationService } from '../authentication.service';
 import { UserService } from '../../User/user.service';
 
 @Component({
-  selector: 'app-register',
-  standalone: true,
-  imports: [
-    CommonModule,
-    FormsModule,
-    RouterModule
-  ],
-  templateUrl: './register.component.html',
-  styleUrl: './register.component.css'
+    selector: 'app-register',
+    imports: [
+        CommonModule,
+        FormsModule,
+        RouterModule
+    ],
+    templateUrl: './register.component.html',
+    styleUrl: './register.component.css'
 })
 export class RegisterComponent implements OnInit {
 
