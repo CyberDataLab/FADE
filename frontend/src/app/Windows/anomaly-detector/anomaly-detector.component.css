@@ -15,13 +15,6 @@ html, body {
   z-index: 10; 
 }
 
-.separator-option {
-  text-align: center;
-  color: #ccc; 
-  font-weight: bold;
-  border-top: 1px solid #ddd; 
-}
-
 .content {
   display: flex;
   flex-direction: column;
@@ -33,10 +26,11 @@ html, body {
 }
 
 .table-container {
-  width: 100%;
-  height: 100%;
-  max-height: 80vh; /* Altura máxima ajustable */
-  overflow-y: auto; /* Scroll solo en la tabla */
+  position: absolute;
+  width: 60%;
+  height: 90%; /* Aumenté el valor de height */
+  max-height: 80vh; /* Ajusté el valor de max-height */
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
 }
@@ -52,7 +46,7 @@ html, body {
 .scenario-table tbody {
   display: block;
   width: 100%;
-  max-height: 60vh; /* Ajusta según el diseño */
+  max-height: 70vh; /* Ajusta según el diseño */
   overflow-y: auto;
 }
 
@@ -65,16 +59,14 @@ html, body {
 .scenario-table th, .scenario-table td {
   padding: 12px;
   text-align: left;
-  border-bottom: 1px solid #ddd;
-  color: white;
+  color: rgba(98, 96, 96); 
 }
 
 .scenario-table th {
-  background-color: #343a40;
-  color: #ffffff;
+  background-color: #0097a6;
+  color: white;
   padding: 12px;
   text-align: left;
-  border-bottom: 1px solid #ddd;
 }
 
 .scenario-table th:nth-child(6),
@@ -100,7 +92,7 @@ html, body {
 }
 
 .default-button {
-  background-color: #495057;
+  background-color: #2676798f;
   color: white;
   font-size: 20px;
   padding: 15px 30px;
@@ -114,7 +106,7 @@ html, body {
 }
 
 .default-button:hover {
-  background-color: #6c757d;
+  background-color: #0097a6;
 }
 
 .finished {
@@ -131,6 +123,7 @@ html, body {
 
 .new-button, .import-button {
   background-color: #f4f4f4;
+  color: rgba(98, 96, 96);  
   border: 1px solid #ccc;
   border-radius: 5px;
   margin: 0 5px;
@@ -149,7 +142,7 @@ html, body {
 
 .tooltip-text {
   visibility: hidden;
-  width: 120px;
+  width: 200px;
   background-color: #343a40;
   color: #fff;
   text-align: center;
@@ -166,4 +159,18 @@ html, body {
 .new-button:hover .tooltip-text, .import-button:hover .tooltip-text {
   visibility: visible;
   opacity: 1;
+}
+
+/* Personalización del scrollbar */
+::-webkit-scrollbar {
+  width: 8px; /* Establece el ancho del scrollbar */
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #2676798f; /* Color del pulgar del scrollbar */
+  border-radius: 10px; /* Hace que los bordes sean redondeados */
+}
+
+::-webkit-scrollbar-track {
+  background-color: rgba(245, 246, 250, 0.4); /* Color de la pista */
 }

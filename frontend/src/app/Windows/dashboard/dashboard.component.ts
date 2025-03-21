@@ -1,25 +1,19 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
-import { AnomalyDetectorComponent } from '../anomaly-detector/anomaly-detector.component';
-import { XaiComponent } from '../xai/xai.component';
-import { PoliciesComponent } from '../policies/policies.component';
-import { OptionsComponent } from '../options/options.component';
-import { UserComponent } from '../user/user.component'
 import { AuthenticationService } from '../../Authentication/authentication.service';
 import { Location } from '@angular/common';
 import { ScenarioService } from '../scenario.service';
 
 @Component({
     selector: 'app-dashboard',
-    imports: [CommonModule,
-        RouterModule],
+    imports: [CommonModule, RouterModule],
     templateUrl: './dashboard.component.html',
     styleUrl: './dashboard.component.css'
 })
 export class DashboardComponent {
 
-  selectedOptionDropdown: string = '';
+  selectedOption: string = '';  // Variable para almacenar la opción seleccionada
   
   constructor(
     private authenticationService: AuthenticationService,
@@ -29,7 +23,12 @@ export class DashboardComponent {
   ) {}
 
   navigateTo(path: string): void {
+    this.selectedOption = path;  // Actualiza la opción seleccionada
     this.router.navigate([`/dashboard/${path}`]);
+  }
+
+  isSelected(option: string): boolean {
+    return this.selectedOption === option;  // Compara si la opción está seleccionada
   }
 
   isDashboard(): boolean {
@@ -47,7 +46,6 @@ export class DashboardComponent {
   isFinishedScenario(): boolean {
     return this.router.url.includes('features') || this.router.url.includes('timeline-ad') || this.router.url.includes('metrics');
   }
-
 
   async goBack(): Promise<void> {
     if (this.isNewScenario()) {
@@ -77,6 +75,7 @@ export class DashboardComponent {
       this.router.navigateByUrl(newUrl);
     } else {
       this.router.navigate(['/dashboard']);
+      this.selectedOption = '';
     }
   }
 
@@ -86,5 +85,4 @@ export class DashboardComponent {
       this.router.navigate(['/login']);
     }
   }
-
 }

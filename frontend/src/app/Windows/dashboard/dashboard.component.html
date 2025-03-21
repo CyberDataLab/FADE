@@ -6,18 +6,40 @@
     </div>
     
     <div class="logout-container">
-      <button class="logout-btn" (click)="logout()">Logout</button>
+      <button class="logout-btn" (click)="logout()">
+        <i class="fa fa-sign-out"></i>
+      </button>
     </div>
   </div>
 
   <!-- Sidebar -->
   <ng-container *ngIf="!isNewScenario()">
     <div class="sidebar">
-      <div class="option" (click)="navigateTo('anomaly-detector')">Anomaly Detector</div>
-      <div class="option" (click)="navigateTo('xai')">XAI</div>
-      <div class="option" (click)="navigateTo('policies')">Policies</div>
-      <div class="option" (click)="navigateTo('options')">Options</div>
-      <div class="option" (click)="navigateTo('user')">User</div>
+      <div class="option" 
+           (click)="navigateTo('anomaly-detector')" 
+           [ngClass]="{'selected': isSelected('anomaly-detector')}">
+        Anomaly Detector
+      </div>
+      <div class="option" 
+           (click)="navigateTo('xai')" 
+           [ngClass]="{'selected': isSelected('xai')}">
+        XAI
+      </div>
+      <div class="option" 
+           (click)="navigateTo('policies')" 
+           [ngClass]="{'selected': isSelected('policies')}">
+        Policies
+      </div>
+      <div class="option" 
+           (click)="navigateTo('options')" 
+           [ngClass]="{'selected': isSelected('options')}">
+        Options
+      </div>
+      <div class="option" 
+           (click)="navigateTo('user')" 
+           [ngClass]="{'selected': isSelected('user')}">
+        User
+      </div>
     </div>
   </ng-container>
 

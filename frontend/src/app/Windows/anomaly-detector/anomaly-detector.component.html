@@ -5,10 +5,10 @@
   </button>
   <button class="import-button load-scenario" (click)="triggerFileInput()">
     📂
-    <span class="tooltip-text">Click to import an existing scenario</span>
+    <span class="tooltip-text">Click to import an existing scenario. Please select the JSON and data files</span>
   </button>
 
-  <input type="file" id="fileInput" style="display: none;" (change)="loadScenario($event)" accept=".json">
+  <input type="file" id="fileInput" style="display: none;" (change)="loadScenario($event)" accept=".json, .csv" multiple>
 </div>
 
 <div class="content">

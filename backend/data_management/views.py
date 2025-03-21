@@ -3,11 +3,13 @@ from django.shortcuts import render
 import csv
 from django.core.files.base import ContentFile
 from io import StringIO
+import os
+from django.conf import settings
 from rest_framework.parsers import MultiPartParser, JSONParser
 from rest_framework.decorators import api_view, permission_classes, parser_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
-from .models import Scenario, File, AnomalyDetector, Metric
+from .models import Scenario, File, AnomalyDetector, ClassificationMetric, RegressionMetric, AnomalyMetric
 from accounts.models import CustomUser
 from .serializers import ScenarioSerializer
 from django.http import JsonResponse
@@ -15,18 +17,223 @@ from .models import DataController, DataReceiver, DataFilter, DataStorage, DataM
 import logging
 import json
 import pandas as pd
-from sklearn.preprocessing import StandardScaler, MinMaxScaler, OneHotEncoder, Normalizer
-from sklearn.impute import KNNImputer
-from sklearn.decomposition import PCA
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import GradientBoostingClassifier
-from sklearn.tree import DecisionTreeClassifier
+import numpy as np
+import importlib
+from collections import defaultdict
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import f1_score, precision_score, recall_score, accuracy_score, confusion_matrix
+from sklearn.metrics import f1_score, precision_score, recall_score, accuracy_score, confusion_matrix, mean_squared_error, mean_absolute_error, r2_score
 
 logger = logging.getLogger('backend')
+
+# Funciones auxiliares
+def load_config():
+    # Usamos BASE_DIR para obtener la ruta del directorio del proyecto
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+    # Asegúrate de que la ruta hacia config.json esté correcta
+    CONFIG_PATH = os.path.join(BASE_DIR, 'frontend', 'src', 'assets', 'config.json')
+
+    # Cargar la configuración
+    try:
+        with open(CONFIG_PATH, 'r', encoding='utf-8') as file:
+            config = json.load(file)
+        return config
+    except FileNotFoundError:
+        logger.error(" Error: Archivo config.json no encontrado en %s", CONFIG_PATH)
+    except json.JSONDecodeError:
+        logger.error("Error: No se pudo decodificar el archivo config.json")
+
+def validate_design(config, design):
+    elements = {e["id"]: e for e in design["elements"]}
+    connections = design["connections"]
+    
+    start_ids = [conn["startId"] for conn in connections]
+    end_ids = [conn["endId"] for conn in connections]
+    
+    # Obtener todos los tipos que deben ser "conectados" (start y end)
+    data_processing_types = [el["type"] for el in config.get("dataProcessing", {}).get("elements", [])]
+    classification_types = [el["type"] for el in config.get("sections", {}).get("dataModel", {}).get("classification", [])]
+    regression_types = [el["type"] for el in config.get("sections", {}).get("dataModel", {}).get("regression", [])]
+    
+    must_be_start_and_end = set(data_processing_types + classification_types + regression_types)
+    
+    for element_id, element in elements.items():
+        el_type = element["type"]
+        appears_in_start = element_id in start_ids
+        appears_in_end = element_id in end_ids
+        
+        if el_type == "CSV":
+            if not appears_in_start:
+                raise ValueError(f"El CSV '{element_id}' no aparece como startId.")
+            if appears_in_end:
+                raise ValueError(f"El CSV '{element_id}' no puede aparecer como endId.")
+        
+        elif el_type == "Monitor":
+            if not appears_in_end:
+                raise ValueError(f"El Monitor '{element_id}' no aparece como endId.")
+            if appears_in_start:
+                raise ValueError(f"El Monitor '{element_id}' no puede aparecer como startId.")
+        
+        elif el_type in must_be_start_and_end:
+            if not appears_in_start:
+                raise ValueError(f"El elemento '{element_id}' ({el_type}) debería aparecer como startId y no lo hace.")
+            if not appears_in_end:
+                raise ValueError(f"El elemento '{element_id}' ({el_type}) debería aparecer como endId y no lo hace.")
+
+# Importar clases dinámicamente
+def import_class(full_class_name):
+    module_name, class_name = full_class_name.rsplit(".", 1)
+    module = importlib.import_module(module_name)
+    return getattr(module, class_name)
+
+# Extraer parámetros del elemento
+def extract_parameters(properties, params):
+    extracted = {}
+    custom_params = {}  # Almacena parámetros custom para reemplazar
+
+    # Primera pasada: extraer parámetros principales y detectar custom
+    for prop in properties:
+        prop_name = prop["name"]
+        if prop_name in params:
+            value = params[prop_name]
+            
+            # Manejar valores especiales
+            if isinstance(value, str):
+                if value.lower() == "none":
+                    extracted[prop_name] = None
+                elif value.lower() == "true":
+                    extracted[prop_name] = True
+                elif value.lower() == "false":
+                    extracted[prop_name] = False
+                else:
+                    # Intentar convertir a número si es posible
+                    try:
+                        extracted[prop_name] = int(value)
+                    except ValueError:
+                        try:
+                            extracted[prop_name] = float(value)
+                        except ValueError:
+                            extracted[prop_name] = value
+            else:
+                extracted[prop_name] = value
+
+            # Detectar si es un parámetro condicional padre (ej: max_depth="custom")
+            if prop.get("type") == "conditional-select" and value == "custom":
+                # Buscar el parámetro hijo (ej: custom_max_depth)
+                dependent_prop = next(
+                    (p for p in properties if p.get("conditional", {}).get("dependsOn") == prop_name),
+                    None
+                )
+                if dependent_prop and params.get(dependent_prop["name"]):
+                    custom_params[prop_name] = params[dependent_prop["name"]]
+
+    # Segunda pasada: reemplazar parámetros principales con valores custom
+    for main_param, custom_value in custom_params.items():
+        extracted[main_param] = int(custom_value)
+        # Eliminar el parámetro custom para evitar conflictos
+        dependent_prop_name = f"custom_{main_param}"
+        if dependent_prop_name in extracted:
+            del extracted[dependent_prop_name]
+
+    # Verificar condiciones generales basadas en 'conditional'
+    for prop in properties:
+        if "conditional" in prop:
+            depends_on = prop["conditional"].get("dependsOn")
+            
+            # Verificar si hay un 'value' o 'values' en la condición
+            condition_values = prop["conditional"].get("values", [])
+            condition_value = prop["conditional"].get("value", None)
+
+            # Si la propiedad depende de otro parámetro y se especifican valores condicionales
+            if depends_on and depends_on in extracted:
+                parent_value = extracted[depends_on]
+                
+                # Verificar si el valor condicional es un solo valor o una lista de valores
+                if condition_value:
+                    # Si 'value' está presente, lo comparamos con el valor extraído
+                    if parent_value != condition_value:
+                        extracted.pop(prop["name"], None)
+                elif condition_values:
+                    # Si 'values' está presente, comparamos si el valor extraído está en la lista
+                    if parent_value not in condition_values:
+                        extracted.pop(prop["name"], None)
+
+    return extracted
+
+# Calcular métricas
+def calculate_classification_metrics(y_true, y_pred, metrics_config):
+    logger.info("Métricas: %s", metrics_config)
+    logger.info("y_true: %s", y_true)
+    logger.info("y_pred: %s", y_pred)
+    metrics = {}
+    if metrics_config.get("accuracy"):
+         metrics["accuracy"] = round(accuracy_score(y_true, y_pred), 2)
+    if metrics_config.get("precision"):
+        metrics["precision"] = round(precision_score(y_true, y_pred, average="weighted", zero_division=0), 2)
+    if metrics_config.get("recall"):
+        metrics["recall"] = round(recall_score(y_true, y_pred, average="weighted", zero_division=0), 2)
+    if metrics_config.get("f1Score"):
+        metrics["f1_score"] = round(f1_score(y_true, y_pred, average="weighted", zero_division=0), 2)
+    if metrics_config.get("confusionMatrix"):
+        metrics["confusion_matrix"] = confusion_matrix(y_true, y_pred).tolist()
+    return metrics
+
+def calculate_regression_metrics(y_true, y_pred):
+    metrics = {}
+    
+    # MSE (Mean Squared Error)
+    metrics["mse"] = round(mean_squared_error(y_true, y_pred), 2)
+    
+    # RMSE (Root Mean Squared Error)
+    metrics["rmse"] = round(np.sqrt(metrics["mse"]), 2)
+    
+    # MAE (Mean Absolute Error)
+    metrics["mae"] = round(mean_absolute_error(y_true, y_pred), 2)
+    
+    # R2 (R-squared)
+    metrics["r2"] = round(r2_score(y_true, y_pred), 2)
+    
+    # MSLE (Mean Squared Logarithmic Error)
+    metrics["msle"] = round(mean_squared_error(np.log1p(y_true), np.log1p(y_pred)), 2)
+    
+    return metrics
+
+# Guardar métricas en la base de datos
+def save_classification_metrics(detector, model_name, metrics, execution):
+    ClassificationMetric.objects.create(
+        detector=detector,
+        execution=execution,
+        model_name=model_name,
+        accuracy=metrics.get("accuracy"),
+        precision=metrics.get("precision"),
+        recall=metrics.get("recall"),
+        f1_score=metrics.get("f1_score"),
+        confusion_matrix=json.dumps(metrics.get("confusion_matrix")),
+    )
+
+def save_regression_metrics(detector, model_name, metrics, execution):
+    RegressionMetric.objects.create(
+        detector=detector,
+        execution=execution,
+        model_name=model_name,
+        mse=metrics.get("mse"),
+        rmse=metrics.get("rmse"),
+        mae=metrics.get("mae"),
+        r2=metrics.get("r2"),
+        msle=metrics.get("msle"),
+    )
+
+def save_anomaly_metrics(detector, model_name, feature_name, feature_values, anomalies, execution):
+    AnomalyMetric.objects.create(
+        detector=detector,
+        model_name=model_name,
+        feature_name=feature_name,
+        anomalies={
+            'values': feature_values.tolist(),
+            'anomaly_indices': anomalies
+        },
+        execution=execution
+    )
 
 def put_data_controller(request):
     controller = DataController(name='Example Controller')
@@ -131,36 +338,48 @@ def verify_sync_data(request):
 
 # Views for Scenarios management
 
+# YA NO HAY DUPLICIDAD DE FICHEROS, FALTA QUE LAS REFERENCIAS SE ACUALICEN SI SE ELIMINA UN ESCENARIO CON ESE FICHERO. SI LAS REFERENCIAS ES 0 QUE SE ELIMINE LA ENTRADA DE LA BBDD
+# AL MODIFICAR UN ESCENARIO VER SI HA CAMBIADO EL FICHERO, SI HA CAMBIADO QUE LAS REFERENCIAS DEL ANTERIOR SE DECREMENTEN EN 1 Y SE AÑADA UNA NUEVA ENTRADA EN LA BBDD CON EL NUEVO FICHERO
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 @parser_classes([MultiPartParser])
 def create_scenario(request):
     user = request.user  
-    data = request.data.dict() 
-    data['user'] = user.id 
+    data = request.data.dict()
+    data['user'] = user.id  
+
+    logger.info(request.data)
 
     csv_file = request.FILES.get('csv_file')
-
-    logger.info(csv_file)
 
     if not csv_file:
         return JsonResponse({"error": "At least one CSV file is required."}, status=status.HTTP_400_BAD_REQUEST)
 
     try:
-        csv_content = csv_file.read().decode('utf-8')
-        csv_reader = csv.reader(StringIO(csv_content))
-        entry_count = sum(1 for _ in csv_reader) - 1  
+        existing_file = File.objects.filter(name=csv_file.name).first()
+
+        if existing_file:
+            # Si el archivo ya existe, solo incrementamos las referencias
+            existing_file.references += 1
+            existing_file.save()
+            file_instance = existing_file
+        else:
+            # Si no existe, lo guardamos como nuevo
+            csv_content = csv_file.read().decode('utf-8')
+            csv_reader = csv.reader(StringIO(csv_content))
+            entry_count = sum(1 for _ in csv_reader) - 1  
+
+            file_instance = File.objects.create(
+                name=csv_file.name,
+                file_type='csv',
+                entry_count=entry_count,
+                content=ContentFile(csv_content.encode('utf-8'), name=csv_file.name),
+                references=1  # Primera referencia
+            )
+
     except Exception as e:
-        return JsonResponse({"error": f"Error while reading the CSV file: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
-
-    file_instance = File.objects.create(
-        name=csv_file.name,
-        file_type='csv', 
-        entry_count=entry_count,
-        content=ContentFile(csv_content.encode('utf-8'), name=csv_file.name) 
-    )
-
-    logger.info(file_instance)
+        return JsonResponse({"error": f"Error while processing the CSV file: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
 
     data['file'] = file_instance.id
     serializer = ScenarioSerializer(data=data)
@@ -168,7 +387,7 @@ def create_scenario(request):
     if serializer.is_valid():
         serializer.save(user=user)
         return JsonResponse(serializer.data, status=status.HTTP_201_CREATED)
-    
+
     return JsonResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['GET'])
@@ -196,11 +415,11 @@ def get_scenario_by_uuid(request, uuid):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def get_scenario_metrics_by_uuid(request, uuid):
+def get_scenario_classification_metrics_by_uuid(request, uuid):
     try:
         scenario = Scenario.objects.get(uuid=uuid)
         detector = AnomalyDetector.objects.get(scenario=scenario)
-        metrics = Metric.objects.filter(detector=detector).order_by('-date')
+        metrics = ClassificationMetric.objects.filter(detector=detector).order_by('-date')
 
         metrics_data = [
             {
@@ -210,7 +429,8 @@ def get_scenario_metrics_by_uuid(request, uuid):
                 "recall": metric.recall,
                 "f1_score": metric.f1_score,
                 "confusion_matrix": metric.confusion_matrix,
-                "date": metric.date
+                "date": metric.date,
+                "execution": metric.execution
             }
             for metric in metrics
         ]
@@ -220,6 +440,33 @@ def get_scenario_metrics_by_uuid(request, uuid):
         return JsonResponse({"error": "Scenario not found"}, status=404)
     except AnomalyDetector.DoesNotExist:
         return JsonResponse({"error": "Anomaly detector not found"}, status=404)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+    
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_scenario_anomaly_metrics_by_uuid(request, uuid):
+    try:
+        scenario = Scenario.objects.get(uuid=uuid)
+        detector = AnomalyDetector.objects.get(scenario=scenario)
+        metrics = AnomalyMetric.objects.filter(detector=detector).order_by('-date')
+
+        metrics_data = []
+        for metric in metrics:
+            try:
+                anomalies = json.loads(metric.anomalies)
+            except:
+                anomalies = metric.anomalies
+
+            metrics_data.append({
+                "model_name": metric.model_name,
+                "feature_name": metric.feature_name,
+                "anomalies": anomalies,
+                "date": metric.date,
+                "execution": metric.execution
+            })
+
+        return JsonResponse({"metrics": metrics_data}, safe=False)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
@@ -232,7 +479,7 @@ def put_scenario_by_uuid(request, uuid):
     try:
         scenario = Scenario.objects.get(uuid=uuid, user=user)
 
-        design_json = request.POST.get('design')  
+        design_json = request.POST.get('design')
         csv_file = request.FILES.get('csv_file')  
 
         if not design_json:
@@ -243,7 +490,36 @@ def put_scenario_by_uuid(request, uuid):
         except json.JSONDecodeError:
             return JsonResponse({'error': 'Invalid design JSON'}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Actualizamos el diseño
         scenario.design = design
+
+        # Si hay un nuevo CSV, verificamos si es diferente del actual
+        if csv_file:
+            current_file = scenario.file  # Archivo actual del escenario
+
+            if not current_file or csv_file.name != current_file.name:
+                # Si hay un archivo previo, reducimos las referencias
+                if current_file:
+                    current_file.references -= 1
+                    if current_file.references == 0:
+                        current_file.delete()  # Si ya no tiene referencias, lo eliminamos
+                    else:
+                        current_file.save()
+
+                # Procesamos el nuevo archivo
+                csv_content = csv_file.read().decode('utf-8')
+                csv_reader = csv.reader(StringIO(csv_content))
+                entry_count = sum(1 for _ in csv_reader) - 1  
+
+                new_file = File.objects.create(
+                    name=csv_file.name,
+                    file_type='csv',
+                    entry_count=entry_count,
+                    content=ContentFile(csv_content.encode('utf-8'), name=csv_file.name),
+                    references=1
+                )
+
+                scenario.file = new_file  # Asignamos el nuevo archivo
 
         serializer = ScenarioSerializer(instance=scenario, data={'design': design}, partial=True)
         if serializer.is_valid():
@@ -256,7 +532,6 @@ def put_scenario_by_uuid(request, uuid):
     except Scenario.DoesNotExist:
         return JsonResponse({'error': 'Scenario not found or without permits'}, status=status.HTTP_404_NOT_FOUND)
 
-
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
 def delete_scenario_by_uuid(request, uuid):
@@ -265,20 +540,33 @@ def delete_scenario_by_uuid(request, uuid):
     try:
         scenario = Scenario.objects.get(uuid=uuid, user=user.id)
 
-        if scenario.file:
-            scenario.file.delete()
+        # Verificar si el escenario tiene un archivo asociado
+        file_instance = scenario.file  
+        if file_instance:
+            file_instance.references -= 1  # Decrementamos referencias
+            if file_instance.references == 0:
+                # Si las referencias son 0, eliminamos el archivo físico y la entrada en la BD
+                file_path = os.path.join('files', file_instance.name)  # Usamos 'files' como directorio
+                if os.path.exists(file_path):  
+                    os.remove(file_path)  # Borra el archivo del sistema de archivos
+                file_instance.delete()  # Borra la entrada en la base de datos
+            else:
+                file_instance.save()  # Guardamos el decremento de referencias
 
+        # Eliminar anomaly detector y métricas asociadas
         anomaly_detector = AnomalyDetector.objects.filter(scenario=scenario).first()
         if anomaly_detector:
-            Metric.objects.filter(detector=anomaly_detector).delete()
+            ClassificationMetric.objects.filter(detector=anomaly_detector).delete()
             anomaly_detector.delete()
 
-        scenario.delete()  
+        # Finalmente, eliminamos el escenario
+        scenario.delete()
 
-        return JsonResponse({'message': 'Scenario, associated file, anomaly detector, and metrics deleted successfully'}, status=status.HTTP_200_OK)
+        return JsonResponse({'message': 'Scenario and related data deleted successfully'}, status=status.HTTP_200_OK)
 
     except Scenario.DoesNotExist:
         return JsonResponse({'error': 'Scenario not found or you do not have permission to delete it'}, status=status.HTTP_404_NOT_FOUND)
+
 
 
 @api_view(['PATCH'])
@@ -313,320 +601,264 @@ def run_scenario_by_uuid(request, uuid):
     except Scenario.DoesNotExist:
         return JsonResponse({'error': 'Scenario not found or without permits to run it'}, status=status.HTTP_404_NOT_FOUND)
 
-    
+# Función principal
 def execute_scenario(anomaly_detector, design):
     try:
-        csv_file_name = None
-        scaler_params = None
-        minmax_params = None
-        encoder_params = None
-        pca_params = None
-        normalizer_params = None
-        knnImputer_params = None 
-        knn_params = None
-        rf_params = None
-        lr_params = None
-        svm_params = None
-        gb_params = None
-        dt_params = None
+        anomaly_detector.execution += 1
+        anomaly_detector.save()
+        config = load_config()
+        element_types = {}
 
-        metrics = {}
+        validate_design(config, design)
+        
+        # Cargar tipos de elementos desde la configuración
+        for section_name, section in config["sections"].items():
+            if section_name == "dataModel":
+                # Modelos clasificacion
+                for model in section.get("classification", []):
+                    model["model_type"] = "classification"  # Nueva clave
+                    element_types[model["type"]] = model
+                # Modelos regresion
+                for model in section.get("regression", []):
+                    model["model_type"] = "regression"  # Nueva clave
+                    element_types[model["type"]] = model
+                # Modelos deteccion de anomalias
+                for model in section.get("anomalyDetection", []):
+                    model["model_type"] = "anomalyDetection"  # Nueva clave
+                    element_types[model["type"]] = model
+                # Monitoring
+                for model in section.get("monitoring", []):
+                    element_types[model["type"]] = model
+            elif "elements" in section:
+                for element in section["elements"]:
+                    element_types[element["type"]] = element
 
-        for element in design.get('elements', []):
-            if element.get('type') == 'CSV':
-                csv_file_name = element.get('parameters', {}).get('csvFileName')
-            if element.get('type') == 'StandardScaler':
-                scaler_params = element.get('parameters', {})
-            elif element.get('type') == 'MinMaxScaler':
-                minmax_params = element.get('parameters', {})
-            elif element.get('type') == 'OneHotEncoder':
-                encoder_params = element.get('parameters', {})
-            elif element.get('type') == 'PCA':
-                pca_params = element.get('parameters', {})
-            elif element.get('type') == 'Normalizer':
-                normalizer_params = element.get('parameters', {})
-            elif element.get('type') == 'KNNImputer':
-                knnImputer_params = element.get('parameters', {})
-            elif element.get('type') == 'KNN':
-                knn_params = element.get('parameters', {})
-            elif element.get('type') == 'RandomForest':
-                rf_params = element.get('parameters', {})
-            elif element.get('type') == 'LogisticRegression':
-                lr_params = element.get('parameters', {})
-            elif element.get('type') == 'SVM':
-                svm_params = element.get('parameters', {})
-            elif element.get('type') == 'GradientBoosting':
-                gb_params = element.get('parameters', {})
-            elif element.get('type') == 'DecisionTree':
-                dt_params = element.get('parameters', {})
 
-        logger.info(csv_file_name)
-        logger.info(scaler_params)
-        logger.info(rf_params)
+        elements = {e["id"]: e for e in design["elements"]}
+        connections = design["connections"]
+        
+        # Construir grafo de dependencias
+        adj = defaultdict(list)
+        in_degree = defaultdict(int)
+        for conn in connections:
+            adj[conn["startId"]].append(conn["endId"])
+            in_degree[conn["endId"]] += 1
+            if conn["startId"] not in in_degree:
+                in_degree[conn["startId"]] = 0
 
-        try:
-            file = File.objects.get(name=csv_file_name)
-        except File.DoesNotExist:
-            return {'error': 'CSV file not found'}
-    
-        logger.info(file)
+        # Orden topológico
+        queue = [node for node, count in in_degree.items() if count == 0]
+        sorted_order = []
+        while queue:
+            node = queue.pop(0)
+            sorted_order.append(node)
+            for neighbor in adj[node]:
+                in_degree[neighbor] -= 1
+                if in_degree[neighbor] == 0:
+                    queue.append(neighbor)
 
-        csv_file_path = file.content  
-        df = pd.read_csv(csv_file_path)
-        logger.info(df)
 
-        if scaler_params:
-            df_numeric = df.iloc[:, :-1]  
-            scaler = StandardScaler(with_std=scaler_params.get('withStd') == 'True', 
-                                    with_mean=scaler_params.get('withMean') == 'True')
+        data_storage = {}  # Almacena DataFrames por elemento
+        models = {}
 
-            df.iloc[:, :-1] = scaler.fit_transform(df_numeric)
+        for element_id in sorted_order:
+            element = elements[element_id]
+            el_type = element["type"]
+            logger.info("Procesando elemento %s", el_type)
+            params = element.get("parameters", {})
+            
+            # Obtener datos de entrada de las conexiones entrantes
+            input_data = None
+            for conn in connections:
+                if conn["endId"] == element_id:
+                    predecessor_id = conn["startId"]
+                    input_data = data_storage.get(predecessor_id)
+                    break  # Asume una sola conexión entrante
+            
+            # Procesar elemento
+            # En la sección donde se procesa el CSV, cambiar:
+            if el_type == "CSV":
+                logger.info("Cargando CSV")
+                # Cargar CSV desde la base de datos
+                csv_file_name = params.get("csvFileName")
+                try:
+                    file = File.objects.get(name=csv_file_name)
+                    df = pd.read_csv(file.content)
+                except Exception as e:
+                    return {"error": f"Error loading CSV: {str(e)}"}
+                
+                # Nueva lógica para manejar ambos formatos (backward compatibility)
+                columns = params.get("columns", [])
+                selected_columns = []
+                
+                if isinstance(columns, list):
+                    # Nuevo formato: array de objetos ordenados
+                    selected_columns = [col["name"] for col in columns if col.get("selected", True)]
+                elif isinstance(columns, dict):
+                    # Formato antiguo: diccionario (mantener para compatibilidad)
+                    selected_columns = [col for col, keep in columns.items() if keep]
+                
+                logger.info("Columnas seleccionadas en orden original: %s", selected_columns)
+                
+                try:
+                    # Preservar orden original del CSV
+                    df = df[selected_columns]
+                except KeyError as e:
+                    return {"error": f"Columna no encontrada en CSV: {str(e)}"}
+                except Exception as e:
+                    return {"error": f"Error procesando columnas: {str(e)}"}
+                
+                data_storage[element_id] = df
 
-        logger.info("LLEGO")
+            elif el_type == "Monitor":
+                logger.info("Monitorizando")
+                # Procesar todas las entradas de modelos conectados
+                for conn in connections:
+                    if conn["endId"] == element_id:
+                        model_id = conn["startId"]
+                        model_data = models.get(model_id)
+                        if model_data:
+                            y_test, y_pred = model_data["y_test"], model_data["y_pred"]
+                            metrics_config = params.get("metrics", {})
+                            metrics = calculate_classification_metrics(y_test, y_pred, metrics_config)
+                            save_classification_metrics(anomaly_detector, model_data["type"], metrics, anomaly_detector.execution)
 
-        if minmax_params:
-            min_value = float(minmax_params.get('minValue', 0))
-            max_value = float(minmax_params.get('maxValue', 1))
-            clip = minmax_params.get('clip') == 'False'
-            scaler = MinMaxScaler(feature_range=(min_value, max_value), clip=clip)
-            df = pd.DataFrame(scaler.fit_transform(df), columns=df.columns)
-
-        if encoder_params:
-            df_categorical = df.select_dtypes(include=['object', 'category'])
-
-            handle_unknown = encoder_params.get('handleUnknown', 'error')  
-            drop = encoder_params.get('drop', None)  
-
-            encoder = OneHotEncoder(handle_unknown=handle_unknown, drop=drop, sparse_output=False)
-            df_encoded = encoder.fit_transform(df_categorical)
-
-            encoded_columns = encoder.get_feature_names_out(df_categorical.columns)
-            df_encoded = pd.DataFrame(df_encoded, columns=encoded_columns, index=df.index)
-
-            df = df.drop(columns=df_categorical.columns).join(df_encoded)
-
-        if pca_params:
-            df_numeric = df.select_dtypes(include=['float64', 'int64'])
-
-            components_option = pca_params.get('componentsOption', 'None')  
-            custom_components = int(pca_params.get('customComponents', 1))  
-            whiten = pca_params.get('whiten', 'False') == 'True' 
-
-            if components_option == 'custom':
-                n_components = custom_components
             else:
-                n_components = None  
+                # Obtener configuración del elemento
+                element_def = element_types.get(el_type)
+                logger.info("Definición del elemento: %s", element_def)
+                if not element_def:
+                    return {"error": f"Tipo de elemento desconocido: {el_type}"}
+                
+                # Cargar clase dinámicamente
+                cls = import_class(element_def["class"])
+                category = element_def.get("category", "")
+                
+                # Procesamiento según categoría
+                if category == "preprocessing":
+                    applies_to = element_def.get("appliesTo", "all")
+                    transformer = cls(**extract_parameters(element_def["properties"], params))
+                    
+                    if input_data is not None:
+                        # Detectar si hay variable objetivo
+                        if 'target' in input_data.columns:
+                            # Si tienes una columna de target, es supervisado
+                            target_column = input_data['target']  # O usa el nombre de la columna de target que tengas
+                            input_features = input_data.drop(columns=['target'])  # Eliminar la columna objetivo
 
-            pca = PCA(n_components=n_components, whiten=whiten)
-            df_pca = pca.fit_transform(df_numeric)
+                            if applies_to == "numeric":
+                                # Seleccionar solo las columnas numéricas
+                                numeric_cols = input_features.select_dtypes(include=['number']).columns
+                                transformed = transformer.fit_transform(input_features[numeric_cols])
+                                
+                                # Crear una copia de los datos originales
+                                output_data = input_data.copy()
+                                output_data[numeric_cols] = transformed  # Reemplazar solo las columnas numéricas
 
-            pca_columns = [f'PC{i+1}' for i in range(df_pca.shape[1])]
-            df_pca = pd.DataFrame(df_pca, columns=pca_columns, index=df.index)
+                            elif applies_to == "categorical":
+                                # Para columnas categóricas
+                                categorical_cols = input_features.select_dtypes(exclude=['number']).columns
+                                output_data = pd.get_dummies(input_data, columns=categorical_cols)
 
-            df = df.drop(columns=df_numeric.columns).join(df_pca)
+                            else:
+                                # Si no se aplica ni a numéricas ni a categóricas, aplicamos la transformación a todo
+                                output_data = input_data.copy()
+                                output_data[input_features.columns] = transformer.fit_transform(input_features)
+                            
+                            # Reincluir la columna de target que se había eliminado
+                            output_data['target'] = target_column
+                            
+                        else:
+                            # Si no tienes columna de target, es no supervisado
+                            if applies_to == "numeric":
+                                # Seleccionar solo las columnas numéricas
+                                numeric_cols = input_data.select_dtypes(include=['number']).columns
+                                transformed = transformer.fit_transform(input_data[numeric_cols])
+                                
+                                # Crear una copia de los datos originales
+                                output_data = input_data.copy()
+                                output_data[numeric_cols] = transformed  # Reemplazar solo las columnas numéricas
 
-        if normalizer_params:
-            df_numeric = df.select_dtypes(include=['float64', 'int64'])
+                            elif applies_to == "categorical":
+                                # Para columnas categóricas
+                                categorical_cols = input_data.select_dtypes(exclude=['number']).columns
+                                output_data = pd.get_dummies(input_data, columns=categorical_cols)
 
-            norm_type = normalizer_params.get('norm', 'l2') 
+                            else:
+                                # Para otros casos, transformamos todas las columnas numéricas
+                                output_data = pd.DataFrame(
+                                    transformer.fit_transform(input_data),
+                                    columns=input_data.columns
+                                )
+                        
+                        # Almacenar los datos transformados
+                        data_storage[element_id] = output_data
+                        logger.info("Datos inicial: %s", input_data.head())
+                        logger.info("Datos transformados: %s", output_data.head())
+                        logger.info(data_storage)
 
-            normalizer = Normalizer(norm=norm_type)
-            df_normalized = normalizer.fit_transform(df_numeric)
+                elif category == "model" and input_data is not None:
+                    logger.info("Entrenando modelo")
+                    # Entrenar modelo
+                    model = cls(**extract_parameters(element_def["properties"], params))
+                    logger.info("Parámetros: %s", model.get_params())
+                    if element_def.get("model_type") == "classification":
+                        logger.info("Modelo clasificacion")
+                        X = input_data.iloc[:, :-1]
+                        y = input_data.iloc[:, -1]
+                        logger.info("X: %s", X.head())
+                        logger.info("y: %s", y.head())
+                        
+                        X_train, X_test, y_train, y_test = train_test_split(
+                            X, y, test_size=0.2, random_state=42
+                        )
+                        model.fit(X_train, y_train)
+                        y_pred = model.predict(X_test)
+                        
+                        models[element_id] = {
+                            "type": el_type,
+                            "y_test": y_test,
+                            "y_pred": y_pred
+                        }
 
-            df_normalized = pd.DataFrame(df_normalized, columns=df_numeric.columns, index=df.index)
+                    elif element_def.get("model_type") == "regression":
+                        logger.info("Modelo regresión")
+                        X = input_data.iloc[:, :-1]
+                        y = input_data.iloc[:, -1]
+                        
+                        X_train, X_test, y_train, y_test = train_test_split(
+                            X, y, test_size=0.2, random_state=42
+                        )
+                        
+                        model.fit(X_train, y_train)
+                        y_pred = model.predict(X_test)
+                        
+                        # Calcular las métricas de regresión
+                        metrics = calculate_regression_metrics(y_test, y_pred)
+                        
+                        # Guardar las métricas de regresión
+                        save_regression_metrics(anomaly_detector, model_data["type"], metrics, anomaly_detector.execution)
 
-            df[df_numeric.columns] = df_normalized
-            
-        if knnImputer_params:
-            df_numeric = df.select_dtypes(include=['float64', 'int64'])
+                    elif element_def.get("model_type") == "anomalyDetection":
+                        logger.info("Modelo Detección de anomalías")
+                        model.fit(input_data)
+                        predictions = model.predict(input_data)
+                        y_pred = [1 if x == -1 else 0 for x in predictions]
+                        logger.info("Predicciones: %s", y_pred)
+                        for column in input_data.columns:
+                            feature_values = input_data[column].values
+                            anomalies = [i for i, (val, pred) in enumerate(zip(feature_values, y_pred)) if pred == 1]
 
-            n_neighbors = int(knnImputer_params.get('neighbors', 5)) 
-            weights = knnImputer_params.get('weight', 'uniform') 
+                            # Llamar a la función para guardar las métricas de anomalía
+                            save_anomaly_metrics(anomaly_detector, el_type, column, feature_values, anomalies, anomaly_detector.execution)
+                            
+                        models[element_id] = {
+                            "type": el_type,
+                            "y_pred": y_pred
+                        }
 
-            imputer = KNNImputer(n_neighbors=n_neighbors, weights=weights)
-            df_imputed = imputer.fit_transform(df_numeric)
-
-            df_imputed = pd.DataFrame(df_imputed, columns=df_numeric.columns, index=df.index)
-
-            df[df_numeric.columns] = df_imputed
-
-        X = df.iloc[:, :-1]  
-        y = df.iloc[:, -1]   
-
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-        logger.info("COMIENZO MODELO")
-        if knn_params:
-            n_neighbors = int(knn_params.get('neighbors', 5))
-            weights = knn_params.get('weight', 'uniform')
-            algorithm = knn_params.get('algorithm', 'auto')
-            metric = knn_params.get('metric', 'minkowski')
-
-            knn = KNeighborsClassifier(n_neighbors=n_neighbors, weights=weights, algorithm=algorithm, metric=metric)
-            knn.fit(X_train, y_train)
-
-            y_pred_knn = knn.predict(X_test)
-
-            f1 = f1_score(y_test, y_pred_knn, average='weighted')
-            logger.info(f"KNN Model - F1 Score: {f1:.2f}")
-            metrics['KNN'] = {
-                'f1_score': round(f1, 2)
-            }
-
-        if rf_params:
-            n_estimators = int(rf_params.get('trees', 100))
-            max_depth_option = rf_params.get('depthOption', 'None')
-            max_depth = None if max_depth_option == 'None' else int(rf_params.get('customDepth', 1))
-
-            random_state_option = rf_params.get('randomStateOption', 'None')
-            if random_state_option == 'None':
-                random_state = None
-            elif random_state_option == 'custom':
-                random_state = int(rf_params.get('customRandomState', 0))
-            else:
-                random_state = None
-            max_features_option = rf_params.get('maxFeaturesOption', 'sqrt')
-            if max_features_option == 'custom':
-                max_features = int(rf_params.get('customMaxFeatures', 1))
-            else:
-                max_features = max_features_option
-
-            logger.info("DENTRO RF")
-
-            rf = RandomForestClassifier(
-                n_estimators=n_estimators,
-                max_depth=max_depth,
-                random_state=random_state,
-                max_features=max_features
-            )
-
-            rf.fit(X_train, y_train)
-
-            y_pred = rf.predict(X_test)
-
-            f1_rf = f1_score(y_test, y_pred, average='weighted') 
-            precision_rf = precision_score(y_test, y_pred, average='weighted')
-            recall_rf = recall_score(y_test, y_pred, average='weighted')
-            accuracy_rf = accuracy_score(y_test, y_pred)
-            conf_matrix_rf = confusion_matrix(y_test, y_pred)
-
-            logger.info(f"RandomForest Model - F1 Score: {f1_rf:.2f}")
-            logger.info(f"RandomForest Model - Precision: {precision_rf:.2f}")
-            logger.info(f"RandomForest Model - Recall: {recall_rf:.2f}")
-            logger.info(f"RandomForest Model - Accuracy: {accuracy_rf:.2f}")
-            logger.info(f"RandomForest Model - Confusion Matrix:\n{conf_matrix_rf}")
-
-            metrics_rf = {
-                'f1_score': round(f1_rf, 2),
-                'precision': round(precision_rf, 2),
-                'recall': round(recall_rf, 2),
-                'accuracy': round(accuracy_rf, 2),
-                'confusion_matrix': conf_matrix_rf.tolist()
-            }
-
-            Metric.objects.create(
-                detector=anomaly_detector,
-                model_name='RandomForest',
-                accuracy=metrics_rf['accuracy'],
-                precision=metrics_rf['precision'],
-                recall=metrics_rf['recall'],
-                f1_score=metrics_rf['f1_score'],
-                confusion_matrix=json.dumps(metrics_rf['confusion_matrix'])
-            )
-
-        if lr_params:
-            c = float(lr_params.get('c', 1.0))
-            penalty = lr_params.get('penalty', 'l2')
-            solver = lr_params.get('solver', 'lbfgs')
-            max_iter = int(lr_params.get('maxIter', 100))
-
-            lr = LogisticRegression(
-                C=c,
-                penalty=penalty,
-                solver=solver,
-                max_iter=max_iter
-            )
-
-            lr.fit(X_train, y_train)
-
-            y_pred = lr.predict(X_test)
-
-            f1 = f1_score(y_test, y_pred, average='weighted')
-            logger.info(f"Logistic Regression Model - F1 Score: {f1:.2f}")
-            metrics['LogisticRegression'] = {
-                'f1_score': round(f1, 2)
-            }
-
-        if gb_params:
-            n_estimators = int(gb_params.get('n_estimators', 100))
-            learning_rate = float(gb_params.get('learning_rate', 0.1))
-            
-            max_depth_option = gb_params.get('max_depth', 'None')
-            max_depth = None if max_depth_option == 'None' else int(gb_params.get('customMaxDepth', 3))
-            
-            random_state_option = gb_params.get('random_state', 'None')
-            if random_state_option == 'None':
-                random_state = None
-            elif random_state_option == 'custom':
-                random_state = int(gb_params.get('customRandomState', 0))
-            else:
-                random_state = None
-
-            gb = GradientBoostingClassifier(
-                n_estimators=n_estimators,
-                learning_rate=learning_rate,
-                max_depth=max_depth,
-                random_state=random_state
-            )
-
-            gb.fit(X_train, y_train)
-
-            y_pred = gb.predict(X_test)
-
-            f1 = f1_score(y_test, y_pred, average='weighted')
-            logger.info(f"Gradient Boosting Model - F1 Score: {f1:.2f}")
-            metrics['GradientBoosting'] = {
-                'f1_score': round(f1, 2)
-            }
-
-        if dt_params:
-            criterion = dt_params.get('criterion', 'gini')
-            splitter = dt_params.get('splitter', 'best')
-            
-            max_depth_option = dt_params.get('max_depth', 'None')
-            max_depth = None if max_depth_option == 'None' else int(dt_params.get('customMaxDepth', 1))
-            
-            max_features_option = dt_params.get('max_features', 'None')
-            max_features = None if max_features_option == 'None' else int(dt_params.get('customMaxFeatures', 1))
-            
-            random_state_option = dt_params.get('random_state', 'None')
-            if random_state_option == 'None':
-                random_state = None
-            elif random_state_option == 'custom':
-                random_state = int(dt_params.get('customRandomState', 0))
-            else:
-                random_state = None
-
-            dt = DecisionTreeClassifier(
-                criterion=criterion,
-                splitter=splitter,
-                max_depth=max_depth,
-                max_features=max_features,
-                random_state=random_state
-            )
-
-            dt.fit(X_train, y_train)
-
-            y_pred = dt.predict(X_test)
-
-            f1 = f1_score(y_test, y_pred, average='weighted')
-            logger.info(f"Decision Tree Model - F1 Score: {f1:.2f}")
-            metrics['DecisionTree'] = {
-                'f1_score': round(f1, 2)
-            }
-
-        return {'message': 'Model trained successfully', 'metrics': metrics}
+        return {"message": "Ejecución exitosa"}
 
     except Exception as e:
-        return {'error': str(e)}
-    
+        logger.error(f"Error en execute_scenario: {str(e)}")
+        return {"error": str(e)}

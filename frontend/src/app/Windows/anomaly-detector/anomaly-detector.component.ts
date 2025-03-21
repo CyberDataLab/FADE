@@ -71,34 +71,63 @@ export class AnomalyDetectorComponent {
 
   async loadScenario(event: Event): Promise<void> {
     const input = event.target as HTMLInputElement;
-
+  
     if (input?.files?.length) {
-      const file = input.files[0];
+      const files = Array.from(input.files);
+      const jsonFile = files.find(file => file.name.endsWith('.json'));
+      const csvFile = files.find(file => file.name.endsWith('.csv'));
+  
+      if (!jsonFile) {
+        alert('A JSON file must be selected.');
+        return;
+      }
+  
       const reader = new FileReader();
-
-      reader.onload = (e: ProgressEvent<FileReader>) => {
+  
+      reader.onload = async (e: ProgressEvent<FileReader>) => {
         try {
           const design = JSON.parse(e.target?.result as string);
-          const name = file.name.substring(0, file.name.lastIndexOf('.'));
+          const csvElements = design.elements.filter((el: any) => el.type === "CSV");
+          const expectedCsvName = design.elements.find((el: any) => el.type === "CSV")?.parameters?.csvFileName;
+          /*
+          if (!expectedCsvName) {
+            alert('El JSON no contiene una referencia a un archivo CSV.');
+            return;
+          }
+          */
+          if (csvElements.length > 0) {
+            if (!csvFile) {
+                alert(`The corresponding CSV file must be selected: ${expectedCsvName}`);
+                return;
+            }
 
-          this.scenarioService.saveScenario(name, design)
+            if (csvFile.name !== expectedCsvName) {
+                alert(`The name of the selected CSV file (${csvFile.name}) does not match the expected name (${expectedCsvName}).`);
+                return;
+            }
+          }
+    
+          const scenarioName = jsonFile.name.substring(0, jsonFile.name.lastIndexOf('.'));
+
+          this.scenarioService.saveScenario(scenarioName, design, csvFile)
             .subscribe({
-              next: () => {
-                this.getScenarios();
-                alert('Scenario imported correctly.');
-              },
-              error: () => {
-                alert('Unexpected error while importing the scenario.');
-              }
+                next: () => {
+                    this.getScenarios();
+                    alert('Scenario successfully imported.');
+                },
+                error: () => {
+                    alert('Unexpected error while importing the scenario.');
+                }
             });
+
         } catch (err) {
-          alert('Error loading the scenario. Invalid format.');
+            alert('Error loading the scenario. Invalid format.');
         }
       };
 
-      reader.readAsText(file);
+      reader.readAsText(jsonFile);
     }
-    
+
     input.value = '';
   }
 
@@ -185,23 +214,24 @@ export class AnomalyDetectorComponent {
   }
 
   downloadScenario(scenario: any) {
-    const blob = new Blob([JSON.stringify(scenario.design)], { type: 'application/json' });
-  
+    // Si scenario.design es una cadena, conviértela a objeto
+    const design = typeof scenario.design === 'string' 
+        ? JSON.parse(scenario.design) 
+        : scenario.design;
+
+    const formattedJson = JSON.stringify(design, null, 2); // Ahora sí tendrá formato
+    const blob = new Blob([formattedJson], { type: 'application/json' });
+    
     const link = document.createElement('a');
-  
     const fileName = `${scenario.name}.json`;
-  
+    
     link.href = URL.createObjectURL(blob);
     link.download = fileName;
-  
+    
     document.body.appendChild(link); 
     link.click();
     document.body.removeChild(link); 
-  
+    
     URL.revokeObjectURL(link.href);
-  }
-  
-  
-
-
+}
 }

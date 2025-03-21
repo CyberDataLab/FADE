@@ -1,7 +1,31 @@
-<h2>Scenario metrics</h2>
+<div class="metrics-container">
+  <h2>Scenario Metrics</h2>
+  <div *ngFor="let execution of groupedMetrics">
+    <h3>Execution: {{ execution.executionNumber }}</h3>
 
-<canvas id="metricsChart" width="600" height="400"></canvas>
+    <div *ngFor="let model of execution.models">
+      <h4>Model: {{ model.modelName }}</h4>
+      <div class="charts-wrapper">
+        <div class="chart-container">
+          <canvas id="bar-{{execution.executionNumber}}-{{model.safeModelName}}"
+                  (click)="showChartInModal('bar', execution.executionNumber, model)">
+          </canvas>
+        </div>
+        <div class="matrix-container">
+          <canvas id="matrix-{{execution.executionNumber}}-{{model.safeModelName}}"
+                  (click)="showChartInModal('matrix', execution.executionNumber, model)">
+          </canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
-
-<canvas id="confussionMatrixChart"></canvas>
+<!-- Modal para ver la gráfica en grande -->
+<div class="modal-overlay" *ngIf="showModal" (click)="closeModal()">
+  <div class="modal-content" (click)="$event.stopPropagation()">
+    <button class="close-btn" (click)="closeModal()">✖</button>
+    <canvas id="modal-{{modalChartType}}-chart"></canvas>
+  </div>
+</div>
 

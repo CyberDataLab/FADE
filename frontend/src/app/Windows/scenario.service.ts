@@ -159,10 +159,19 @@ export class ScenarioService {
     return EMPTY;
   }
   
-  getScenarioMetrics(uuid: string): Observable<any> {
+  getScenarioClassificationMetrics(uuid: string): Observable<any> {
     if (isPlatformBrowser(this.platformId)) {
       return this.handleRequest(
-        this.http.get(`${this.apiUrl}${uuid}/metrics/`, { headers: this.getAuthHeaders() })
+        this.http.get(`${this.apiUrl}${uuid}/classification-metrics/`, { headers: this.getAuthHeaders() })
+      );
+    }
+    return EMPTY;
+  }
+
+  getScenarioAnomalyMetrics(uuid: string): Observable<any> {
+    if (isPlatformBrowser(this.platformId)) {
+      return this.handleRequest(
+        this.http.get(`${this.apiUrl}${uuid}/anomaly-metrics/`, { headers: this.getAuthHeaders() })
       );
     }
     return EMPTY;

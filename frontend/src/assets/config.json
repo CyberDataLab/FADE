@@ -1,0 +1,891 @@
+{
+  "sections": {
+    "dataSource": {
+      "elements": [
+        {
+          "type": "CSV",
+          "displayName": "CSV",
+          "icon": "fa fa-file-csv",
+          "category": "data_source",
+          "properties": [
+            {
+              "name": "csvFileName",
+              "type": "file",
+              "default": {},
+              "accept": ".csv"
+            },
+            {
+              "name": "columns",
+              "type": "column-selector",
+              "default": {}
+            }
+          ]
+        },
+        {
+          "type": "Network",
+          "displayName": "Network",
+          "icon": "fa fa-network-wired",
+          "category": "data_source",
+          "properties": [
+            {
+              "name": "networkFileName",
+              "type": "file",
+              "default": null,
+              "accept": ".txt"
+            }
+          ]
+        }
+      ]
+    },
+    "dataProcessing": {
+      "elements": [
+        {
+          "type": "StandardScaler",
+          "displayName": "Standard Scaler",
+          "icon": "fa fa-sliders-h",
+          "class": "sklearn.preprocessing.StandardScaler",
+          "category": "preprocessing",
+          "appliesTo": "numeric",
+          "properties": [
+            {
+              "name": "with_std",
+              "label": "With Std",
+              "type": "select",
+              "default": "True",
+              "options": ["True", "False"]
+            },
+            {
+              "name": "with_mean",
+              "label": "With Mean",
+              "type": "select",
+              "default": "True",
+              "options": ["True", "False"]
+            }
+          ]
+        },
+        {
+          "type": "MinMaxScaler",
+          "displayName": "MinMax Scaler",
+          "icon": "fa fa-sliders-h",
+          "class": "sklearn.preprocessing.MinMaxScaler",
+          "category": "preprocessing",
+          "appliesTo": "numeric",
+          "properties": [
+            {
+              "name": "minValue",
+              "placeholder": "Minimum Value",
+              "label": "Minimum Value",
+              "type": "number",
+              "default": 0,
+              "min": 0
+            },
+            {
+              "name": "maxValue",
+              "label": "Maximum Value",
+              "placeholder": "Maximum Value",
+              "type": "number",
+              "default": 1,
+              "min": 1
+            },
+            {
+              "name": "clip",
+              "label": "Clip",
+              "type": "select",
+              "default": "False",
+              "options": ["True", "False"]
+            }
+          ]
+        },
+        {
+          "type": "OneHotEncoding",
+          "displayName": "One-Hot Encoding",
+          "icon": "fa fa-barcode",
+          "class": "sklearn.preprocessing.OneHotEncoder",
+          "category": "preprocessing",
+          "appliesTo": "categorical",
+          "properties": [
+            {
+              "name": "handle_unknown",
+              "label": "Handle Unknown",
+              "type": "select",
+              "default": "error",
+              "options": ["error", "ignore", "infrequent_if_exist", "warn"]
+            },
+            {
+              "name": "drop",
+              "label": "Drop",
+              "type": "select",
+              "default": "None",
+              "options": ["None", "first", "if_binary"]
+            }
+          ]
+        },
+        {
+          "type": "PCA",
+          "displayName": "PCA",
+          "icon": "fa fa-cogs",
+          "class": "sklearn.decomposition.PCA",
+          "category": "preprocessing",
+          "appliesTo": "numeric",
+          "properties": [
+            {
+              "name": "n_components",
+              "label": "Number of components",
+              "type": "conditional-select",
+              "default": "None",
+              "options": ["None", "custom"]
+            },
+            {
+              "name": "custom_n_components",
+              "label": "Custom number of components",
+              "placeholder": "Number of components",
+              "type": "number",
+              "default": 1,
+              "min": 1,
+              "conditional": {
+                "dependsOn": "n_components",
+                "value": "custom"
+              }
+            },
+            {
+              "name": "whiten",
+              "label": "Whiten",
+              "type": "select",
+              "default": "False",
+              "options": ["False", "True"]
+            }
+          ]
+        },
+        {
+          "type": "Normalizer",
+          "displayName": "Normalizer",
+          "icon": "fa fa-balance-scale",
+          "class": "sklearn.preprocessing.Normalizer",
+          "category": "preprocessing",
+          "appliesTo": "numeric",
+          "properties": [
+            {
+              "name": "norm",
+              "label": "Norm",
+              "type": "select",
+              "default": "l2",
+              "options": ["l2", "l1", "max"]
+            }
+          ]
+        },
+        {
+          "type": "KNNImputer",
+          "displayName": "KNN Imputer",
+          "icon": "fa fa-cube",
+          "class": "sklearn.impute.KNNImputer",
+          "category": "preprocessing",
+          "appliesTo": "numeric",
+          "properties": [
+            {
+              "name": "n_neighbors",
+              "label": "Number of neighbors",
+              "placeholder": "Number of neighbors",
+              "type": "number",
+              "default": 5,
+              "min": 1
+            },
+            {
+              "name": "weights",
+              "label": "Weights",
+              "type": "select",
+              "default": "uniform",
+              "options": ["uniform", "distance"]
+            }
+          ]
+        }
+      ]
+    },
+    "dataModel": {
+      "classification": [
+        {
+          "type": "KNN",
+          "displayName": "KNN",
+          "icon": "fa fa-sitemap",
+          "class": "sklearn.neighbors.KNeighborsClassifier",
+          "category": "model",
+          "properties": [
+            {
+              "name": "n_neighbors",
+              "label": "Number of neighbors",
+              "placeholder": "Number of neighbors",
+              "type": "number",
+              "default": 5,
+              "min": 1
+            },
+            {
+              "name": "weights",
+              "label": "Weights",
+              "type": "select",
+              "default": "uniform",
+              "options": ["uniform", "distance"]
+            },
+            {
+              "name": "algorithm",
+              "label": "Algorithm",
+              "type": "select",
+              "default": "auto",
+              "options": ["auto", "ball_tree", "kd_tree", "brute"]
+            },
+            {
+              "name": "metric",
+              "label": "Metric",
+              "type": "select",
+              "default": "minkowski",
+              "options": ["minkowski", "euclidean", "manhattan", "chebyshev", "cosine"]
+            }
+          ]
+        },
+        {
+          "type": "RandomForest",
+          "displayName": "Random Forest",
+          "icon": "fa fa-tree",
+          "class": "sklearn.ensemble.RandomForestClassifier",
+          "category": "model",
+          "properties": [
+            {
+              "name": "n_estimators",
+              "label": "Number of estimators",
+              "placeholder": "Number of estimators",
+              "type": "number",
+              "default": 100,
+              "min": 1
+            },
+            {
+              "name": "max_depth",
+              "label": "Maximum depth",
+              "type": "conditional-select",
+              "default": "None",
+              "options": ["None", "custom"]
+            },
+            {
+              "name": "custom_max_depth",
+              "label": "Custom maximum depth",
+              "placeholder": "Maximum depth",
+              "type": "number",
+              "default": 1,
+              "min": 1,
+              "conditional": {
+                "dependsOn": "max_depth",
+                "value": "custom"
+              }
+            },
+            {
+              "name": "random_state",
+              "label": "Random state",
+              "type": "conditional-select",
+              "default": "None",
+              "options": ["None", "custom"]
+            },
+            {
+              "name": "custom_random_state",
+              "label": "Custom random state",
+              "placeholder": "Random state",
+              "type": "number",
+              "default": 0,
+              "min": 0,
+              "conditional": {
+                "dependsOn": "random_state",
+                "value": "custom"
+              }
+            },
+            {
+              "name": "max_features",
+              "label": "Maximum features",
+              "type": "conditional-select",
+              "default": "sqrt",
+              "options": ["sqrt", "auto", "log2", "custom"]
+            },
+            {
+              "name": "custom_max_features",
+              "label": "Custom maximum features",
+              "placeholder": "Maximum features",
+              "type": "number",
+              "default": 1,
+              "min": 1,
+              "conditional": {
+                "dependsOn": "max_features",
+                "value": "custom"
+              }
+            }
+          ]
+        },
+        {
+          "type": "SVM",
+          "displayName": "SVM",
+          "icon": "fa fa-project-diagram",
+          "class": "sklearn.svm.SVC",
+          "category": "model",
+          "properties": [
+            {
+              "name": "kernel",
+              "label": "Kernel",
+              "type": "select",
+              "default": "rbf",
+              "options": ["rbf", "linear", "poly", "sigmoid", "precomputed"]
+            },
+            {
+              "name": "C",
+              "label": "Regularization",
+              "placeholder": "Regularization",
+              "type": "number",
+              "default": 1.0,
+              "min": 0.1,
+              "step": 0.1
+            },
+            {
+              "name": "class_weight",
+              "label": "Class weight",
+              "type": "select",
+              "default": "None",
+              "options": ["None", "balanced"]
+            },
+            {
+              "name": "gamma",
+              "label": "Gamma",
+              "type": "select",
+              "default": "scale",
+              "options": ["scale", "auto"],
+              "conditional": {
+                "dependsOn": "kernel",
+                "values": ["rbf", "poly", "sigmoid"]
+              }
+            }
+          ]
+        },
+        {
+          "type": "GradientBoosting",
+          "displayName": "Gradient Boosting",
+          "icon": "fa fa-rocket",
+          "class": "sklearn.ensemble.GradientBoostingClassifier",
+          "category": "model",
+          "properties": [
+            {
+              "name": "n_estimators",
+              "label": "Number of estimators",
+              "placeholder": "Number of estimators",
+              "type": "number",
+              "default": 100,
+              "min": 1
+            },
+            {
+              "name": "learning_rate",
+              "label": "Learning rate",
+              "placeholder": "Learning rate",
+              "type": "number",
+              "default": 0.1,
+              "min": 0.0,
+              "step": 0.1
+            },
+            {
+              "name": "max_depth",
+              "label": "Maximum depth",
+              "type": "conditional-select",
+              "default": "None",
+              "options": ["None", "custom"]
+            },
+            {
+              "name": "custom_max_depth",
+              "label": "Custom maximum depth",
+              "placeholder": "Maximum depth",
+              "type": "number",
+              "default": 3,
+              "min": 1,
+              "conditional": {
+                "dependsOn": "max_depth",
+                "value": "custom"
+              }
+            },
+            {
+              "name": "random_state",
+              "label": "Random state",
+              "type": "conditional-select",
+              "default": "None",
+              "options": ["None", "custom"]
+            },
+            {
+              "name": "custom_random_state",
+              "label": "Custom random state",
+              "placeholder": "Random state",
+              "type": "number",
+              "default": 0,
+              "min": 0,
+              "conditional": {
+                "dependsOn": "random_state",
+                "value": "custom"
+              }
+            }
+          ]
+        },
+        {
+          "type": "DecisionTree",
+          "displayName": "Decision Tree",
+          "icon": "fa fa-tree",
+          "class": "sklearn.tree.DecisionTreeClassifier",
+          "category": "model",
+          "properties": [
+            {
+              "name": "criterion",
+              "label": "Criterion",
+              "type": "select",
+              "default": "gini",
+              "options": ["gini", "entropy", "log_loss"]
+            },
+            {
+              "name": "splitter",
+              "label": "Splitter",
+              "type": "select",
+              "default": "best",
+              "options": ["best", "random"]
+            },
+            {
+              "name": "max_depth",
+              "label": "Maximum depth",
+              "type": "conditional-select",
+              "default": "None",
+              "options": ["None", "custom"]
+            },
+            {
+              "name": "custom_max_depth",
+              "label": "Custom maximum depth",
+              "placeholder": "Maximum depth",
+              "type": "number",
+              "default": 1,
+              "min": 1,
+              "conditional": {
+                "dependsOn": "max_depth",
+                "value": "custom"
+              }
+            },
+            {
+              "name": "max_features",
+              "label": "Maximum features",
+              "type": "conditional-select",
+              "default": "None",
+              "options": ["None", "sqrt", "log2", "custom"]
+            },
+            {
+              "name": "custom_max_features",
+              "label": "Custom maximum features",
+              "placeholder": "Maximum features",
+              "type": "number",
+              "default": 1,
+              "min": 1,
+              "conditional": {
+                "dependsOn": "max_features",
+                "value": "custom"
+              }
+            },
+            {
+              "name": "random_state",
+              "label": "Random state",
+              "type": "conditional-select",
+              "default": "None",
+              "options": ["None", "custom"]
+            },
+            {
+              "name": "custom_random_state",
+              "label": "Custom random state",
+              "type": "number",
+              "default": 0,
+              "min": 0,
+              "conditional": {
+                "dependsOn": "random_state",
+                "value": "custom"
+              }
+            }
+          ]
+        }
+      ],
+      "regression": [
+        {
+          "type": "LogisticRegression",
+          "displayName": "Logistic Regression",
+          "icon": "fa fa-chart-line",
+          "class": "sklearn.linear_model.LogisticRegression",
+          "category": "model",
+          "properties": [
+            {
+              "name": "C",
+              "label": "Regularization",
+              "placeholder": "Regularization",
+              "type": "number",
+              "default": 1.0,
+              "min": 0.1,
+              "step": 0.1
+            },
+            {
+              "name": "penalty",
+              "label": "Penalty",
+              "type": "select",
+              "default": "l2",
+              "options": ["l2", "l1", "elasticnet", "None"]
+            },
+            {
+              "name": "solver",
+              "label": "Solver",
+              "type": "select",
+              "default": "lbfgs",
+              "options": ["lbfgs", "liblinear", "newton-cg", "newton-cholesky", "sag", "saga"]
+            },
+            {
+              "name": "max_iter",
+              "label": "Maximum iterations",
+              "placeholder": "Maximum iterations",
+              "type": "number",
+              "default": 100,
+              "min": 1
+            }
+          ]
+        }
+      ],
+      "anomalyDetection": [
+        {
+          "type": "IsolationForest",
+          "displayName": "Isolation Forest",
+          "icon": "fa fa-tree",
+          "class": "sklearn.ensemble.IsolationForest",
+          "category": "model",
+          "properties": [
+            {
+              "name": "n_estimators",
+              "label": "Number of estimators",
+              "placeholder": "Number of estimators",
+              "type": "number",
+              "default": 100,
+              "min": 1
+            },
+            {
+              "name": "max_samples",
+              "label": "Maximum samples",
+              "type": "conditional-select",
+              "default": "auto",
+              "options": ["auto", "custom"]
+            },
+            {
+              "name": "custom_max_samples",
+              "label": "Custom maximum samples",
+              "placeholder": "Maximum samples",
+              "type": "number",
+              "default": 1,
+              "min": 1,
+              "conditional": {
+                "dependsOn": "max_samples",
+                "value": "custom"
+              }
+            },
+            {
+              "name": "contamination",
+              "label": "Contamination",
+              "type": "conditional-select",
+              "default": "auto",
+              "options": ["auto", "custom"]
+            },
+            {
+              "name": "custom_contamination",
+              "label": "Custom contamination",
+              "placeholder": "Contamination",
+              "type": "number",
+              "default": 0.1,
+              "min": 0.1,
+              "max": 5,
+              "step": 0.01,
+              "conditional": {
+                "dependsOn": "contamination",
+                "value": "custom"
+              }
+            },
+            {
+              "name": "max_features",
+              "label": "Maximum features",
+              "placeholder": "Maximum features",
+              "type": "number",
+              "default": 1.0,
+              "min": 0.1,
+              "step": 0.1
+            },
+            {
+              "name": "random_state",
+              "label": "Random state",
+              "type": "conditional-select",
+              "default": "None",
+              "options": ["None", "custom"]
+            },
+            {
+              "name": "custom_random_state",
+              "label": "Custom random state",
+              "placeholder": "Random state",
+              "type": "number",
+              "default": 0,
+              "min": 0,
+              "conditional": {
+                "dependsOn": "random_state",
+                "value": "custom"
+              }
+            }
+          ]
+        },
+        {
+          "type": "AutoEncoders",
+          "displayName": "Auto-encoders",
+          "icon": "fa fa-brain",
+          "class": "tensorflow.keras.models.Sequential",
+          "category": "model",
+          "properties": [
+            {
+              "name": "encoding_dim",
+              "type": "number",
+              "default": 32,
+              "min": 1
+            },
+            {
+              "name": "epochs",
+              "type": "number",
+              "default": 50,
+              "min": 1
+            }
+          ]
+        },
+        {
+          "type": "OneClassSVM",
+          "displayName": "OCSVM",
+          "icon": "fa fa-shield-alt",
+          "class": "sklearn.svm.OneClassSVM",
+          "category": "model",
+          "properties": [
+            {
+              "name": "kernel",
+              "label": "Kernel",
+              "type": "select",
+              "default": "rbf",
+              "options": ["rbf", "linear", "poly", "sigmoid"]
+            },
+            {
+              "name": "nu",
+              "label": "Nu",
+              "placeholder": "Nu",
+              "type": "number",
+              "default": 0.5,
+              "min": 0.01,
+              "max": 1.0,
+              "step": 0.05
+            },
+            {
+              "name": "gamma",
+              "label": "Gamma",
+              "type": "select",
+              "default": "scale",
+              "options": ["scale", "auto"],
+              "conditional": {
+                "dependsOn": "kernel",
+                "values": ["rbf", "poly", "sigmoid"]
+              }
+            }
+          ]
+        },
+        {
+          "type": "KMeans",
+          "displayName": "K-Means",
+          "icon": "fa fa-clone",
+          "class": "sklearn.cluster.KMeans",
+          "category": "model",
+          "properties": [
+            {
+              "name": "n_clusters",
+              "label": "Number of clusters",
+              "placeholder": "Number of clusters",
+              "type": "number",
+              "default": 8,
+              "min": 1,
+              "step": 1
+            },
+            {
+              "name": "init",
+              "label": "Initialization",
+              "type": "select",
+              "default": "k-means++",
+              "options": ["k-means++", "random"]
+            },
+            {
+              "name": "max_iter",
+              "label": "Maximum iterations",
+              "placeholder": "Maximum iterations",
+              "type": "number",
+              "default": 300,
+              "min": 1,
+              "step": 1
+            },
+            {
+              "name": "tol",
+              "label": "Tolerance",
+              "placeholder": "Tolerance",
+              "type": "number",
+              "default": 0.0001,
+              "min": 0,
+              "step": 0.0001
+            }
+          ]
+        },
+        {
+          "type": "LOF",
+          "displayName": "LOF",
+          "icon": "fa fa-exclamation-triangle",
+          "class": "sklearn.neighbors.LocalOutlierFactor",
+          "category": "model",
+          "properties": [
+            {
+              "name": "n_neighbors",
+              "label": "Number of neighbors",
+              "placeholder": "Number of neighbors",
+              "type": "number",
+              "default": 20,
+              "min": 1,
+              "step": 1
+            },
+            {
+              "name": "algorithm",
+              "label": "Algorithm",
+              "type": "select",
+              "default": "auto",
+              "options": ["auto", "ball_tree", "kd_tree", "brute"]
+            },
+            {
+              "name": "metric",
+              "label": "Metric",
+              "type": "select",
+              "default": "minkowski",
+              "options": ["minkowski", "euclidean", "manhattan", "chebyshev", "cosine"]
+            },
+            {
+              "name": "contamination",
+              "label": "Contamination",
+              "placeholder": "Contamination",
+              "type": "number",
+              "default": 0.1,
+              "min": 0.01,
+              "max": 0.5,
+              "step": 0.01
+            }
+          ]
+        },
+        {
+          "type": "DBSCAN",
+          "displayName": "DBSCAN",
+          "icon": "fa fa-dot-circle",
+          "class": "sklearn.cluster.DBSCAN",
+          "category": "model",
+          "properties": [
+            {
+              "name": "eps",
+              "label": "Epsilon",
+              "placeholder": "Epsilon",
+              "type": "number",
+              "default": 0.5,
+              "min": 0.1,
+              "step": 0.1
+            },
+            {
+              "name": "min_samples",
+              "label": "Minimum samples",
+              "placeholder": "Minimum samples",
+              "type": "number",
+              "default": 5,
+              "min": 1,
+              "step": 1
+            },
+            {
+              "name": "metric",
+              "label": "Metric",
+              "type": "select",
+              "default": "euclidean",
+              "options": ["euclidean", "manhattan", "chebyshev", "minkowski", "cosine"]
+            },
+            {
+              "name": "algorithm",
+              "label": "Algorithm",
+              "type": "select",
+              "default": "auto",
+              "options": ["auto", "ball_tree", "kd_tree", "brute"]
+            }
+          ]
+        },
+        {
+          "type": "GMM",
+          "displayName": "GMM",
+          "icon": "fa fa-chart-pie",
+          "class": "sklearn.mixture.GaussianMixture",
+          "category": "model",
+          "properties": [
+            {
+              "name": "n_components",
+              "label": "Number of components",
+              "placeholder": "Number of components",
+              "type": "number",
+              "default": 1,
+              "min": 1,
+              "step": 1
+            },
+            {
+              "name": "covariance_type",
+              "label": "Covariance type",
+              "type": "select",
+              "default": "full",
+              "options": ["full", "tied", "diag", "spherical"]
+            },
+            {
+              "name": "max_iter",
+              "label": "Maximum iterations",
+              "placeholder": "Maximum iterations",
+              "type": "number",
+              "default": 100,
+              "min": 1,
+              "step": 1
+            },
+            {
+              "name": "tol",
+              "label": "Tolerance",
+              "placeholder": "Tolerance",
+              "type": "number",
+              "default": 0.001,
+              "min": 0,
+              "step": 0.0001
+            },
+            {
+              "name": "init_params",
+              "label": "Initialization",
+              "type": "select",
+              "default": "kmeans",
+              "options": ["kmeans", "k-means++", "random", "random_from_data"]
+            }
+          ]
+        }
+      ],
+      "monitoring": [
+        {
+          "type": "Monitor",
+          "displayName": "Monitor",
+          "icon": "fa fa-chart-line",
+          "category": "monitoring",
+          "properties": [
+            {
+              "name": "metrics",
+              "type": "multi-select",
+              "default": [],
+              "options": [
+                "f1Score",
+                "accuracy",
+                "recall",
+                "precision",
+                "confusionMatrix"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

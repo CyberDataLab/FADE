@@ -1,11 +1,16 @@
-/* You can add global styles to this file, and also import other style files */
-html, body { height: 100%; }
+/* Global styles */
+html, body { 
+  height: 100%; 
+  margin: 0;
+  padding: 0;
+  background: #d4d5d5;
+}
+
 body {
-    background: linear-gradient(to bottom, #5b677a, #73818e, #a4a9af); /* Azul a gris */
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    margin: 0;
-    font-family: 'Arial', sans-serif;
-  }
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-family: 'Arial', sans-serif;
+  color: #2d3436;
+  background-attachment: fixed;
+}

@@ -1,1 +1,26 @@
-<p>timeline-ad works!</p>
+<div class="metrics-container">
+  <h2>Anomaly Detection Metrics</h2>
+  <div *ngFor="let execution of groupedMetrics">
+    <h3>Execution: {{ execution.executionNumber }}</h3>
+
+    <div *ngFor="let model of execution.models">
+      <h4>Model: {{ model.modelName }}</h4>
+      <div class="charts-wrapper">
+        <div *ngFor="let feature of model.features" class="chart-container">
+          <h5>Feature: {{ feature.featureName }}</h5>
+          <canvas id="line-{{execution.executionNumber}}-{{model.safeModelName}}-{{feature.safeFeatureName}}"
+                  (click)="showChartInModal('line', execution.executionNumber, model, feature)"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" *ngIf="showModal" (click)="closeModal()">
+  <div class="modal-content" (click)="$event.stopPropagation()">
+    <button class="close-btn" (click)="closeModal()">✖</button>
+    <h4>{{ modalFeatureName }}</h4>
+    <canvas id="modal-line-chart"></canvas>
+  </div>
+</div>

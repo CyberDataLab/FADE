@@ -1,34 +1,51 @@
 html, body {
-    height: 100vh;
+    min-height: 100vh;
+    min-width: 100vw;
     margin: 0; 
     padding: 0; 
     display: flex;
     justify-content: center;
     align-items: center;
     font-family: 'Arial', sans-serif;
-    background: linear-gradient(to bottom, #b0c4de, #889fb3, #67748b);
+    background: linear-gradient(135deg, #f0f4ff, #d9e4ff);
+}
+
+@media (max-width: 480px) { 
+    .register-options {
+      flex-direction: column;
+      gap: 12px;
+      align-items: center;
+    }
+}
+
+@media (max-width: 768px) {
+    .modal-content {
+        width: 90%;
+        padding: 20px;
+    }
 }
 
 .modal-dialog {
     display: flex;
     justify-content: center;
-    align-items: center;
-    height: 100%;
-    padding: 20px; 
-    box-sizing: border-box;
-    overflow-y: auto; 
+    align-items: flex-start;
+    animation: slideIn 0.5s ease-out;
+}
+
+@keyframes slideIn {
+    from { transform: translateY(-20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
 }
 
 .register-modal .modal-content {
-    background: linear-gradient(to bottom, #b0c4de, #889fb3, #67748b);
+    background: rgba(172, 172, 172, 0.6);
     backdrop-filter: blur(15px); 
-    border-radius: 15px;
+    border-radius: 12px;
     padding: 40px;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+    width: 100vw;
+    box-shadow: 0 8px 32px rgba(31, 38, 135, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.3);
     color: #dfe6ff; 
-    max-width: 500px;
-    width: 100%; 
-    height: auto; 
 }
 
 .modal-body {
@@ -42,82 +59,158 @@ html, body {
     flex-direction: column;
     justify-content: flex-start;
     gap: 5px;
+    position: relative;
 }
 
 .register-title {
-    color: #381d5b; 
-    font-size: 24px;
+    color: #2d3436;
+    font-size: 1.8rem;
     text-align: center;
-    margin-bottom: 20px;
+    margin-bottom: 30px;
+    font-weight: 600;
+    letter-spacing: -0.5px;
+    position: relative;
+}
+
+.register-title::after {
+    content: '';
+    position: absolute;
+    bottom: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60px;
+    height: 3px;
+    background: #2470bc;
+    border-radius: 2px;
 }
 
 .register-input {
-    background: transparent;
+    background: rgba(245, 246, 250, 0.9);
     border: none;
-    border-bottom: 2px solid #3b215e; 
-    color: #000000; 
+    border-radius: 12px;
+    color: #2d3436;
     font-size: 16px;
-    padding: 10px;
+    padding: 12px 20px;
+    height: 100%;
     width: 100%;
+    transition: border-color 0.3s ease;
+    box-shadow: inset 4px 4px 6px rgba(0, 0, 0, 0.1), inset -4px -4px 6px rgba(255, 255, 255, 0.3);
+    margin-bottom: 20px;
+    padding-right: 50px; /* espacio extra para el icono del ojo */
+}
+
+.register-input:focus {
+    outline: none;
+    border-color: #2470bc;
+    box-shadow: inset 4px 4px 6px rgba(0, 0, 0, 0.2), inset -4px -4px 6px rgba(255, 255, 255, 0.5);
 }
 
 .register-input::placeholder {
-    color: #5a4184; 
+    color: #77787b;
+    font-weight: 400;
 }
 
 .error-message {
-    color: #ec1c1c;
-    font-size: 16px;
+    color: #ff4757;
+    font-size: 14px;
+    margin-top: -10px;
+    margin-bottom: 15px;
 }
 
 .register-btn {
-    background: linear-gradient(to right, #57528b, #8481a9, #c6c5d5);
+    background: #2470bc;
     border: none;
-    border-radius: 25px;
-    color: #3b215e;
-    font-size: 18px;
+    border-radius: 8px;
+    color: white;
+    font-size: 16px;
+    font-weight: 600;
+    padding: 14px 20px;
+    width: 100%;
     cursor: pointer;
-    padding: 10px;
     transition: background 0.3s ease;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
 }
 
 .register-btn:hover {
-    background: linear-gradient(to right, #c6c5d5, #8481a9, #57528b);
+    background: #1b5e9e;
+    box-shadow: 0 8px 20px rgba(98, 87, 229, 0.3);
 }
 
 .register-options {
     display: flex;
-    justify-content: center;
-    margin-top: 20px;
+    justify-content: space-between; 
+    margin-top: 25px;
+    font-size: 14px;
+    flex-wrap: nowrap;
+    width: 100%;
+    padding: 0 5px;
 }
 
 .register-link {
-    font-size: 14px;
-    color: #381d5b;
+    color: #2470bc;
     text-decoration: none;
-    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-right: 15px;
 }
 
 .register-link:hover {
+    color: #5256a3;
     text-decoration: underline;
+    transform: translateX(3px);
+}
+
+.register-link:last-child {
+    margin-right: 0;
 }
 
 .password-toggle-btn {
     position: absolute;
+    right: 15px;
     top: 50%;
-    right: 10px; 
     transform: translateY(-50%);
+    pointer-events: all;
     background: none;
     border: none;
-    padding: 0;
     cursor: pointer;
-    color: #6c757d; 
-}
-  
-.password-toggle-btn:focus {
-    outline: none; 
+    color: #a4a9b8;
+    font-size: 18px;
+    transition: color 0.3s ease;
+    padding: 0;
+    z-index: 2;
 }
 
-.password-toggle-btn i {
-    font-size: 1.2em;
+.password-toggle-btn:hover {
+    color: #2470bc;
+}
+
+.register-group {
+    position: relative;
+    margin-bottom: 60px;
+}
+
+/* Scrollbar custom para el modal */
+.modal-body::-webkit-scrollbar {
+    width: 6px;
+}
+
+.modal-body::-webkit-scrollbar-thumb {
+    background-color: rgba(36, 112, 188, 0.4);
+    border-radius: 10px;
+}
+
+.modal-body::-webkit-scrollbar-track {
+    background-color: rgba(245, 246, 250, 0.4);
+}
+
+/* Para dispositivos muy pequeños, que el modal no desborde */
+@media (max-width: 400px) {
+    .modal-dialog {
+        width: 95%;
+    }
 }

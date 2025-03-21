@@ -12,6 +12,7 @@ services:
       - db_data:/var/lib/mysql
     ports:
       - "3308:3306"
+  
   backend:
     build: 
       context: ./backend
@@ -19,6 +20,7 @@ services:
     command: ["./wait-for-it.sh", "db:3306", "--", "python", "manage.py", "runserver", "0.0.0.0:8000"]
     volumes:
       - ./backend:/app
+      - ./frontend:/app/frontend  # Volumen adicional para que backend acceda a los archivos de frontend
     ports:
       - "8000:8000"
     environment:
@@ -28,6 +30,7 @@ services:
       MYSQL_ROOT_PASSWORD: rootpassword
     depends_on:
       - db
+  
   frontend:
     build:
       context: ./frontend
@@ -36,6 +39,6 @@ services:
       - "4200:4200"
     volumes:
       - ./frontend:/app
-        
+
 volumes:
   db_data:

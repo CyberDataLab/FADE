@@ -1,130 +1,134 @@
 <div class="app-container">
   <div class="design-container">
     <div class="menu">
-      <div class="section" (click)="toggleSection('dataSource')">
-        <div class="section-header">
-          <i class="fa fa-database" aria-hidden="true"></i>
+      <!-- Sección Data Source -->
+      <div class="section">
+        <div class="section-header" (click)="toggleSection('dataSource')">
+          <i class="fa fa-database"></i>
           <span>Data Source</span>
         </div>
-        <div *ngIf="activeSections.dataSource" class="sub-section">
+        <div *ngIf="activeSections['dataSource']" class="sub-section">
           <div class="option-grid">
-            <div
-              class="option"
-              draggable="true"
-              data-type="CSV"
-              (dragstart)="onDragStart($event, false)"
-              >
-              <i class="fa fa-file-csv"></i>
-              <span>CSV</span>
-            </div>
-
-            <div
-              class="option"
-              draggable="true"
-              data-type="Network"
-              (dragstart)="onDragStart($event, false)"
-              >
-              <i class="fa fa-network-wired"></i>
-              <span>Network</span>
+            <div *ngFor="let element of config.sections.dataSource.elements"
+                 class="option"
+                 draggable="true"
+                 [attr.data-type]="element.type"
+                 (dragstart)="onDragStart($event, false)">
+              <i [class]="element.icon"></i>
+              <span>{{element.displayName}}</span>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Data Processing Section -->
-      <div class="section" (click)="toggleSection('dataProcessing')">
-        <div class="section-header">
-          <i class="fa fa-cogs" aria-hidden="true"></i>
+      <!-- Sección Data Processing -->
+      <div class="section">
+        <div class="section-header" (click)="toggleSection('dataProcessing')">
+          <i class="fa fa-cogs"></i>
           <span>Data Processing</span>
         </div>
-        <div *ngIf="activeSections.dataProcessing" class="sub-section">
+        <div *ngIf="activeSections['dataProcessing']" class="sub-section">
           <div class="option-grid">
-            <!-- Standard Scaler-->
-            <div class="option" draggable="true" data-type="StandardScaler" (dragstart)="onDragStart($event, false)">
-              <i class="fa fa-sliders-h"></i>
-              <span>Standard Scaler</span>
-            </div>
-            <!-- MinMax Scaler -->
-            <div class="option" draggable="true" data-type="MinMaxScaler" (dragstart)="onDragStart($event, false)">
-              <i class="fa fa-random"></i>
-              <span>MinMax Scaler</span>
-            </div>
-            <!-- One-Hot Enoding -->
-            <div class="option" draggable="true" data-type="OneHotEncoding" (dragstart)="onDragStart($event, false)">
-              <i class="fa fa-random"></i>
-              <span>One-Hot Encoding</span>
-            </div>
-            <!-- PCA -->
-            <div class="option" draggable="true" data-type="PCA" (dragstart)="onDragStart($event, false)">
-              <i class="fa fa-cogs"></i>
-              <span>PCA</span>
-            </div>
-            <!-- Normalizer -->
-            <div class="option" draggable="true" data-type="Normalizer" (dragstart)="onDragStart($event, false)">
-              <i class="fa fa-adjust"></i>
-              <span>Normalizer</span>
-            </div>
-            <!-- KNN Imputer -->
-            <div class="option" draggable="true" data-type="KNNImputer" (dragstart)="onDragStart($event, false)">
-              <i class="fa fa-users"></i>
-              <span>KNN Imputer</span>
+            <div *ngFor="let element of config.sections.dataProcessing.elements"
+                 class="option"
+                 draggable="true"
+                 [attr.data-type]="element.type"
+                 (dragstart)="onDragStart($event, false)">
+              <i [class]="element.icon"></i>
+              <span>{{element.displayName}}</span>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Data Model Section -->
-      <div class="section" (click)="toggleSection('dataModel')">
-        <div class="section-header">
-          <i class="fa fa-project-diagram" aria-hidden="true"></i>
+      <!-- Sección Data Model -->
+      <div class="section">
+        <div class="section-header" (click)="toggleSection('dataModel')">
+          <i class="fa fa-project-diagram"></i>
           <span>Data Model</span>
         </div>
-        <div *ngIf="activeSections.dataModel" class="sub-section">
-          <div class="option-grid">
-            <!-- CNN -->
-            <div class="option" draggable="true" data-type="CNN" (dragstart)="onDragStart($event, false)">
-              <i class="fa fa-brain"></i>
-              <span>CNN</span>
+        <div *ngIf="activeSections['dataModel']" class="sub-section">
+          <!-- Subsección Supervisado -->
+          <div class="sub-category">
+            <div class="sub-category-header" (click)="toggleSubSection('classification')">
+              <i class="fa fa-check-circle"></i>
+              <span>Classification</span>
             </div>
-            <!-- RNN -->
-            <div class="option" draggable="true" data-type="RNN" (dragstart)="onDragStart($event, false)">
-              <i class="fa fa-sync-alt"></i>
-              <span>RNN</span>
+            <div *ngIf="activeSubSections['classification']" class="sub-section">
+              <div class="option-grid">
+                <div *ngFor="let element of config.sections.dataModel.classification"
+                    class="option"
+                    draggable="true"
+                    [attr.data-type]="element.type"
+                    (dragstart)="onDragStart($event, false)">
+                  <i [class]="element.icon"></i>
+                  <span>{{element.displayName}}</span>
+                </div>
+              </div>
             </div>
-            <!-- KNN -->
-            <div class="option" draggable="true" data-type="KNN" (dragstart)="onDragStart($event, false)">
-              <i class="fa fa-users"></i>
-              <span>KNN</span>
+          </div>
+
+          <!-- Subsección regresion -->
+          <div class="sub-category">
+            <div class="sub-category-header" (click)="toggleSubSection('regression')">
+              <i class="fa fa-check-circle"></i>
+              <span>Regression</span>
             </div>
-            <!-- Random Forest -->
-            <div class="option" draggable="true" data-type="RandomForest" (dragstart)="onDragStart($event, false)">
-              <i class="fa fa-tree"></i>
-              <span>Random Forest</span>
+            <div *ngIf="activeSubSections['regression']" class="sub-section">
+              <div class="option-grid">
+                <div *ngFor="let element of config.sections.dataModel.regression"
+                    class="option"
+                    draggable="true"
+                    [attr.data-type]="element.type"
+                    (dragstart)="onDragStart($event, false)">
+                  <i [class]="element.icon"></i>
+                  <span>{{element.displayName}}</span>
+                </div>
+              </div>
             </div>
-            <!-- Logistic Regression -->
-            <div class="option" draggable="true" data-type="LogisticRegression" (dragstart)="onDragStart($event, false)">
-              <i class="fa fa-chart-line"></i>
-              <span>Logistic Regression</span>
+          </div>
+
+          <!-- Subsección anomay detection -->
+          <div class="sub-category">
+            <div class="sub-category-header" (click)="toggleSubSection('anomalyDetection')">
+              <i class="fa fa-check-circle"></i>
+              <span>Anomaly Detection</span>
             </div>
-            <!-- SVM -->
-            <div class="option" draggable="true" data-type="SVM" (dragstart)="onDragStart($event, false)">
-              <i class="fa fa-vector-square"></i>
-              <span>SVM</span>
+            <div *ngIf="activeSubSections['anomalyDetection']" class="sub-section">
+              <div class="option-grid">
+                <div *ngFor="let element of config.sections.dataModel.anomalyDetection"
+                    class="option"
+                    draggable="true"
+                    [attr.data-type]="element.type"
+                    (dragstart)="onDragStart($event, false)">
+                  <i [class]="element.icon"></i>
+                  <span>{{element.displayName}}</span>
+                </div>
+              </div>
             </div>
-            <!-- Gradient Boosting -->
-            <div class="option" draggable="true" data-type="GradientBoosting" (dragstart)="onDragStart($event, false)">
-              <i class="fa fa-fire"></i>
-              <span>Gradient Boosting</span>
+          </div>
+          
+          <!-- Subsección Monitoring -->
+          <div class="sub-category">
+            <div class="sub-category-header" (click)="toggleSubSection('monitoring')">
+              <i class="fa fa-check-circle"></i>
+              <span>Monitoring</span>
             </div>
-            <!-- Decision Tree -->
-            <div class="option" draggable="true" data-type="DecisionTree" (dragstart)="onDragStart($event, false)">
-              <i class="fa fa-tree"></i>
-              <span>Decision Tree</span>
+            <div *ngIf="activeSubSections['monitoring']" class="sub-section">
+              <div class="option-grid">
+                <div *ngFor="let element of config.sections.dataModel.monitoring"
+                    class="option"
+                    draggable="true"
+                    [attr.data-type]="element.type"
+                    (dragstart)="onDragStart($event, false)">
+                  <i [class]="element.icon"></i>
+                  <span>{{element.displayName}}</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
-
       <div class="controls">
         <button class="zoom-button zoom-in" (click)="zoomIn()">
           <i class="fa fa-search-plus"></i>

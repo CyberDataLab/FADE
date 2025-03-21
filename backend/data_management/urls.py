@@ -38,5 +38,6 @@ urlpatterns = [
     path('scenarios/run/<uuid:uuid>/', views.run_scenario_by_uuid, name='run_scenario_by_uuid'),
     path('scenarios/delete/<uuid:uuid>/', views.delete_scenario_by_uuid, name='delete_scenario_by_uuid'),
     path('scenarios/put/<uuid:uuid>/', views.put_scenario_by_uuid, name='put_scenario_by_uuid'),
-    path('scenarios/<uuid:uuid>/metrics/', views.get_scenario_metrics_by_uuid, name='get_scenario_metrics_by_uuid'),
+    path('scenarios/<uuid:uuid>/classification-metrics/', views.get_scenario_classification_metrics_by_uuid, name='get_scenario_classification_metrics_by_uuid'),
+    path('scenarios/<uuid:uuid>/anomaly-metrics/', views.get_scenario_anomaly_metrics_by_uuid, name='get_scenario_anomaly_metrics_by_uuid'),
 ]

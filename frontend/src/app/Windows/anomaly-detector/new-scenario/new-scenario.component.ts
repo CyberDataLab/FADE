@@ -4,6 +4,7 @@ import { ActivatedRoute } from '@angular/router';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { ScenarioService } from '../../scenario.service';
 import { Scenario } from '../../../DTOs/Scenario';
+import { HttpClient } from '@angular/common/http';
 
 @Component({
     selector: 'app-new-scenario',
@@ -15,10 +16,15 @@ import { Scenario } from '../../../DTOs/Scenario';
 })
 
 export class NewScenarioComponent implements OnInit{
-  activeSections: { [key in 'dataSource' | 'dataProcessing' | 'dataModel']: boolean } = {
-    dataSource: false,
-    dataProcessing: false,
-    dataModel: false
+  config: any = {};
+
+  activeSections: { [key: string]: boolean } = {};
+
+  activeSubSections: { [key in 'classification' | 'regression' | 'anomalyDetection' | 'monitoring']: boolean } = {
+    classification: false,
+    regression: false,
+    anomalyDetection: false,
+    monitoring: false
   };
 
   scenario: Scenario | null = null; 
@@ -56,11 +62,12 @@ export class NewScenarioComponent implements OnInit{
 
   actualDesign: string | null = null;
 
-  selectedCSVFile: File | null = null
+  selectedCSVFile: File | null = null;
 
   private elementParameters: { [elementId: string]: any } = {};
+  private currentCSVElementId: string | null = null;
 
-  constructor(@Inject(PLATFORM_ID) private platformId: Object, private scenarioService: ScenarioService, private route: ActivatedRoute, private renderer: Renderer2) {}
+  constructor(@Inject(PLATFORM_ID) private platformId: Object, private scenarioService: ScenarioService, private route: ActivatedRoute, private renderer: Renderer2, private http: HttpClient) {}
 
   @ViewChild('configContainer', { static: false }) configContainer?: ElementRef;
 
@@ -99,16 +106,36 @@ export class NewScenarioComponent implements OnInit{
         this.isNewScenario = false;
         this.loadEditScenario(this.scenarioId);
       } 
+      this.loadSections();
     }
+  }
+
+  loadSections() {
+    this.http.get<any>('assets/config.json').subscribe(
+      (data:any) => {
+        this.config = data;
+      },
+      (error:any) => {
+        console.error('Error cargando el JSON:', error);
+      }
+    );
   }
 
   updateUnsavedState() {
     this.scenarioService.setUnsavedChanges(this.droppedElements.length > 0);
   }
 
-  toggleSection(section: 'dataSource' | 'dataProcessing' | 'dataModel') {
-    this.activeSections[section] = !this.activeSections[section];
+  toggleSection(sectionName: string) {
+    this.activeSections[sectionName] = !this.activeSections[sectionName];
   }
+
+  toggleSubSection(section: string): void {
+    if (section === 'classification' || section === 'regression' || section === 'anomalyDetection' || section === 'monitoring') {
+      // Solo toggle las subsecciones, sin tocar el estado de 'dataModel'
+      this.activeSubSections[section] = !this.activeSubSections[section];
+    }
+  }
+  
 
   addDragEventListeners() {
     const draggableElements = document.querySelectorAll('.option');
@@ -704,563 +731,298 @@ export class NewScenarioComponent implements OnInit{
         this.configContainer.nativeElement.classList.add('show');
         
         const configContent = this.configContainer.nativeElement.querySelector('.config-content');
-        let nameElement = "";
-        if (configContent) {
-          switch (selectedElement.innerText.trim()) {
-            case 'CSV':
-            configContent.innerHTML = `<h3>CSV file configuration</h3><p>Please select a CSV file:</p>`;
+        const elementType = selectedElement.getAttribute('data-type');
+        
+        if (!elementType) return;
 
-            const input = this.renderer.createElement('input');
-            this.renderer.setAttribute(input, 'type', 'file');
-            this.renderer.setAttribute(input, 'id', 'csv-upload');
-            this.renderer.setAttribute(input, 'accept', '.csv');
-
-            this.renderer.listen(input, 'change', (event:any) => this.onCSVFileSelected(event));
-
-            this.renderer.appendChild(configContent, input);
-
-            const fileNameElement = this.renderer.createElement('p');
-            this.renderer.setAttribute(fileNameElement, 'id', 'file-name');
-            this.renderer.appendChild(configContent, fileNameElement);
-
-            nameElement = 'CSV';
-            break;
-            case 'Network':
-              configContent.innerHTML = `
-                <h3>Network file configuration</h3>
-                <p>Please select a network file:</p>
-                <input type="file" id="network-upload" accept=".txt" (change)="onNetworkFileSelected($event)">
-              `;
-            break;
-            case 'Standard Scaler':
-              configContent.innerHTML = `
-                <h3 style="margin-bottom: 40px;">Standard Scaler Configuration</h3>
-                <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: center;">
-                    <label for="standard-with-mean" style="flex: 1;">Mean:</label>
-                    <select id="standard-with-mean" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; box-sizing: border-box; margin-top: -10px;">
-                        <option value="True">True</option>
-                        <option value="False">False</option>
-                    </select>
-                </div>
-                <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: center;">
-                    <label for="standard-with-std" style="flex: 1;">Standard Deviation:</label>
-                    <select id="standard-with-std" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; box-sizing: border-box; margin-top: -10px;">
-                        <option value="True">True</option>
-                        <option value="False">False</option>
-                    </select>
-                </div>
-
-              `;
-              nameElement = "Standard Scaler";
-              break;
-
-            case 'MinMax Scaler':
-              configContent.innerHTML = `
-                <h3 style="margin-bottom: 40px;">MinMax Scaler Configuration</h3>
-                <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center;">
-                  <label style="text-align: left;">Min Value: </label>
-                  <input type="number" id="minmax-min" placeholder="Min value" value="0" min="0"
-                        style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px; margin-top: -10px;">
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center;">
-                  <label style="text-align: left;">Max Value: </label>
-                  <input type="number" id="minmax-max" placeholder="Max value" value="1" min="1"
-                        style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px; margin-top: -10px;">
-                </div>
-                <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: center;">
-                  <label for="minmax-clip" style="flex: 1;">Clip:</label>
-                  <select id="minmax-clip" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; box-sizing: border-box; margin-top: -10px;">
-                      <option value="False">False</option>
-                      <option value="True">True</option>
-                  </select>
-                </div>
-              `;
-              nameElement = "MinMax Scaler";
-              break;
-
-            case 'One-Hot Encoding':
-              configContent.innerHTML = `
-                <h3 style="margin-bottom: 40px;">One-Hot Encoding Configuration</h3>
-                <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: center;">
-                  <label for="onehot-handle" style="flex: 1; ">Handle Unknown:</label>
-                  <select id="onehot-handle" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; box-sizing: border-box; margin-top: -10px;">
-                      <option value="error">Error</option>
-                      <option value="ignore">Ignore</option>
-                      <option value="infrequent_if_exist">Infrequent if exist</option>
-                      <option value="warn">Warn</option>
-                  </select>
-                </div>
-                <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: center;">
-                  <label for="onehot-drop" style="flex: 1; ">Drop:</label>
-                  <select id="onehot-drop" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; box-sizing: border-box; margin-top: -10px;">
-                      <option value="None">None</option>
-                      <option value="first">First</option>
-                      <option value="if_binary">If binary</option>
-                  </select>
-                </div>
-              `;
-              nameElement = "One-Hot Encoding";
-              break;
-
-              case 'PCA':
-                configContent.innerHTML = `
-                    <h3 style="margin-bottom: 40px;">PCA Configuration</h3>
-                    
-                    <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: center;">
-                        <label for="pca-components-select" style="flex: 1;">Number of components:</label>
-                        <select id="pca-components-select" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; box-sizing: border-box; margin-top: -10px;">
-                            <option value="None">None</option>
-                            <option value="custom">Custom</option>
-                        </select>
-                    </div>
-            
-                    <div id="pca-components-container" style="display: none; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center;">
-                        <label for="pca-components-input" style="text-align: left;">Custom Number of Components: </label>
-                        <input type="number" id="pca-components-input" placeholder="Number of components" value="1" min="1"
-                               style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px; margin-top: -10px;">
-                    </div>
-            
-                    <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: center;">
-                        <label for="pca-whiten" style="flex: 1;">Whiten:</label>
-                        <select id="pca-whiten" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; box-sizing: border-box; margin-top: -10px;">
-                            <option value="False">False</option>
-                            <option value="True">True</option>
-                        </select>
-                    </div>
-                `;
-
-                const scriptPCA = document.createElement('script');
-                scriptPCA.innerHTML = `
-            
-                  const pcaSelect = document.getElementById('pca-components-select');
-                  const pcaContainer = document.getElementById('pca-components-container');
-              
-                  function updatePCAComponentsVisibility() {
-                      pcaContainer.style.display = (pcaSelect.value === 'custom') ? 'grid' : 'none';
-                  }
-              
-                  pcaSelect.addEventListener('change', updatePCAComponentsVisibility);
-                  updatePCAComponentsVisibility(); 
-                `;
-                document.body.appendChild(scriptPCA);
-                nameElement = "PCA";
-                break;
-            
-
-            case 'Normalizer':
-              configContent.innerHTML = `
-                  <h3 style="margin-bottom: 40px;">Normalizer Configuration</h3>
-                  <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: flex-start;">
-                    <label for="normalizer-norm" style="flex: 1; ">Norm:</label>
-                    <select id="normalizer-norm" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; box-sizing: border-box;">
-                        <option value="l2">L2</option>
-                        <option value="l1">L1</option>
-                        <option value="max">Max</option>
-                    </select>
-                  </div>
-              `;
-              nameElement = "Normalizer";
-              break;
-
-            case 'KNN Imputer':
-              configContent.innerHTML = `
-                <h3 style="margin-bottom: 40px;">KNN Imputer Configuration</h3>
-                <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center;">
-                  <label style="text-align: left;">Number of Neighbors: </label>
-                  <input type="number" id="knn-neighbors" placeholder="Number of neighbors" value="5" min="1"
-                        style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px; margin-top: -10px;">
-                </div>
-                <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: flex-start;">
-                  <label for="knn-weight" style="flex: 1; ">Weights:</label>
-                  <select id="knn-weight" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; box-sizing: border-box;">
-                      <option value="uniform">Uniform</option>
-                      <option value="distance">Distance</option>
-                  </select>
-                </div>
-              `;
-              nameElement = "KNN Imputer";
-              break;
-            case 'CNN':
-              configContent.innerHTML = '<h3>CNN Configuration</h3><p>Configuration details for CNN.</p>';
-              break;
-            case 'RNN':
-              configContent.innerHTML = '<h3>RNN Configuration</h3><p>Configuration details for RNN.</p>';
-              break;
-            case 'KNN':
-              configContent.innerHTML = `
-                  <h3 style="margin-bottom: 40px;">KNN Configuration</h3>
-                  <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center;">
-                    <label style="text-align: left;">Number of Neighbors: </label>
-                    <input type="number" id="knn-neighbors" placeholder="Number of neighbors" value="5" min="1"
-                          style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px; margin-top: -10px;">
-                  </div>
-                  <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: flex-start;">
-                    <label for="knn-weight" style="flex: 1; ">Weights:</label>
-                    <select id="knn-weight" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; box-sizing: border-box;">
-                        <option value="uniform">Uniform</option>
-                        <option value="distance">Distance</option>
-                    </select>
-                  </div>
-                  <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: flex-start;">
-                    <label for="knn-algorithm" style="flex: 1; ">Algorithm:</label>
-                    <select id="knn-algorithm" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; box-sizing: border-box; ">
-                        <option value="auto">Auto</option>
-                        <option value="ball_tree">BallTree</option>
-                        <option value="kd_tree">KDTree</option>
-                        <option value="brute">Brute</option>
-                    </select>
-                  </div>
-                  <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: flex-start;">
-                    <label for="knn-metric" style="flex: 1; ">Metric:</label>
-                    <select id="knn-metric" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; box-sizing: border-box; ">
-                        <option value="minkowski">Minkowski</option>
-                        <option value="euclidean">Euclidean</option>
-                        <option value="manhattan">Manhattan</option>
-                        <option value="chebyshev">Chebyshev</option>
-                        <option value="cosine">Cosine</option>
-                    </select>
-                  </div>
-              `;
-              nameElement = "KNN";
-              break;
-            case 'Random Forest':
-              configContent.innerHTML = `
-                  <h3 style="margin-bottom: 40px;">Random Forest Configuration</h3>
-          
-                  <!-- Número de árboles -->
-                  <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center;">
-                      <label style="text-align: left;">Number of Trees: </label>
-                      <input type="number" id="rf-trees" placeholder="Number of trees" value="100" min="1"
-                              style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px; margin-top: -10px;">
-                  </div>
-          
-                  <!-- Max Depth -->
-                  <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: center;">
-                      <label for="rf-depth-select" style="flex: 1;">Max Depth:</label>
-                      <select id="rf-depth-select" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; margin-top: -10px;">
-                          <option value="None">None</option>
-                          <option value="custom">Custom</option>
-                      </select>
-                  </div>
-                  <div id="rf-depth-container" style="display: none; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center;">
-                      <label for="rf-depth-input" style="text-align: left;">Custom Max Depth:</label>
-                      <input type="number" id="rf-depth-input" placeholder="Max depth" min="1" value="1"
-                              style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px; margin-top: -10px;">
-                  </div>
-          
-                  <!-- Random State -->
-                  <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: center;">
-                      <label for="rf-random-state-select" style="flex: 1;">Random State:</label>
-                      <select id="rf-random-state-select" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; margin-top: -10px;">
-                          <option value="None">None</option>
-                          <option value="custom">Custom</option>
-                      </select>
-                  </div>
-                  <div id="rf-random-state-container" style="display: none; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center;">
-                      <label for="rf-random-state-input" style="text-align: left;">Custom Random State:</label>
-                      <input type="number" id="rf-random-state-input" placeholder="Random State" min="0" value="0"
-                              style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px; margin-top: -10px;">
-                  </div>
-          
-                  <!-- Max Features -->
-                  <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: center;">
-                      <label for="rf-max-features-select" style="flex: 1;">Max Features:</label>
-                      <select id="rf-max-features-select" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; margin-top: -10px;">
-                          <option value="sqrt">Sqrt</option>
-                          <option value="auto">Auto</option>
-                          <option value="log2">Log2</option>
-                          <option value="custom">Custom</option>
-                      </select>
-                  </div>
-                  <div id="rf-max-features-container" style="display: none; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center;">
-                      <label for="rf-max-features-input" style="text-align: left;">Custom Max Features:</label>
-                      <input type="number" id="rf-max-features-input" placeholder="Max Features" min="1" value="1"
-                              style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px; margin-top: -10px;">
-                  </div>
-              `;
-
-              const scriptRF = document.createElement('script');
-              scriptRF.innerHTML = `
-          
-                function setupDropdownToggle(selectId, containerId) {
-                    const select = document.getElementById(selectId);
-                    const container = document.getElementById(containerId);
-            
-                    function updateVisibility() {
-                        container.style.display = (select.value === 'custom') ? 'grid' : 'none';
-                    }
-            
-                    select.addEventListener('change', updateVisibility);
-                    updateVisibility();
-                }
-            
-                setupDropdownToggle('rf-depth-select', 'rf-depth-container');
-                setupDropdownToggle('rf-random-state-select', 'rf-random-state-container');
-                setupDropdownToggle('rf-max-features-select', 'rf-max-features-container');
-            
-                `;
-              document.body.appendChild(scriptRF);
-              nameElement = "Random Forest";
-              break;
-            
-            case 'Logistic Regression':
-              configContent.innerHTML = `
-                  <h3 style="margin-bottom: 40px;">Logistic Regression Configuration</h3>
-                  <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center;">
-                    <label style="text-align: left;">C: </label>
-                    <input type="number" step="0.1" id="logreg-c" value="1.0" min="0.1" id="logreg-c" placeholder="C"
-                          style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px; margin-top: -10px;">
-                  </div>
-
-                  <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: flex-start;">
-                    <label for="logreg-penalty" style="flex: 1; ">Penalty:</label>
-                    <select id="logreg-penalty" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; box-sizing: border-box;">
-                        <option value="l2">L2</option>
-                        <option value="l1">L1</option>
-                        <option value="elasticnet">Elasticnet</option>
-                        <option value="None">None</option>
-                    </select>
-                  </div>
-
-                  <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: flex-start;">
-                    <label for="logreg-solver" style="flex: 1; ">Solver:</label>
-                    <select id="logreg-solver" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; box-sizing: border-box;">
-                        <option value="lbfgs">Lbfgs</option>
-                        <option value="liblinear">Liblinear</option>
-                        <option value="newton-cg">Newton Cg</option>
-                        <option value="newton-cholesky">Newton Cholesky</option>
-                        <option value="sag">Sag</option>
-                        <option value="saga">Saga</option>
-                    </select>
-                  </div>
-
-                  <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center;">
-                    <label style="text-align: left;">Maximum Iterations: </label>
-                    <input type="number" id="logreg-maxiter" value="100" min="1" id="logreg-maxiter" placeholder="Maximum Iterations"
-                          style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px; margin-top: -10px;">
-                  </div>
-              `;
-              nameElement = "Logistic Regression";
-              break;
-              case 'SVM':
-                configContent.innerHTML = `
-                    <h3 style="margin-bottom: 40px;">SVM Configuration</h3>
-                    <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: flex-start;">
-                        <label for="svm-kernel" style="flex: 1; ">Kernel:</label>
-                        <select id="svm-kernel" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; box-sizing: border-box;">
-                            <option value="rbf">RBF</option>
-                            <option value="linear">Linear</option>
-                            <option value="poly">Polynomial</option>
-                            <option value="sigmoid">Sigmoid</option>
-                            <option value="precomputed">Precomputed</option>
-                        </select>
-                    </div>
-                    <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center;">
-                        <label style="text-align: left;">C: </label>
-                        <input type="number" step="0.1" id="svm-c" value="1.0" min="0.1" placeholder="C"
-                               style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px; margin-top: -10px;">
-                    </div>
-                    <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: flex-start;">
-                        <label for="svm-class_weight" style="flex: 1; ">Class Weight:</label>
-                        <select id="svm-class_weight" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; box-sizing: border-box;">
-                            <option value="None" selected>None</option>
-                            <option value="balanced">Balanced</option>
-                        </select>
-                    </div>
-                    <div id="gamma-container" style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: flex-start;">
-                        <label for="svm-gamma" style="flex: 1; ">Gamma:</label>
-                        <select id="svm-gamma" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; box-sizing: border-box;">
-                            <option value="scale"selected>Scale</option>
-                            <option value="auto">Auto</option>
-                        </select>
-                    </div>
-                `;
-            
-                const scriptSVM = document.createElement('script');
-                scriptSVM.innerHTML = `
-                    const kernelSelect = document.getElementById('svm-kernel');
-                    const gammaContainer = document.getElementById('gamma-container');
-                    
-                    function updateGammaVisibility() {
-                        const kernel = kernelSelect.value;
-                        gammaContainer.style.display = (kernel === 'rbf' || kernel === 'poly' || kernel === 'sigmoid') ? 'flex' : 'none';
-                    }
-                    
-                    kernelSelect.addEventListener('change', updateGammaVisibility);
-                    updateGammaVisibility();
-                `;
-                document.body.appendChild(scriptSVM);
-                nameElement = "SVM";
-                break;
-            
-                case 'Gradient Boosting':
-                  configContent.innerHTML = `
-                    <h3 style="margin-bottom: 40px;">Gradient Boosting Configuration</h3>
-            
-                    <!-- Number of Estimators -->
-                    <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center;">
-                        <label style="text-align: left;">Number of Estimators: </label>
-                        <input type="number" id="gb-n_estimators" placeholder="Number of estimators" value="100" min="1"
-                               style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px; margin-top: -10px;">
-                    </div>
-            
-                    <!-- Learning Rate -->
-                    <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center;">
-                        <label style="text-align: left;">Learning Rate: </label>
-                        <input type="number" id="gb-learning_rate" placeholder="Learning rate" step="0.1" value="0.1" min="0.0" 
-                               style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px; margin-top: -10px;">
-                    </div>
-            
-                    <!-- Max Depth -->
-                    <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: center;">
-                        <label for="gb-depth-select" style="flex: 1;">Max Depth:</label>
-                        <select id="gb-depth-select" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; margin-top: -10px;">
-                            <option value="None">None</option>
-                            <option value="custom">Custom</option>
-                        </select>
-                    </div>
-                    <div id="gb-depth-container" style="display: none; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center;">
-                        <label for="gb-depth-input" style="text-align: left;">Custom Max Depth:</label>
-                        <input type="number" id="gb-depth-input" placeholder="Max depth" min="1" value="3"
-                               style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px; margin-top: -10px;">
-                    </div>
-            
-                    <!-- Random State -->
-                    <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: center;">
-                        <label for="gb-random-state-select" style="flex: 1;">Random State:</label>
-                        <select id="gb-random-state-select" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; margin-top: -10px;">
-                            <option value="None">None</option>
-                            <option value="custom">Custom</option>
-                        </select>
-                    </div>
-                    <div id="gb-random-state-container" style="display: none; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center;">
-                        <label for="gb-random-state-input" style="text-align: left;">Custom Random State:</label>
-                        <input type="number" id="gb-random-state-input" placeholder="Random State" min="0" value="0"
-                               style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px; margin-top: -10px;">
-                    </div>
-                  `;
-              
-                  const scriptGB = document.createElement('script');
-                  scriptGB.innerHTML = `
-                    function setupDropdownToggle(selectId, containerId) {
-                        const select = document.getElementById(selectId);
-                        const container = document.getElementById(containerId);
-            
-                        function updateVisibility() {
-                            container.style.display = (select.value === 'custom') ? 'grid' : 'none';
-                        }
-            
-                        select.addEventListener('change', updateVisibility);
-                        updateVisibility();
-                    }
-            
-                    setupDropdownToggle('gb-depth-select', 'gb-depth-container');
-                    setupDropdownToggle('gb-random-state-select', 'gb-random-state-container');
-                  `;
-              
-                  document.body.appendChild(scriptGB);
-                  nameElement = "Gradient Boosting";
-                  break;
-              
-              case 'Decision Tree':
-                configContent.innerHTML = `
-                  <h3 style="margin-bottom: 40px;">Decision Tree Configuration</h3>
-          
-                  <!-- Criterion -->
-                  <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: flex-start;">
-                      <label for="dt-criterion" style="flex: 1;">Criterion:</label>
-                      <select id="dt-criterion" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2;">
-                          <option value="gini">Gini</option>
-                          <option value="entropy">Entropy</option>
-                          <option value="log_loss">Cross-Entropy Loss</option>
-                      </select>
-                  </div>
-          
-                  <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: flex-start;">
-                      <label for="dt-splitter" style="flex: 1;">Splitter:</label>
-                      <select id="dt-splitter" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2;">
-                          <option value="best">Best</option>
-                          <option value="random">Random</option>
-                      </select>
-                  </div>
-          
-                  <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: center;">
-                      <label for="dt-max-depth-select" style="flex: 1;">Max Depth:</label>
-                      <select id="dt-max-depth-select" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; margin-top: -5px;">
-                          <option value="None">None</option>
-                          <option value="custom">Custom</option>
-                      </select>
-                  </div>
-                  <div id="dt-max-depth-container" style="display: none; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center; margin-top: -5px;">
-                      <label for="dt-max-depth-input" style="text-align: left;">Custom Depth:</label>
-                      <input type="number" id="dt-max-depth-input" placeholder="Max depth" min="1" value="1"
-                              style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px;">
-                  </div>
-          
-                  <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: center;">
-                      <label for="dt-max-features-select" style="flex: 1;">Max Features:</label>
-                      <select id="dt-max-features-select" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; margin-top: -5px;">
-                          <option value="None">None</option>
-                          <option value="sqrt">Sqrt</option>
-                          <option value="log2">Log2</option>
-                          <option value="custom">Custom</option>
-                      </select>
-                  </div>
-                  <div id="dt-max-features-container" style="display: none; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center; margin-top: -5px;">
-                      <label for="dt-max-features-input" style="text-align: left;">Custom Features:</label>
-                      <input type="number" id="dt-max-features-input" placeholder="Max Features" min="1" value="1"
-                              style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px;">
-                  </div>
-          
-                  <!-- Random State -->
-                  <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: center;">
-                      <label for="dt-random-state-select" style="flex: 1;">Random State:</label>
-                      <select id="dt-random-state-select" style="height: 3.6em; padding: 0.75em 1em; font-size: 100px; line-height: 1.2; flex: 2; margin-top: -5px;">
-                          <option value="None">None</option>
-                          <option value="custom">Custom</option>
-                      </select>
-                  </div>
-                  <div id="dt-random-state-container" style="display: none; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center; margin-top: -5px;">
-                      <label for="dt-random-state-input" style="text-align: left;">Custom State:</label>
-                      <input type="number" id="dt-random-state-input" placeholder="Random State" min="0" value="0"
-                              style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px;">
-                  </div>
-                `;
-                const scriptDT = document.createElement('script');
-                scriptDT.innerHTML = `
-                  function setupDropdownToggle(selectId, containerId) {
-                      const select = document.getElementById(selectId);
-                      const container = document.getElementById(containerId);
-              
-                      function updateVisibility() {
-                          container.style.display = (select.value === 'custom') ? 'grid' : 'none';
-                      }
-              
-                      select.addEventListener('change', updateVisibility);
-                      updateVisibility();
-                  }
-              
-                  setupDropdownToggle('dt-max-depth-select', 'dt-max-depth-container');
-                  setupDropdownToggle('dt-max-features-select', 'dt-max-features-container');
-                  setupDropdownToggle('dt-random-state-select', 'dt-random-state-container');
-            
-                `;
-                document.body.appendChild(scriptDT);
-                nameElement = "Decision Tree";
-                break;
-            
-            
-            default:
-              configContent.innerHTML = '<h3>Configuration</h3><p>Unknown configuration content.</p>';
-            break;            
-          }
-          if (nameElement) {
-            this.saveParameters(selectedElement, nameElement);
-          }
+        // Casos especiales que mantienen su implementación original
+        if (elementType === 'CSV') {
+          this.handleCSVConfiguration(selectedElement, configContent);
+          return;
+        } else if (elementType === 'Monitor') {
+          this.handleMonitorConfiguration(selectedElement, configContent);
+          return;
         }
+
+        // Configuración dinámica para otros elementos
+        const elementConfig = this.getElementConfig(elementType);
+        if (!elementConfig) return;
+
+        configContent.innerHTML = this.generateConfigHTML(elementConfig, selectedElement.id);
+        this.setupDynamicInputs(selectedElement, elementConfig);
       }
     }
-    this.hideContextMenu();  
+    this.hideContextMenu();
+  }
+
+  private getElementConfig(elementType: string): any {
+    const config = this.config; // Asegurar que el config está cargado
+    
+    // Buscar recursivamente en todas las secciones
+    const deepSearch = (obj: any): any => {
+      if (obj.elements) {
+        const found = obj.elements.find((e: any) => e.type === elementType);
+        if (found) return found;
+      }
+      if (obj.classification) {
+        const found = obj.classification.find((e: any) => e.type === elementType);
+        if (found) return found;
+      }
+      if (obj.regression) {
+        const found = obj.regression.find((e: any) => e.type === elementType);
+        if (found) return found;
+      }
+      if (obj.anomalyDetection) {
+        const found = obj.anomalyDetection.find((e: any) => e.type === elementType);
+        if (found) return found;
+      }
+
+      if (config.properties) {
+        return config.properties.find((prop: any) => prop.type === 'csv-columns-array');
+      }
+      
+      return null;
+    };
+  
+    return deepSearch(config.sections.dataSource) ||
+           deepSearch(config.sections.dataProcessing) ||
+           deepSearch(config.sections.dataModel);
+  }
+  
+  private generateConfigHTML(config: any, elementId: string): string {
+    let html = `<h3 style="margin-bottom: 30px;">${config.displayName} Configuration</h3>`;
+    
+    // Verificar existencia de propiedades
+    if (!config.properties || !Array.isArray(config.properties)) {
+      console.error(`Configuración inválida para ${config.type}`);
+      return html + '<p>Error de configuración</p>';
+    }
+  
+    config.properties.forEach((prop: any) => {
+      // Validar estructura de propiedad
+      if (!prop.name || !prop.type) {
+        console.warn(`Propiedad inválida en ${config.type}:`, prop);
+        return;
+      }
+      
+      html += this.generatePropertyHTML(prop, elementId);
+    });
+  
+    return html;
+  }
+  
+  private generatePropertyHTML(prop: any, elementId: string): string {
+    let html = '';
+    const currentValue = this.elementParameters[elementId]?.[prop.name] || prop.default;
+    const formattedValue = currentValue !== undefined ? currentValue.toString() : prop.default;
+
+    switch (prop.type) {
+      case 'conditional-select':
+        html += `
+          <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: flex-start;">
+            <label for="${prop.name}-${elementId}" style="flex: 1;">${prop.label}:</label>
+            <select id="${prop.name}-select-${elementId}" style="height: 3.6em; padding: 0.75em 1em; font-size: 16px; line-height: 1.2; flex: 2; box-sizing: border-box;">
+              ${prop.options.map((opt: string) => `
+                <option value="${opt}" ${currentValue === opt ? 'selected' : ''}>
+                  ${opt}
+                </option>`).join('')}
+            </select>
+          </div>`;
+        break;
+
+      case 'select':
+        html += `
+          <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: flex-start;">
+            <label for="${prop.name}-${elementId}" style="flex: 1;">${this.formatPropertyName(prop.label)}:</label>
+            <select id="${prop.name}-${elementId}" style="height: 3.6em; padding: 0.75em 1em; font-size: 16px; line-height: 1.2; flex: 2; box-sizing: border-box;">
+              ${prop.options.map((opt: string) => `
+                <option value="${opt}" ${formattedValue === opt ? 'selected' : ''}>
+                  ${this.formatOptionName(opt)}
+                </option>`
+              ).join('')}
+            </select>
+          </div>`;
+        break;
+
+      case 'number':
+        const hasConditional = prop.conditional !== undefined;
+        const initialDisplay = hasConditional ? 'none' : 'grid';
+        const divId = `${prop.name}-row-${elementId}`;
+
+        html += `
+          <div id="${divId}" style="display: ${initialDisplay}; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center;">
+            <label for="${prop.name}-${elementId}" style="text-align: left;">${this.formatPropertyName(prop.label)}:</label>
+            <input type="number" id="${prop.name}-${elementId}" placeholder="${prop.placeholder}" 
+                  value="${currentValue}" 
+                  ${prop.min ? `min="${prop.min}"` : ''}
+                  ${prop.step ? `step="${prop.step}"` : ''}
+                  style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px; margin-top: -10px;">
+          </div>`;
+        break;
+    }
+
+    return html;
+  }
+
+
+  private formatPropertyName(name: string): string {
+    return name
+      .replace(/([A-Z])/g, ' $1')
+      .replace(/^./, str => str.toUpperCase())
+      .replace(/With/g, 'With ');
+  }
+  
+  private formatOptionName(option: string): string {
+    return option === 'True' ? 'True' : 
+           option === 'False' ? 'False' : 
+           option;
+  }
+  
+  private setupDynamicInputs(element: HTMLElement, config: any): void {
+    const elementId = element.id;
+    
+    if (!this.elementParameters[elementId]) {
+        this.elementParameters[elementId] = {};
+        
+        config.properties.forEach((prop: any) => {
+            this.elementParameters[elementId][prop.name] = prop.default;
+
+            if (prop.conditional) {
+                const parentValue = this.elementParameters[elementId][prop.conditional.dependsOn];
+                if (parentValue !== prop.conditional.value) {
+                    this.elementParameters[elementId][prop.name] = prop.default;
+                }
+            }
+        });
+    }
+
+    config.properties.forEach((prop: any) => {
+        const paramKey = prop.name;
+        const controlId = `${paramKey}-${elementId}`;
+        
+        switch (prop.type) {
+          case 'conditional-select': {
+            const selectId = `${paramKey}-select-${elementId}`;
+            const select = document.getElementById(selectId) as HTMLSelectElement;
+        
+            if (select) {
+              if (!(paramKey in this.elementParameters[elementId])) {
+                  this.elementParameters[elementId][paramKey] = prop.default;
+              }
+      
+              select.value = this.elementParameters[elementId][paramKey];
+      
+              select.addEventListener('change', () => {
+                const newValue = select.value;
+                this.elementParameters[elementId][paramKey] = newValue;
+    
+                config.properties
+                  .filter((p: any) => p.conditional?.dependsOn === paramKey)
+                  .forEach((dependentProp: any) => {
+                    const dependentRow = document.getElementById(`${dependentProp.name}-row-${elementId}`);
+
+                    if (dependentRow) {
+                      const isVisible = newValue === dependentProp.conditional.value;
+                      dependentRow.style.display = isVisible ? 'grid' : 'none';
+
+                      if (isVisible) {
+                        if (!(dependentProp.name in this.elementParameters[elementId])) {
+                            this.elementParameters[elementId][dependentProp.name] = dependentProp.default;
+                        }
+                      } else {
+                        delete this.elementParameters[elementId][dependentProp.name];
+                      }
+                    }
+                  });
+              });
+            }
+          break;
+          }
+        
+        case 'number': {
+            const input = document.getElementById(controlId) as HTMLInputElement;
+            if (input) {
+                input.value = this.elementParameters[elementId][paramKey] || '';
+        
+                input.addEventListener('input', () => {
+                    const parentProp = config.properties.find((p: any) => p.name === prop.conditional?.dependsOn);
+                    if (parentProp && this.elementParameters[elementId][parentProp.name] === 'custom') {
+                        this.elementParameters[elementId][paramKey] = input.value;
+                    } else {
+                        delete this.elementParameters[elementId][paramKey];
+                    }
+                });
+        
+                if (prop.conditional) {
+                    const parentValue = this.elementParameters[elementId][prop.conditional.dependsOn];
+                    const row = document.getElementById(`${prop.name}-row-${elementId}`);
+                    if (row) {
+                        row.style.display = parentValue === prop.conditional.value ? 'grid' : 'none';
+                    }
+                }
+            }
+            break;
+        }
+            case 'select': {
+                const selectEl = document.getElementById(controlId) as HTMLSelectElement;
+                if (selectEl) {
+                    selectEl.value = this.elementParameters[elementId][paramKey] || '';
+
+                    selectEl.addEventListener('change', () => {
+                        if (selectEl.value === 'custom') {
+                            this.elementParameters[elementId][paramKey] = 'custom';
+                        } else {
+                            this.elementParameters[elementId][paramKey] = selectEl.value;
+                            delete this.elementParameters[elementId][`${paramKey}_custom`];
+                        }
+                    });
+                }
+                break;
+            }
+        }
+    });
+}
+
+
+  
+  // Mantener las implementaciones originales para CSV y Monitor
+  private handleCSVConfiguration(selectedElement: HTMLElement, configContent: HTMLElement): void {
+    configContent.innerHTML = `<h3>CSV file configuration</h3><p>Please select a CSV file:</p> <div id="csv-columns-selection"></div>`;
+    
+    const input = this.createFileInput('csv-upload', '.csv', (e) => this.onCSVFileSelected(e));
+    const fileNameElement = this.createFileNameElement();
+    
+    configContent.appendChild(input);
+    configContent.appendChild(fileNameElement);
+    
+    this.currentCSVElementId = selectedElement.id;
+    if (this.elementParameters[selectedElement.id]?.columns) {
+      this.updateCSVColumnSelectionUI(
+        Object.keys(this.elementParameters[selectedElement.id].columns), 
+        selectedElement.id
+      );
+    }
+  }
+  
+  private handleMonitorConfiguration(selectedElement: HTMLElement, configContent: HTMLElement): void {
+    configContent.innerHTML = `<h3>Monitor Configuration</h3><p>Select metrics to monitor:</p><div id="metrics-selection"></div>`;
+    const metrics = ['f1Score', 'accuracy', 'recall', 'precision', 'confusionMatrix'];
+    this.updateMetricsSelectionUI(metrics, selectedElement.id);
+  }
+  
+  private createFileInput(id: string, accept: string, handler: (e: Event) => void): HTMLInputElement {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.id = id;
+    input.accept = accept;
+    input.addEventListener('change', handler);
+    return input;
+  }
+  
+  private createFileNameElement(): HTMLElement {
+    const fileNameElement = document.createElement('p');
+    fileNameElement.id = 'file-name';
+    return fileNameElement;
   }
 
   onCSVFileSelected(event: Event): void {
@@ -1269,11 +1031,124 @@ export class NewScenarioComponent implements OnInit{
       const file = input.files[0];
       if (file && file.name.endsWith('.csv')) {
         this.selectedCSVFile = file;
-        alert('File upload correctly')
-      } else {
-        alert('Please, select a CSV file.');
+        
+        const reader = new FileReader();
+        reader.onload = (e: any) => {
+          const text = e.target.result;
+          const rows = text.split('\n');
+          if (rows.length < 1) return;
+          
+          const columns = rows[0].split(',').map((col: string) => col.trim().replace(/^"|"$/g, ''));
+  
+          const elementId = this.currentCSVElementId;
+          if (!elementId) return;
+          
+          // Nueva estructura como array de objetos
+          this.elementParameters[elementId] = {
+            csvFileName: file.name,
+            columns: columns.map((col:any) => ({
+              name: col.trim(),
+              selected: true // Valor por defecto
+            }))
+          };
+          
+          this.updateCSVColumnSelectionUI(columns, elementId);
+        };
+        reader.readAsText(file);
       }
     }
+  }
+
+  updateCSVColumnSelectionUI(columns: string[], elementId: string): void {
+    const configContent = this.configContainer?.nativeElement.querySelector('.config-content');
+    if (!configContent) return;
+  
+    let columnSelectionDiv = document.getElementById('csv-columns-container');
+  
+    if (!columnSelectionDiv) {
+        columnSelectionDiv = this.renderer.createElement('div');
+        this.renderer.setAttribute(columnSelectionDiv, 'id', 'csv-columns-container');
+        this.renderer.setAttribute(columnSelectionDiv, 'class', 'csv-columns-container');
+    } else {
+        columnSelectionDiv.innerHTML = '';
+    }
+  
+    // Verificar y inicializar la estructura si no existe
+    if (!this.elementParameters[elementId]?.columns) {
+        this.elementParameters[elementId] = { 
+            columns: columns.map(col => ({ name: col.trim(), selected: true })) 
+        };
+    }
+  
+    // Iterar manteniendo el orden del CSV
+    this.elementParameters[elementId].columns.forEach((col: any) => {
+        const columnElement = this.renderer.createElement('div');
+        this.renderer.setAttribute(columnElement, 'class', 'column-item');
+  
+        if (col.selected) {
+            this.renderer.addClass(columnElement, 'selected');
+        }
+  
+        const columnText = this.renderer.createText(col.name);
+        this.renderer.appendChild(columnElement, columnText);
+  
+        this.renderer.listen(columnElement, 'click', () => {
+            // Actualizar estado en el array
+            col.selected = !col.selected;
+            columnElement.classList.toggle('selected');
+            
+            // Actualizar parámetros
+            this.elementParameters[elementId].columns = [...this.elementParameters[elementId].columns];
+        });
+  
+        this.renderer.appendChild(columnSelectionDiv, columnElement);
+    });
+  
+    this.renderer.appendChild(configContent, columnSelectionDiv);
+  }
+
+  updateMetricsSelectionUI(metrics: string[], elementId: string): void {
+    const configContent = this.configContainer?.nativeElement.querySelector('.config-content');
+    if (!configContent) return;
+  
+    let metricsDiv = document.getElementById('metrics-container');
+    
+    if (!metricsDiv) {
+      metricsDiv = this.renderer.createElement('div');
+      this.renderer.setAttribute(metricsDiv, 'id', 'metrics-container');
+      this.renderer.setAttribute(metricsDiv, 'class', 'metrics-container');
+    } else {
+      metricsDiv.innerHTML = '';
+    }
+  
+    if (!this.elementParameters[elementId]) {
+      this.elementParameters[elementId] = { metrics: {} };
+      metrics.forEach(metric => {
+        this.elementParameters[elementId].metrics[metric] = true;
+      });
+    }
+  
+    const storedMetrics = this.elementParameters[elementId].metrics;
+  
+    metrics.forEach(metric => {
+      const metricElement = this.renderer.createElement('div');
+      this.renderer.setAttribute(metricElement, 'class', `metric-item ${storedMetrics[metric] ? 'selected' : ''}`);
+      
+      // Solo el texto de la métrica
+      const metricText = this.renderer.createText(metric);
+      this.renderer.appendChild(metricElement, metricText);
+  
+      this.renderer.listen(metricElement, 'click', () => {
+        storedMetrics[metric] = !storedMetrics[metric];
+        metricElement.classList.toggle('selected');
+        // Eliminada la lógica del check
+        this.elementParameters[elementId].metrics = { ...storedMetrics };
+      });
+  
+      this.renderer.appendChild(metricsDiv, metricElement);
+    });
+  
+    this.renderer.appendChild(configContent, metricsDiv);
   }
 
   onNetworkFileSelected(event: Event): void {
@@ -1365,615 +1240,60 @@ export class NewScenarioComponent implements OnInit{
 
   saveParameters(selectedElement: HTMLElement, nameElement: string): void {
     const elementId = selectedElement.id;
-      if (!this.elementParameters[elementId]) {
-        this.elementParameters[elementId] = {};
+    if (!this.elementParameters[elementId]) {
+      this.elementParameters[elementId] = {};
+    }
+  
+    // Manejar casos especiales
+    if (nameElement === 'CSV') {
+      this.handleCSVParameters(elementId);
+    } else if (nameElement === 'Monitor') {
+      this.handleMonitorParameters(elementId);
+    }
+    // Los demás elementos se manejan automáticamente con los listeners
+  }
+
+  private handleCSVParameters(elementId: string): void {
+    const csvInput = document.getElementById('csv-upload') as HTMLInputElement;
+    if (csvInput?.files?.[0]) {
+      this.elementParameters[elementId].csvFileName = csvInput.files[0].name;
+    }
+  }
+  
+  private handleMonitorParameters(elementId: string): void {
+    const metricElements = document.querySelectorAll('.metric-item');
+    this.elementParameters[elementId].metrics = {};
+    
+    metricElements.forEach(el => {
+      const metricName = el.textContent?.trim();
+      if (metricName) {
+        this.elementParameters[elementId].metrics[metricName] = el.classList.contains('selected');
       }
-      const params = this.elementParameters[elementId];
-
-      switch (nameElement) {
-        case 'CSV':
-          const csvInput = document.getElementById('csv-upload') as HTMLInputElement;
-          
-          const savedFileName = this.elementParameters[elementId]?.csvFileName;
-
-          const fileNameElement = document.getElementById('file-name');
-          if (savedFileName && fileNameElement) {
-            fileNameElement.textContent = `File selected: ${savedFileName}`;
-          }
-
-          csvInput.addEventListener('change', (event) => {
-            const file = (event.target as HTMLInputElement).files?.[0];
-            
-            if (file) {
-              if (fileNameElement) {
-                fileNameElement.textContent = `File selected: ${file.name}`;
-              }
-
-              const reader = new FileReader();
-              reader.onload = () => {
-                this.elementParameters[elementId] = {
-                  ...this.elementParameters[elementId],
-                  csvFileName: file.name
-                };
-              };
-              reader.readAsText(file); 
-            } else {
-              if (fileNameElement) {
-                fileNameElement.textContent = "No file has been selected.";
-              }
-            }
-          });
-          break;
-        case 'Standard Scaler':
-          const withMeanSelect = document.getElementById('standard-with-mean') as HTMLSelectElement;
-          const withStdSelect = document.getElementById('standard-with-std') as HTMLSelectElement;
-
-          withMeanSelect.value = params.withMean ?? 'True';
-          withStdSelect.value = params.withStd ?? 'True';
-
-          this.elementParameters[elementId] = {
-            ...this.elementParameters[elementId],
-            withMean: withMeanSelect.value,
-            withStd: withStdSelect.value
-          };
-
-          withMeanSelect.addEventListener('change', () => {
-            this.elementParameters[elementId].withMean = withMeanSelect.value;
-          });
-
-          withStdSelect.addEventListener('change', () => {
-            this.elementParameters[elementId].withStd = withStdSelect.value;
-          });
-          break;
-        case 'MinMax Scaler':
-          const minValueInput = document.getElementById('minmax-min') as HTMLInputElement;
-          const maxValueInput = document.getElementById('minmax-max') as HTMLInputElement;
-          const clipSelect = document.getElementById('minmax-clip') as HTMLSelectElement;
-
-          minValueInput.value = params.minValue ?? '0';
-          maxValueInput.value = params.maxValue ?? '1';
-          clipSelect.value = params.clip ?? 'False';
-
-          this.elementParameters[elementId] = {
-              ...this.elementParameters[elementId],
-              minValue: minValueInput.value,
-              maxValue: maxValueInput.value,
-              clip: clipSelect.value
-          };
-
-          minValueInput.addEventListener('input', () => {
-              this.elementParameters[elementId].minValue = minValueInput.value;
-          });
-
-          maxValueInput.addEventListener('input', () => {
-              this.elementParameters[elementId].maxValue = maxValueInput.value;
-          });
-
-          clipSelect.addEventListener('change', () => {
-              this.elementParameters[elementId].clip = clipSelect.value;
-          });
-          break;
-        case 'One-Hot Encoding':
-          const handleUnknownSelect = document.getElementById('onehot-handle') as HTMLSelectElement;
-          const dropSelect = document.getElementById('onehot-drop') as HTMLSelectElement;
-
-          handleUnknownSelect.value = params.handleUnknown ?? 'error';
-          dropSelect.value = params.drop ?? 'None';
-
-          this.elementParameters[elementId] = {
-              ...this.elementParameters[elementId],
-              handleUnknown: handleUnknownSelect.value,
-              drop: dropSelect.value
-          };
-
-          handleUnknownSelect.addEventListener('change', () => {
-              this.elementParameters[elementId].handleUnknown = handleUnknownSelect.value;
-          });
-
-          dropSelect.addEventListener('change', () => {
-              this.elementParameters[elementId].drop = dropSelect.value;
-          });
-          break;
-
-        case 'PCA':
-          const componentsSelect = document.getElementById('pca-components-select') as HTMLSelectElement;
-          const componentsContainer = document.getElementById('pca-components-container') as HTMLElement;
-          const componentsInput = document.getElementById('pca-components-input') as HTMLInputElement;
-          const whitenSelect = document.getElementById('pca-whiten') as HTMLSelectElement;
-      
-          componentsSelect.value = params.componentsOption ?? 'None';
-          componentsInput.value = params.customComponents ?? '1';
-          whitenSelect.value = params.whiten ?? 'False';
-      
-          if (componentsSelect.value === 'custom') {
-              componentsContainer.style.display = 'grid';
-          }
-      
-          this.elementParameters[elementId] = {
-              ...this.elementParameters[elementId],
-              componentsOption: componentsSelect.value,
-              whiten: whitenSelect.value
-          };
-      
-          componentsSelect.addEventListener('change', () => {
-              this.elementParameters[elementId].componentsOption = componentsSelect.value;
-      
-              if (componentsSelect.value === 'custom') {
-                  componentsContainer.style.display = 'grid';
-      
-                  this.elementParameters[elementId].customComponents = componentsInput.value;
-              } else {
-                  componentsContainer.style.display = 'none';
-      
-                  delete this.elementParameters[elementId].customComponents;
-              }
-          });
-      
-          componentsInput.addEventListener('input', () => {
-              if (componentsSelect.value === 'custom') {
-                  this.elementParameters[elementId].customComponents = componentsInput.value;
-              }
-          });
-      
-          whitenSelect.addEventListener('change', () => {
-              this.elementParameters[elementId].whiten = whitenSelect.value;
-          });
-      
-          break;
-        
-
-        case 'Normalizer':
-          const normSelect = document.getElementById('normalizer-norm') as HTMLSelectElement;
-
-          normSelect.value = params.norm ?? 'l2';
-
-          this.elementParameters[elementId] = {
-              ...this.elementParameters[elementId],
-              norm: normSelect.value
-          };
-
-          normSelect.addEventListener('change', () => {
-              this.elementParameters[elementId].norm = normSelect.value;
-          });
-          break;
-
-        case 'KNN Imputer':
-          const neighborsInputKNNImputer = document.getElementById('knn-neighbors') as HTMLInputElement;
-          const weightSelectKNNImputer = document.getElementById('knn-weight') as HTMLSelectElement;
-
-          neighborsInputKNNImputer.value = params.neighbors ?? '5';
-          weightSelectKNNImputer.value = params.weight ?? 'uniform';
-
-          this.elementParameters[elementId] = {
-              ...this.elementParameters[elementId],
-              neighbors: neighborsInputKNNImputer.value,
-              weight: weightSelectKNNImputer.value
-          };
-
-          neighborsInputKNNImputer.addEventListener('input', () => {
-              this.elementParameters[elementId].neighbors = neighborsInputKNNImputer.value;
-          });
-
-          weightSelectKNNImputer.addEventListener('change', () => {
-              this.elementParameters[elementId].weight = weightSelectKNNImputer.value;
-          });
-          break;
-
-        case 'KNN':
-          const neighborsInput = document.getElementById('knn-neighbors') as HTMLInputElement;
-          const weightSelect = document.getElementById('knn-weight') as HTMLSelectElement;
-          const algorithmSelect = document.getElementById('knn-algorithm') as HTMLSelectElement;
-          const metricSelect = document.getElementById('knn-metric') as HTMLSelectElement;
-
-          neighborsInput.value = params.neighbors ?? '5';
-          weightSelect.value = params.weight ?? 'uniform';
-          algorithmSelect.value = params.algorithm ?? 'auto';
-          metricSelect.value = params.metric ?? 'minkowski';
-
-          this.elementParameters[elementId] = {
-              ...this.elementParameters[elementId],
-              neighbors: neighborsInput.value,
-              weight: weightSelect.value,
-              algorithm: algorithmSelect.value,
-              metric: metricSelect.value
-          };
-
-          neighborsInput.addEventListener('input', () => {
-              this.elementParameters[elementId].neighbors = neighborsInput.value;
-          });
-
-          weightSelect.addEventListener('change', () => {
-              this.elementParameters[elementId].weight = weightSelect.value;
-          });
-
-          algorithmSelect.addEventListener('change', () => {
-              this.elementParameters[elementId].algorithm = algorithmSelect.value;
-          });
-
-          metricSelect.addEventListener('change', () => {
-              this.elementParameters[elementId].metric = metricSelect.value;
-          });
-          break;
-
-        case 'Random Forest':
-          const treesInput = document.getElementById('rf-trees') as HTMLInputElement;
-          const depthSelect = document.getElementById('rf-depth-select') as HTMLSelectElement;
-          const depthContainer = document.getElementById('rf-depth-container') as HTMLElement;
-          const depthInput = document.getElementById('rf-depth-input') as HTMLInputElement;
-          const randomStateSelect = document.getElementById('rf-random-state-select') as HTMLSelectElement;
-          const randomStateContainer = document.getElementById('rf-random-state-container') as HTMLElement;
-          const randomStateInput = document.getElementById('rf-random-state-input') as HTMLInputElement;
-          const maxFeaturesSelect = document.getElementById('rf-max-features-select') as HTMLSelectElement;
-          const maxFeaturesContainer = document.getElementById('rf-max-features-container') as HTMLElement;
-          const maxFeaturesInput = document.getElementById('rf-max-features-input') as HTMLInputElement;
-      
-          treesInput.value = params.trees ?? '100';
-          depthSelect.value = params.depthOption ?? 'None';
-          depthInput.value = params.customDepth ?? '1';
-          randomStateSelect.value = params.randomStateOption ?? 'None';
-          randomStateInput.value = params.customRandomState ?? '0';
-          maxFeaturesSelect.value = params.maxFeaturesOption ?? 'sqrt';
-          maxFeaturesInput.value = params.customMaxFeatures ?? '1';
-      
-          if (depthSelect.value === 'custom') {
-              depthContainer.style.display = 'grid';
-          }
-          if (randomStateSelect.value === 'custom') {
-              randomStateContainer.style.display = 'grid';
-          }
-          if (maxFeaturesSelect.value === 'custom') {
-              maxFeaturesContainer.style.display = 'grid';
-          }
-      
-          this.elementParameters[elementId] = {
-              ...this.elementParameters[elementId],
-              trees: treesInput.value,
-              depthOption: depthSelect.value,
-              randomStateOption: randomStateSelect.value,
-              maxFeaturesOption: maxFeaturesSelect.value
-          };
-      
-          depthSelect.addEventListener('change', () => {
-              this.elementParameters[elementId].depthOption = depthSelect.value;
-              if (depthSelect.value === 'custom') {
-                  depthContainer.style.display = 'grid';
-                  this.elementParameters[elementId].customDepth = depthInput.value;
-              } else {
-                  depthContainer.style.display = 'none';
-                  delete this.elementParameters[elementId].customDepth;
-              }
-          });
-      
-          randomStateSelect.addEventListener('change', () => {
-              this.elementParameters[elementId].randomStateOption = randomStateSelect.value;
-              if (randomStateSelect.value === 'custom') {
-                  randomStateContainer.style.display = 'grid';
-                  this.elementParameters[elementId].customRandomState = randomStateInput.value;
-              } else {
-                  randomStateContainer.style.display = 'none';
-                  delete this.elementParameters[elementId].customRandomState;
-              }
-          });
-      
-          maxFeaturesSelect.addEventListener('change', () => {
-              this.elementParameters[elementId].maxFeaturesOption = maxFeaturesSelect.value;
-              if (maxFeaturesSelect.value === 'custom') {
-                  maxFeaturesContainer.style.display = 'grid';
-                  this.elementParameters[elementId].customMaxFeatures = maxFeaturesInput.value;
-              } else {
-                  maxFeaturesContainer.style.display = 'none';
-                  delete this.elementParameters[elementId].customMaxFeatures;
-              }
-          });
-      
-          treesInput.addEventListener('input', () => {
-              this.elementParameters[elementId].trees = treesInput.value;
-          });
-      
-          depthInput.addEventListener('input', () => {
-              if (depthSelect.value === 'custom') {
-                  this.elementParameters[elementId].customDepth = depthInput.value;
-              }
-          });
-      
-          randomStateInput.addEventListener('input', () => {
-              if (randomStateSelect.value === 'custom') {
-                  this.elementParameters[elementId].customRandomState = randomStateInput.value;
-              }
-          });
-      
-          maxFeaturesInput.addEventListener('input', () => {
-              if (maxFeaturesSelect.value === 'custom') {
-                  this.elementParameters[elementId].customMaxFeatures = maxFeaturesInput.value;
-              }
-          });
-      
-          break;
-
-        case 'Logistic Regression':
-          const cInputLR =  document.getElementById('logreg-c') as HTMLInputElement;
-          const penaltySelect =  document.getElementById('logreg-penalty') as HTMLInputElement;
-          const solverSelect =  document.getElementById('logreg-solver') as HTMLInputElement;
-          const maxIterInput =  document.getElementById('logreg-maxiter') as HTMLInputElement;
-          
-          cInputLR.value = params.c ?? '1.0';
-          penaltySelect.value = params.penalty ?? 'l2';
-          solverSelect.value = params.solver ?? 'lbfgs';
-          maxIterInput.value = params.maxIter ?? '100';
-          
-          this.elementParameters[elementId] = {
-              ...this.elementParameters[elementId],
-              c: cInputLR.value,
-              penalty: penaltySelect.value,
-              solver: solverSelect.value,
-              maxIter: maxIterInput.value
-          };
-
-          cInputLR.addEventListener('input', () => {
-              this.elementParameters[elementId].c = cInputLR.value;
-          });
-          
-          penaltySelect.addEventListener('change', () => {
-              this.elementParameters[elementId].penalty = penaltySelect.value;
-          });
-          
-          solverSelect.addEventListener('change', () => {
-              this.elementParameters[elementId].solver = solverSelect.value;
-          });
-          
-          maxIterInput.addEventListener('input', () => {
-              this.elementParameters[elementId].maxIter = maxIterInput.value;
-          });
-
-          break;
-          case 'SVM':
-            const kernelSelect = document.getElementById('svm-kernel') as HTMLInputElement;
-            const cInput = document.getElementById('svm-c') as HTMLSelectElement;
-            const classWeightSelect = document.getElementById('svm-class_weight') as HTMLSelectElement;
-            const gammaSelect = document.getElementById('svm-gamma') as HTMLSelectElement;
-  
-            kernelSelect.value = params.kernel ?? 'rbf';
-            cInput.value = params.c ?? '1.0';
-            classWeightSelect.value = params.classWeight ?? 'None';
-            gammaSelect.value = params.gamma ?? 'scale';
-  
-            this.elementParameters[elementId] = {
-                ...this.elementParameters[elementId],
-                kernel: kernelSelect.value,
-                c: cInput.value,
-                classWeight: classWeightSelect.value,
-                gamma: gammaSelect.value
-            };
-  
-            kernelSelect.addEventListener('change', () => {
-              this.elementParameters[elementId].kernel = kernelSelect.value;
-            });
-            
-            cInput.addEventListener('input', () => {
-                this.elementParameters[elementId].c = cInput.value;
-            });
-            
-            classWeightSelect.addEventListener('change', () => {
-                this.elementParameters[elementId].classWeight = classWeightSelect.value;
-            });
-            
-            gammaSelect.addEventListener('change', () => {
-                this.elementParameters[elementId].gamma = gammaSelect.value;
-            });
-            break;
-
-        case 'Gradient Boosting':
-          const nEstimatorsInput = document.getElementById('gb-n_estimators') as HTMLInputElement;
-          const learningRateInput = document.getElementById('gb-learning_rate') as HTMLInputElement;
-          const depthSelectGB = document.getElementById('gb-depth-select') as HTMLSelectElement;
-          const depthContainerGB = document.getElementById('gb-depth-container') as HTMLElement;
-          const depthInputGB = document.getElementById('gb-depth-input') as HTMLInputElement;
-          const randomStateSelectGB = document.getElementById('gb-random-state-select') as HTMLSelectElement;
-          const randomStateContainerGB = document.getElementById('gb-random-state-container') as HTMLElement;
-          const randomStateInputGB = document.getElementById('gb-random-state-input') as HTMLInputElement;
-      
-          nEstimatorsInput.value = params.n_estimators ?? '100';
-          learningRateInput.value = params.learning_rate ?? '0.1';
-          depthSelectGB.value = params.max_depth ?? 'None';
-          depthInputGB.value = params.customMaxDepth ?? '3';
-          randomStateSelectGB.value = params.random_state ?? 'None';
-          randomStateInputGB.value = params.customRandomState ?? '0';
-      
-          if (depthSelectGB.value === 'custom') {
-              depthContainerGB.style.display = 'grid';
-          } else {
-              depthContainerGB.style.display = 'none';
-          }
-      
-          if (randomStateSelectGB.value === 'custom') {
-              randomStateContainerGB.style.display = 'grid';
-          } else {
-              randomStateContainerGB.style.display = 'none';
-          }
-      
-          this.elementParameters[elementId] = {
-              ...this.elementParameters[elementId],
-              n_estimators: nEstimatorsInput.value,
-              learning_rate: learningRateInput.value,
-              max_depth: depthSelectGB.value,
-              random_state: randomStateSelectGB.value
-          };
-      
-          depthSelectGB.addEventListener('change', () => {
-              this.elementParameters[elementId].max_depth = depthSelectGB.value;
-      
-              if (depthSelectGB.value === 'custom') {
-                  depthContainerGB.style.display = 'grid';
-                  this.elementParameters[elementId].customMaxDepth = depthInputGB.value;
-              } else {
-                  depthContainerGB.style.display = 'none';
-                  delete this.elementParameters[elementId].customMaxDepth;
-              }
-          });
-      
-          depthInputGB.addEventListener('input', () => {
-              if (depthSelectGB.value === 'custom') {
-                  this.elementParameters[elementId].customMaxDepth = depthInputGB.value;
-              }
-          });
-      
-          randomStateSelectGB.addEventListener('change', () => {
-              this.elementParameters[elementId].random_state = randomStateSelectGB.value;
-      
-              if (randomStateSelectGB.value === 'custom') {
-                  randomStateContainerGB.style.display = 'grid';
-                  this.elementParameters[elementId].customRandomState = randomStateInputGB.value;
-              } else {
-                  randomStateContainerGB.style.display = 'none';
-                  delete this.elementParameters[elementId].customRandomState;
-              }
-          });
-      
-          randomStateInputGB.addEventListener('input', () => {
-              if (randomStateSelectGB.value === 'custom') {
-                  this.elementParameters[elementId].customRandomState = randomStateInputGB.value;
-              }
-          });
-      
-          nEstimatorsInput.addEventListener('input', () => {
-              this.elementParameters[elementId].n_estimators = nEstimatorsInput.value;
-          });
-      
-          learningRateInput.addEventListener('input', () => {
-              this.elementParameters[elementId].learning_rate = learningRateInput.value;
-          });
-      
-          break;
-
-        case 'Decision Tree':
-          const criterionSelectDT = document.getElementById('dt-criterion') as HTMLSelectElement;
-          const splitterSelectDT = document.getElementById('dt-splitter') as HTMLSelectElement;
-          const maxDepthSelectDT = document.getElementById('dt-max-depth-select') as HTMLSelectElement;
-          const maxDepthContainerDT = document.getElementById('dt-max-depth-container') as HTMLElement;
-          const maxDepthInputDT = document.getElementById('dt-max-depth-input') as HTMLInputElement;
-          const maxFeaturesSelectDT = document.getElementById('dt-max-features-select') as HTMLSelectElement;
-          const maxFeaturesContainerDT = document.getElementById('dt-max-features-container') as HTMLElement;
-          const maxFeaturesInputDT = document.getElementById('dt-max-features-input') as HTMLInputElement;
-          const randomStateSelectDT = document.getElementById('dt-random-state-select') as HTMLSelectElement;
-          const randomStateContainerDT = document.getElementById('dt-random-state-container') as HTMLElement;
-          const randomStateInputDT = document.getElementById('dt-random-state-input') as HTMLInputElement;
-      
-          criterionSelectDT.value = params.criterion ?? 'gini';
-          splitterSelectDT.value = params.splitter ?? 'best';
-          maxDepthSelectDT.value = params.max_depth ?? 'None';
-          maxDepthInputDT.value = params.customMaxDepth ?? '1';
-          maxFeaturesSelectDT.value = params.max_features ?? 'None';
-          maxFeaturesInputDT.value = params.customMaxFeatures ?? '1';
-          randomStateSelectDT.value = params.random_state ?? 'None';
-          randomStateInputDT.value = params.customRandomState ?? '0';
-      
-          if (maxDepthSelectDT.value === 'custom') {
-              maxDepthContainerDT.style.display = 'grid';
-          } else {
-              maxDepthContainerDT.style.display = 'none';
-          }
-      
-          if (maxFeaturesSelectDT.value === 'custom') {
-              maxFeaturesContainerDT.style.display = 'grid';
-          } else {
-              maxFeaturesContainerDT.style.display = 'none';
-          }
-      
-          if (randomStateSelectDT.value === 'custom') {
-              randomStateContainerDT.style.display = 'grid';
-          } else {
-              randomStateContainerDT.style.display = 'none';
-          }
-      
-          this.elementParameters[elementId] = {
-              ...this.elementParameters[elementId],
-              criterion: criterionSelectDT.value,
-              splitter: splitterSelectDT.value,
-              max_depth: maxDepthSelectDT.value,
-              max_features: maxFeaturesSelectDT.value,
-              random_state: randomStateSelectDT.value
-          };
-      
-          maxDepthSelectDT.addEventListener('change', () => {
-              this.elementParameters[elementId].max_depth = maxDepthSelectDT.value;
-      
-              if (maxDepthSelectDT.value === 'custom') {
-                  maxDepthContainerDT.style.display = 'grid';
-                  this.elementParameters[elementId].customMaxDepth = maxDepthInputDT.value;
-              } else {
-                  maxDepthContainerDT.style.display = 'none';
-                  delete this.elementParameters[elementId].customMaxDepth;
-              }
-          });
-      
-          maxDepthInputDT.addEventListener('input', () => {
-              if (maxDepthSelectDT.value === 'custom') {
-                  this.elementParameters[elementId].customMaxDepth = maxDepthInputDT.value;
-              }
-          });
-      
-          maxFeaturesSelectDT.addEventListener('change', () => {
-              this.elementParameters[elementId].max_features = maxFeaturesSelectDT.value;
-      
-              if (maxFeaturesSelectDT.value === 'custom') {
-                  maxFeaturesContainerDT.style.display = 'grid';
-                  this.elementParameters[elementId].customMaxFeatures = maxFeaturesInputDT.value;
-              } else {
-                  maxFeaturesContainerDT.style.display = 'none';
-                  delete this.elementParameters[elementId].customMaxFeatures;
-              }
-          });
-      
-          maxFeaturesInputDT.addEventListener('input', () => {
-              if (maxFeaturesSelectDT.value === 'custom') {
-                  this.elementParameters[elementId].customMaxFeatures = maxFeaturesInputDT.value;
-              }
-          });
-      
-          randomStateSelectDT.addEventListener('change', () => {
-              this.elementParameters[elementId].random_state = randomStateSelectDT.value;
-      
-              if (randomStateSelectDT.value === 'custom') {
-                  randomStateContainerDT.style.display = 'grid';
-                  this.elementParameters[elementId].customRandomState = randomStateInputDT.value;
-              } else {
-                  randomStateContainerDT.style.display = 'none';
-                  delete this.elementParameters[elementId].customRandomState;
-              }
-          });
-      
-          randomStateInputDT.addEventListener('input', () => {
-              if (randomStateSelectDT.value === 'custom') {
-                  this.elementParameters[elementId].customRandomState = randomStateInputDT.value;
-              }
-          });
-      
-          criterionSelectDT.addEventListener('change', () => {
-              this.elementParameters[elementId].criterion = criterionSelectDT.value;
-          });
-      
-          splitterSelectDT.addEventListener('change', () => {
-              this.elementParameters[elementId].splitter = splitterSelectDT.value;
-          });
-      
-          break;
-        
-
-        default:
-          break;
-      }     
+    });
   }
 
   saveScenario(): void {
-    const savedElements = this.droppedElements.map((element: HTMLElement) => ({
-      id: element.id,
-      type: element.getAttribute('data-type'),
-      position: {
-        left: element.offsetLeft,
-        top: element.offsetTop,
-      },
-      parameters: this.elementParameters[element.id] || {}
-    }));
+    const savedElements = this.droppedElements.map((element: HTMLElement) => {
+      const elementParams = this.elementParameters[element.id] || {};
+      
+      // Convertir array a formato de guardado para CSV
+      if (element.getAttribute('data-type') === 'CSV' && elementParams.columns) {
+        elementParams.columns = elementParams.columns.map((col: any) => ({
+          name: col.name,
+          selected: col.selected
+        }));
+      }
+  
+      return {
+        id: element.id,
+        type: element.getAttribute('data-type'),
+        position: {
+          left: element.offsetLeft,
+          top: element.offsetTop,
+        },
+        parameters: elementParams
+      };
+    });
   
     const savedConnections = this.connections.map(conn => ({
       startId: conn.startElement.id,
@@ -2128,6 +1448,13 @@ export class NewScenarioComponent implements OnInit{
   private loadElementsFromJSON(savedElements: any[]): void {
     let maxId = -1;
     savedElements.forEach((element: any) => {
+      // Restaurar columnas para elementos CSV
+      if (element.type === 'CSV' && element.parameters?.columns) {
+        this.elementParameters[element.id] = {
+          ...element.parameters,
+          columns: element.parameters.columns // Mantener el orden original del array
+        };
+      }
       const newElement = this.createElement(element.type);
       newElement.id = element.id; 
 
@@ -2235,6 +1562,7 @@ export class NewScenarioComponent implements OnInit{
       case 'PCA': return 'fa fa-cogs'; 
       case 'Normalizer': return 'fa fa-adjust'; 
       case 'KNNImputer': return 'fa fa-users'; 
+      case 'Monitor': return 'fas fa-desktop';
       case 'CNN': return 'fa fa-brain';
       case 'RNN': return 'fa fa-sync-alt';
       case 'KNN': return 'fa fa-users';
@@ -2243,6 +1571,13 @@ export class NewScenarioComponent implements OnInit{
       case 'SVM': return 'fa fa-vector-square';
       case 'GradientBoosting': return 'fa fa-fire';
       case 'DecisionTree': return 'fa fa-tree';
+      case 'IsolationForest': return 'fa fa-tree';
+      case 'Autoencoder': return 'fa fa-network-wired';
+      case 'OneClassSVM': return 'fa fa-cogs';
+      case 'KMeans': return 'fa fa-clone';
+      case 'LOF': return 'fa fa-users';
+      case 'DBSCAN': return 'fa fa-sitemap';
+      case 'GMM': return 'fa fa-cogs';
       default: return 'fa fa-question';
     }
   }
@@ -2258,6 +1593,10 @@ export class NewScenarioComponent implements OnInit{
       case 'LogisticRegression': return 'Logistic Regression';
       case 'GradientBoosting': return 'Gradient Boosting';
       case 'DecisionTree': return 'Decision Tree';
+      case 'IsolationForest': return 'Isolation Forest';
+      case 'Autoencoder': return 'Auto-encoder';
+      case 'OneClassSVM': return 'One-Class SVM';
+      case 'KMeans': return 'K-Means';
       default: return type;
     }
   }

@@ -1,7 +1,7 @@
 <div class="modal-dialog align-middle login-modal" role="document">
   <div class="modal-content">
     <div class="modal-header">
-      <h1 class="modal-title login-title" id="exampleModalLabel"><b>Login</b></h1>
+      <h1 class="modal-title login-title" id="exampleModalLabel"><b>Welcome Back!</b></h1>
     </div>
     <div class="modal-body">
       <form (keydown)="keyDownFunction($event)">
@@ -26,7 +26,7 @@
     </div>
     <div class="modal-footer">
       <button (click)="login()" type="button" class="btn login-btn btn-lg btn-block" data-dismiss="modal">
-        Login
+        Sign in
       </button>
     </div>
     <div class="login-options">
@@ -34,7 +34,7 @@
         Forgot your password?
       </p>
       <p type="button" class="btn btn-link login-link" [routerLink]="['/register']" data-dismiss="modal">
-        Don't have an account: Register here
+        Don't have an account? Sign up here
       </p>
     </div>
   </div>

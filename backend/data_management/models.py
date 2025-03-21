@@ -85,7 +85,8 @@ class File(models.Model):
     name = models.CharField(max_length=255)
     file_type = models.CharField(max_length=10, choices=FILE_TYPES)
     entry_count = models.IntegerField(default=0)
-    content = models.FileField(upload_to='uploads/')  
+    content = models.FileField(upload_to='files/')
+    references = models.IntegerField(default=1)
 
     class Meta:
         db_table = "File"
@@ -104,19 +105,47 @@ class Scenario(models.Model):
 
 class AnomalyDetector(models.Model):
     scenario = models.ForeignKey(Scenario, on_delete=models.CASCADE, null=True, blank=True)
+    execution = models.IntegerField(default=0)
     
     class Meta:
         db_table = "AnomalyDetector"
 
-class Metric(models.Model):
+class ClassificationMetric(models.Model):
     detector = models.ForeignKey(AnomalyDetector, on_delete=models.CASCADE, null=True, blank=True)
+    execution = models.IntegerField(default=0)
     model_name = models.CharField(max_length=255, default='model_name')
-    accuracy = models.DecimalField(max_digits=5, decimal_places=2)
-    precision = models.DecimalField(max_digits=5, decimal_places=2)
-    recall = models.DecimalField(max_digits=5, decimal_places=2)
-    f1_score = models.DecimalField(max_digits=5, decimal_places=2)
-    confusion_matrix = models.TextField()
+    accuracy = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    precision = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    recall = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    f1_score = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    confusion_matrix = models.TextField(null=True, blank=True)
     date = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        db_table = "Metric"
+        db_table = "ClassificationMetric"
+
+class RegressionMetric(models.Model):
+    detector = models.ForeignKey(AnomalyDetector, on_delete=models.CASCADE, null=True, blank=True)
+    execution = models.IntegerField(default=0)
+    model_name = models.CharField(max_length=255, default='model_name')
+    mse = models.DecimalField(max_digits=10, decimal_places=5, null=True, blank=True)  # Mean Squared Error
+    rmse = models.DecimalField(max_digits=10, decimal_places=5, null=True, blank=True)  # Root Mean Squared Error
+    mae = models.DecimalField(max_digits=10, decimal_places=5, null=True, blank=True)  # Mean Absolute Error
+    r2 = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)  # R-squared
+    msle = models.DecimalField(max_digits=10, decimal_places=5, null=True, blank=True)  # Mean Squared Logarithmic Error
+    date = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "RegressionMetric"
+
+
+class AnomalyMetric(models.Model):
+    detector = models.ForeignKey(AnomalyDetector, on_delete=models.CASCADE)
+    execution = models.IntegerField()
+    model_name = models.CharField(max_length=255, default='model_name')
+    feature_name = models.CharField(max_length=255)
+    anomalies = models.JSONField()  # Almacena índices de filas anómalas
+    date = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "AnomalyMetric"
