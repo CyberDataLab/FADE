@@ -28,8 +28,8 @@ html, body {
 .table-container {
   position: absolute;
   width: 60%;
-  height: 90%; /* Aumenté el valor de height */
-  max-height: 80vh; /* Ajusté el valor de max-height */
+  height: 90%;
+  max-height: 80vh; 
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -69,40 +69,70 @@ html, body {
   text-align: left;
 }
 
-.scenario-table th:nth-child(6),
-.scenario-table td:nth-child(6) {
-  width: 200px;
+.scenario-table th:nth-child(1),
+.scenario-table td:nth-child(1) {
+  width: 20%; 
+}
+
+.scenario-table th:nth-child(2),
+.scenario-table td:nth-child(2) {
+  width: 20%; 
+}
+
+.scenario-table th:nth-child(3),
+.scenario-table td:nth-child(3) {
+  width: 15%; 
+}
+
+.scenario-table th:nth-child(4),
+.scenario-table td:nth-child(4) {
+  width: 15%; 
+}
+
+.scenario-table th:nth-child(5),
+.scenario-table td:nth-child(5) {
+  width: 35%; 
 }
 
 .action-buttons {
   display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  max-width: 100%;
+  gap: 4px; 
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-start;
 }
 
 .action-buttons button {
-  padding: 4px 8px;
+  padding: 2px 4px;
   font-size: 18px;
   white-space: nowrap;
   flex: 1 1 auto;
-  min-width: 60px;
+  min-width: 40px;
   max-width: 100%;
   text-align: center;
+  margin: 0 !important;
 }
 
 .default-button {
   background-color: #2676798f;
   color: white;
-  font-size: 20px;
-  padding: 15px 30px;
-  margin: 10px;
+  font-size: 16px;
+  padding: 6px 8px !important;
+  min-width: 40px !important;
+  margin: 2px;
   border: none;
   cursor: pointer;
   border-radius: 5px;
-  width: 200px;
+  width: auto !important;
+  align-items: center;
+  justify-content: center;
   text-align: center;
   transition: background-color 0.2s;
+}
+
+.default-button i {
+  font-size: 14px; 
+  margin: 0; 
 }
 
 .default-button:hover {
@@ -161,16 +191,20 @@ html, body {
   opacity: 1;
 }
 
-/* Personalización del scrollbar */
+.scenario-table tbody tr:not(:last-child) td {
+  border-bottom: 1px solid #0097a6;
+  padding-bottom: 8px; 
+}
+
 ::-webkit-scrollbar {
-  width: 8px; /* Establece el ancho del scrollbar */
+  width: 8px; 
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: #2676798f; /* Color del pulgar del scrollbar */
-  border-radius: 10px; /* Hace que los bordes sean redondeados */
+  background-color: #2676798f;
+  border-radius: 10px; 
 }
 
 ::-webkit-scrollbar-track {
-  background-color: rgba(245, 246, 250, 0.4); /* Color de la pista */
+  background-color: rgba(245, 246, 250, 0.4); 
 }

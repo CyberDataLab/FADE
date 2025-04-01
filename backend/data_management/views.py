@@ -25,15 +25,12 @@ from sklearn.metrics import f1_score, precision_score, recall_score, accuracy_sc
 
 logger = logging.getLogger('backend')
 
-# Funciones auxiliares
+
 def load_config():
-    # Usamos BASE_DIR para obtener la ruta del directorio del proyecto
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-    # Asegúrate de que la ruta hacia config.json esté correcta
     CONFIG_PATH = os.path.join(BASE_DIR, 'frontend', 'src', 'assets', 'config.json')
 
-    # Cargar la configuración
     try:
         with open(CONFIG_PATH, 'r', encoding='utf-8') as file:
             config = json.load(file)
@@ -50,7 +47,6 @@ def validate_design(config, design):
     start_ids = [conn["startId"] for conn in connections]
     end_ids = [conn["endId"] for conn in connections]
     
-    # Obtener todos los tipos que deben ser "conectados" (start y end)
     data_processing_types = [el["type"] for el in config.get("dataProcessing", {}).get("elements", [])]
     classification_types = [el["type"] for el in config.get("sections", {}).get("dataModel", {}).get("classification", [])]
     regression_types = [el["type"] for el in config.get("sections", {}).get("dataModel", {}).get("regression", [])]
@@ -68,11 +64,11 @@ def validate_design(config, design):
             if appears_in_end:
                 raise ValueError(f"El CSV '{element_id}' no puede aparecer como endId.")
         
-        elif el_type == "Monitor":
+        if el_type in ["ClassificationMonitor", "RegressionMonitor"]:
             if not appears_in_end:
-                raise ValueError(f"El Monitor '{element_id}' no aparece como endId.")
+                raise ValueError(f"El {el_type} '{element_id}' debe ser endId")
             if appears_in_start:
-                raise ValueError(f"El Monitor '{element_id}' no puede aparecer como startId.")
+                raise ValueError(f"El {el_type} '{element_id}' no puede ser startId")
         
         elif el_type in must_be_start_and_end:
             if not appears_in_start:
@@ -80,24 +76,20 @@ def validate_design(config, design):
             if not appears_in_end:
                 raise ValueError(f"El elemento '{element_id}' ({el_type}) debería aparecer como endId y no lo hace.")
 
-# Importar clases dinámicamente
 def import_class(full_class_name):
     module_name, class_name = full_class_name.rsplit(".", 1)
     module = importlib.import_module(module_name)
     return getattr(module, class_name)
 
-# Extraer parámetros del elemento
 def extract_parameters(properties, params):
     extracted = {}
-    custom_params = {}  # Almacena parámetros custom para reemplazar
+    custom_params = {} 
 
-    # Primera pasada: extraer parámetros principales y detectar custom
     for prop in properties:
         prop_name = prop["name"]
         if prop_name in params:
             value = params[prop_name]
             
-            # Manejar valores especiales
             if isinstance(value, str):
                 if value.lower() == "none":
                     extracted[prop_name] = None
@@ -106,7 +98,6 @@ def extract_parameters(properties, params):
                 elif value.lower() == "false":
                     extracted[prop_name] = False
                 else:
-                    # Intentar convertir a número si es posible
                     try:
                         extracted[prop_name] = int(value)
                     except ValueError:
@@ -117,9 +108,7 @@ def extract_parameters(properties, params):
             else:
                 extracted[prop_name] = value
 
-            # Detectar si es un parámetro condicional padre (ej: max_depth="custom")
             if prop.get("type") == "conditional-select" and value == "custom":
-                # Buscar el parámetro hijo (ej: custom_max_depth)
                 dependent_prop = next(
                     (p for p in properties if p.get("conditional", {}).get("dependsOn") == prop_name),
                     None
@@ -127,40 +116,31 @@ def extract_parameters(properties, params):
                 if dependent_prop and params.get(dependent_prop["name"]):
                     custom_params[prop_name] = params[dependent_prop["name"]]
 
-    # Segunda pasada: reemplazar parámetros principales con valores custom
     for main_param, custom_value in custom_params.items():
         extracted[main_param] = int(custom_value)
-        # Eliminar el parámetro custom para evitar conflictos
         dependent_prop_name = f"custom_{main_param}"
         if dependent_prop_name in extracted:
             del extracted[dependent_prop_name]
 
-    # Verificar condiciones generales basadas en 'conditional'
     for prop in properties:
         if "conditional" in prop:
             depends_on = prop["conditional"].get("dependsOn")
             
-            # Verificar si hay un 'value' o 'values' en la condición
             condition_values = prop["conditional"].get("values", [])
             condition_value = prop["conditional"].get("value", None)
 
-            # Si la propiedad depende de otro parámetro y se especifican valores condicionales
             if depends_on and depends_on in extracted:
                 parent_value = extracted[depends_on]
                 
-                # Verificar si el valor condicional es un solo valor o una lista de valores
                 if condition_value:
-                    # Si 'value' está presente, lo comparamos con el valor extraído
                     if parent_value != condition_value:
                         extracted.pop(prop["name"], None)
                 elif condition_values:
-                    # Si 'values' está presente, comparamos si el valor extraído está en la lista
                     if parent_value not in condition_values:
                         extracted.pop(prop["name"], None)
 
     return extracted
 
-# Calcular métricas
 def calculate_classification_metrics(y_true, y_pred, metrics_config):
     logger.info("Métricas: %s", metrics_config)
     logger.info("y_true: %s", y_true)
@@ -181,24 +161,20 @@ def calculate_classification_metrics(y_true, y_pred, metrics_config):
 def calculate_regression_metrics(y_true, y_pred):
     metrics = {}
     
-    # MSE (Mean Squared Error)
     metrics["mse"] = round(mean_squared_error(y_true, y_pred), 2)
     
-    # RMSE (Root Mean Squared Error)
     metrics["rmse"] = round(np.sqrt(metrics["mse"]), 2)
     
-    # MAE (Mean Absolute Error)
     metrics["mae"] = round(mean_absolute_error(y_true, y_pred), 2)
     
-    # R2 (R-squared)
     metrics["r2"] = round(r2_score(y_true, y_pred), 2)
     
-    # MSLE (Mean Squared Logarithmic Error)
     metrics["msle"] = round(mean_squared_error(np.log1p(y_true), np.log1p(y_pred)), 2)
+
+    logger.info("metrics: %s", metrics)
     
     return metrics
 
-# Guardar métricas en la base de datos
 def save_classification_metrics(detector, model_name, metrics, execution):
     ClassificationMetric.objects.create(
         detector=detector,
@@ -212,6 +188,7 @@ def save_classification_metrics(detector, model_name, metrics, execution):
     )
 
 def save_regression_metrics(detector, model_name, metrics, execution):
+    logger.info("Guardando métricas de regresión")
     RegressionMetric.objects.create(
         detector=detector,
         execution=execution,
@@ -337,10 +314,6 @@ def verify_sync_data(request):
     return JsonResponse({'message': 'Sync data verified'})
 
 # Views for Scenarios management
-
-# YA NO HAY DUPLICIDAD DE FICHEROS, FALTA QUE LAS REFERENCIAS SE ACUALICEN SI SE ELIMINA UN ESCENARIO CON ESE FICHERO. SI LAS REFERENCIAS ES 0 QUE SE ELIMINE LA ENTRADA DE LA BBDD
-# AL MODIFICAR UN ESCENARIO VER SI HA CAMBIADO EL FICHERO, SI HA CAMBIADO QUE LAS REFERENCIAS DEL ANTERIOR SE DECREMENTEN EN 1 Y SE AÑADA UNA NUEVA ENTRADA EN LA BBDD CON EL NUEVO FICHERO
-
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 @parser_classes([MultiPartParser])
@@ -360,12 +333,10 @@ def create_scenario(request):
         existing_file = File.objects.filter(name=csv_file.name).first()
 
         if existing_file:
-            # Si el archivo ya existe, solo incrementamos las referencias
             existing_file.references += 1
             existing_file.save()
             file_instance = existing_file
         else:
-            # Si no existe, lo guardamos como nuevo
             csv_content = csv_file.read().decode('utf-8')
             csv_reader = csv.reader(StringIO(csv_content))
             entry_count = sum(1 for _ in csv_reader) - 1  
@@ -375,7 +346,7 @@ def create_scenario(request):
                 file_type='csv',
                 entry_count=entry_count,
                 content=ContentFile(csv_content.encode('utf-8'), name=csv_file.name),
-                references=1  # Primera referencia
+                references=1  
             )
 
     except Exception as e:
@@ -445,6 +416,36 @@ def get_scenario_classification_metrics_by_uuid(request, uuid):
     
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+def get_scenario_regression_metrics_by_uuid(request, uuid):
+    try:
+        scenario = Scenario.objects.get(uuid=uuid)
+        detector = AnomalyDetector.objects.get(scenario=scenario)
+        metrics = RegressionMetric.objects.filter(detector=detector).order_by('-date')
+
+        metrics_data = [
+            {
+                "model_name": metric.model_name,
+                "mse": metric.mse,
+                "rmse": metric.rmse,
+                "mae": metric.mae,
+                "r2": metric.r2,
+                "msle": metric.msle,
+                "date": metric.date,
+                "execution": metric.execution
+            }
+            for metric in metrics
+        ]
+
+        return JsonResponse({"metrics": metrics_data}, safe=False)
+    except Scenario.DoesNotExist:
+        return JsonResponse({"error": "Scenario not found"}, status=404)
+    except AnomalyDetector.DoesNotExist:
+        return JsonResponse({"error": "Anomaly detector not found"}, status=404)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+    
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def get_scenario_anomaly_metrics_by_uuid(request, uuid):
     try:
         scenario = Scenario.objects.get(uuid=uuid)
@@ -490,36 +491,42 @@ def put_scenario_by_uuid(request, uuid):
         except json.JSONDecodeError:
             return JsonResponse({'error': 'Invalid design JSON'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Actualizamos el diseño
         scenario.design = design
 
-        # Si hay un nuevo CSV, verificamos si es diferente del actual
         if csv_file:
-            current_file = scenario.file  # Archivo actual del escenario
+            current_file = scenario.file  
 
             if not current_file or csv_file.name != current_file.name:
-                # Si hay un archivo previo, reducimos las referencias
+                existing_file = File.objects.filter(name=csv_file.name).first()
+
                 if current_file:
                     current_file.references -= 1
                     if current_file.references == 0:
-                        current_file.delete()  # Si ya no tiene referencias, lo eliminamos
+                        file_path = os.path.join('files', current_file.name) 
+                        if os.path.exists(file_path):  
+                            os.remove(file_path)
+                        current_file.delete()
                     else:
                         current_file.save()
 
-                # Procesamos el nuevo archivo
-                csv_content = csv_file.read().decode('utf-8')
-                csv_reader = csv.reader(StringIO(csv_content))
-                entry_count = sum(1 for _ in csv_reader) - 1  
+                if existing_file:
+                    existing_file.references += 1
+                    existing_file.save()
+                    scenario.file = existing_file 
+                else:
+                    csv_content = csv_file.read().decode('utf-8')
+                    csv_reader = csv.reader(StringIO(csv_content))
+                    entry_count = sum(1 for _ in csv_reader) - 1 
 
-                new_file = File.objects.create(
-                    name=csv_file.name,
-                    file_type='csv',
-                    entry_count=entry_count,
-                    content=ContentFile(csv_content.encode('utf-8'), name=csv_file.name),
-                    references=1
-                )
+                    new_file = File.objects.create(
+                        name=csv_file.name,
+                        file_type='csv',
+                        entry_count=entry_count,
+                        content=ContentFile(csv_content.encode('utf-8'), name=csv_file.name),
+                        references=1
+                    )
 
-                scenario.file = new_file  # Asignamos el nuevo archivo
+                    scenario.file = new_file
 
         serializer = ScenarioSerializer(instance=scenario, data={'design': design}, partial=True)
         if serializer.is_valid():
@@ -530,7 +537,8 @@ def put_scenario_by_uuid(request, uuid):
             return JsonResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     except Scenario.DoesNotExist:
-        return JsonResponse({'error': 'Scenario not found or without permits'}, status=status.HTTP_404_NOT_FOUND)
+        return JsonResponse({'error': 'Scenario not found'}, status=status.HTTP_404_NOT_FOUND)
+
 
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
@@ -540,34 +548,28 @@ def delete_scenario_by_uuid(request, uuid):
     try:
         scenario = Scenario.objects.get(uuid=uuid, user=user.id)
 
-        # Verificar si el escenario tiene un archivo asociado
         file_instance = scenario.file  
         if file_instance:
-            file_instance.references -= 1  # Decrementamos referencias
+            file_instance.references -= 1 
             if file_instance.references == 0:
-                # Si las referencias son 0, eliminamos el archivo físico y la entrada en la BD
-                file_path = os.path.join('files', file_instance.name)  # Usamos 'files' como directorio
+                file_path = os.path.join('files', file_instance.name)
                 if os.path.exists(file_path):  
-                    os.remove(file_path)  # Borra el archivo del sistema de archivos
-                file_instance.delete()  # Borra la entrada en la base de datos
+                    os.remove(file_path)
+                file_instance.delete()
             else:
-                file_instance.save()  # Guardamos el decremento de referencias
+                file_instance.save()
 
-        # Eliminar anomaly detector y métricas asociadas
         anomaly_detector = AnomalyDetector.objects.filter(scenario=scenario).first()
         if anomaly_detector:
             ClassificationMetric.objects.filter(detector=anomaly_detector).delete()
             anomaly_detector.delete()
 
-        # Finalmente, eliminamos el escenario
         scenario.delete()
 
         return JsonResponse({'message': 'Scenario and related data deleted successfully'}, status=status.HTTP_200_OK)
 
     except Scenario.DoesNotExist:
         return JsonResponse({'error': 'Scenario not found or you do not have permission to delete it'}, status=status.HTTP_404_NOT_FOUND)
-
-
 
 @api_view(['PATCH'])
 @permission_classes([IsAuthenticated])
@@ -601,7 +603,6 @@ def run_scenario_by_uuid(request, uuid):
     except Scenario.DoesNotExist:
         return JsonResponse({'error': 'Scenario not found or without permits to run it'}, status=status.HTTP_404_NOT_FOUND)
 
-# Función principal
 def execute_scenario(anomaly_detector, design):
     try:
         anomaly_detector.execution += 1
@@ -611,22 +612,17 @@ def execute_scenario(anomaly_detector, design):
 
         validate_design(config, design)
         
-        # Cargar tipos de elementos desde la configuración
         for section_name, section in config["sections"].items():
             if section_name == "dataModel":
-                # Modelos clasificacion
                 for model in section.get("classification", []):
-                    model["model_type"] = "classification"  # Nueva clave
+                    model["model_type"] = "classification"  
                     element_types[model["type"]] = model
-                # Modelos regresion
                 for model in section.get("regression", []):
-                    model["model_type"] = "regression"  # Nueva clave
+                    model["model_type"] = "regression"
                     element_types[model["type"]] = model
-                # Modelos deteccion de anomalias
                 for model in section.get("anomalyDetection", []):
-                    model["model_type"] = "anomalyDetection"  # Nueva clave
+                    model["model_type"] = "anomalyDetection"
                     element_types[model["type"]] = model
-                # Monitoring
                 for model in section.get("monitoring", []):
                     element_types[model["type"]] = model
             elif "elements" in section:
@@ -637,7 +633,6 @@ def execute_scenario(anomaly_detector, design):
         elements = {e["id"]: e for e in design["elements"]}
         connections = design["connections"]
         
-        # Construir grafo de dependencias
         adj = defaultdict(list)
         in_degree = defaultdict(int)
         for conn in connections:
@@ -646,7 +641,6 @@ def execute_scenario(anomaly_detector, design):
             if conn["startId"] not in in_degree:
                 in_degree[conn["startId"]] = 0
 
-        # Orden topológico
         queue = [node for node, count in in_degree.items() if count == 0]
         sorted_order = []
         while queue:
@@ -658,7 +652,7 @@ def execute_scenario(anomaly_detector, design):
                     queue.append(neighbor)
 
 
-        data_storage = {}  # Almacena DataFrames por elemento
+        data_storage = {} 
         models = {}
 
         for element_id in sorted_order:
@@ -667,19 +661,15 @@ def execute_scenario(anomaly_detector, design):
             logger.info("Procesando elemento %s", el_type)
             params = element.get("parameters", {})
             
-            # Obtener datos de entrada de las conexiones entrantes
             input_data = None
             for conn in connections:
                 if conn["endId"] == element_id:
                     predecessor_id = conn["startId"]
                     input_data = data_storage.get(predecessor_id)
-                    break  # Asume una sola conexión entrante
-            
-            # Procesar elemento
-            # En la sección donde se procesa el CSV, cambiar:
+                    break 
+
             if el_type == "CSV":
                 logger.info("Cargando CSV")
-                # Cargar CSV desde la base de datos
                 csv_file_name = params.get("csvFileName")
                 try:
                     file = File.objects.get(name=csv_file_name)
@@ -687,21 +677,17 @@ def execute_scenario(anomaly_detector, design):
                 except Exception as e:
                     return {"error": f"Error loading CSV: {str(e)}"}
                 
-                # Nueva lógica para manejar ambos formatos (backward compatibility)
                 columns = params.get("columns", [])
                 selected_columns = []
                 
                 if isinstance(columns, list):
-                    # Nuevo formato: array de objetos ordenados
                     selected_columns = [col["name"] for col in columns if col.get("selected", True)]
                 elif isinstance(columns, dict):
-                    # Formato antiguo: diccionario (mantener para compatibilidad)
                     selected_columns = [col for col, keep in columns.items() if keep]
                 
                 logger.info("Columnas seleccionadas en orden original: %s", selected_columns)
                 
                 try:
-                    # Preservar orden original del CSV
                     df = df[selected_columns]
                 except KeyError as e:
                     return {"error": f"Columna no encontrada en CSV: {str(e)}"}
@@ -710,88 +696,86 @@ def execute_scenario(anomaly_detector, design):
                 
                 data_storage[element_id] = df
 
-            elif el_type == "Monitor":
-                logger.info("Monitorizando")
-                # Procesar todas las entradas de modelos conectados
+            elif el_type in ["ClassificationMonitor", "RegressionMonitor"]:
+                logger.info("Procesando monitor")
                 for conn in connections:
                     if conn["endId"] == element_id:
                         model_id = conn["startId"]
+                        model_element = elements.get(model_id)
+                        if not model_element:
+                            raise ValueError(f"Modelo {model_id} no encontrado para el monitor")
+
+                        model_type = element_types.get(model_element["type"], {}).get("model_type")
+                        monitor_type = "classification" if el_type == "ClassificationMonitor" else "regression"
+                        logger.info("Modelo: %s, Monitor: %s", model_type, monitor_type)
+
+                        if model_type != monitor_type:
+                            raise ValueError(f"Error de tipo: {el_type} conectado a modelo {model_type}")
+
                         model_data = models.get(model_id)
                         if model_data:
-                            y_test, y_pred = model_data["y_test"], model_data["y_pred"]
-                            metrics_config = params.get("metrics", {})
-                            metrics = calculate_classification_metrics(y_test, y_pred, metrics_config)
-                            save_classification_metrics(anomaly_detector, model_data["type"], metrics, anomaly_detector.execution)
+                            if el_type == "ClassificationMonitor":
+                                metrics_config = params.get("metrics", {})
+                                metrics = calculate_classification_metrics(model_data["y_test"], model_data["y_pred"], metrics_config)
+                                save_classification_metrics(anomaly_detector, model_element["type"], metrics, anomaly_detector.execution)
+                            else:
+                                logger.info("Calculando métricas de regresión")
+                                metrics = calculate_regression_metrics(model_data["y_test"], model_data["y_pred"])
+                                save_regression_metrics(anomaly_detector, model_element["type"], metrics, anomaly_detector.execution)
 
             else:
-                # Obtener configuración del elemento
                 element_def = element_types.get(el_type)
                 logger.info("Definición del elemento: %s", element_def)
                 if not element_def:
                     return {"error": f"Tipo de elemento desconocido: {el_type}"}
                 
-                # Cargar clase dinámicamente
                 cls = import_class(element_def["class"])
                 category = element_def.get("category", "")
                 
-                # Procesamiento según categoría
                 if category == "preprocessing":
                     applies_to = element_def.get("appliesTo", "all")
                     transformer = cls(**extract_parameters(element_def["properties"], params))
                     
                     if input_data is not None:
-                        # Detectar si hay variable objetivo
                         if 'target' in input_data.columns:
-                            # Si tienes una columna de target, es supervisado
-                            target_column = input_data['target']  # O usa el nombre de la columna de target que tengas
-                            input_features = input_data.drop(columns=['target'])  # Eliminar la columna objetivo
+                            target_column = input_data['target']
+                            input_features = input_data.drop(columns=['target'])
 
                             if applies_to == "numeric":
-                                # Seleccionar solo las columnas numéricas
                                 numeric_cols = input_features.select_dtypes(include=['number']).columns
                                 transformed = transformer.fit_transform(input_features[numeric_cols])
                                 
-                                # Crear una copia de los datos originales
                                 output_data = input_data.copy()
-                                output_data[numeric_cols] = transformed  # Reemplazar solo las columnas numéricas
+                                output_data[numeric_cols] = transformed
 
                             elif applies_to == "categorical":
-                                # Para columnas categóricas
                                 categorical_cols = input_features.select_dtypes(exclude=['number']).columns
                                 output_data = pd.get_dummies(input_data, columns=categorical_cols)
 
                             else:
-                                # Si no se aplica ni a numéricas ni a categóricas, aplicamos la transformación a todo
                                 output_data = input_data.copy()
                                 output_data[input_features.columns] = transformer.fit_transform(input_features)
                             
-                            # Reincluir la columna de target que se había eliminado
                             output_data['target'] = target_column
                             
                         else:
-                            # Si no tienes columna de target, es no supervisado
                             if applies_to == "numeric":
-                                # Seleccionar solo las columnas numéricas
                                 numeric_cols = input_data.select_dtypes(include=['number']).columns
                                 transformed = transformer.fit_transform(input_data[numeric_cols])
                                 
-                                # Crear una copia de los datos originales
                                 output_data = input_data.copy()
-                                output_data[numeric_cols] = transformed  # Reemplazar solo las columnas numéricas
+                                output_data[numeric_cols] = transformed 
 
                             elif applies_to == "categorical":
-                                # Para columnas categóricas
                                 categorical_cols = input_data.select_dtypes(exclude=['number']).columns
                                 output_data = pd.get_dummies(input_data, columns=categorical_cols)
 
                             else:
-                                # Para otros casos, transformamos todas las columnas numéricas
                                 output_data = pd.DataFrame(
                                     transformer.fit_transform(input_data),
                                     columns=input_data.columns
                                 )
                         
-                        # Almacenar los datos transformados
                         data_storage[element_id] = output_data
                         logger.info("Datos inicial: %s", input_data.head())
                         logger.info("Datos transformados: %s", output_data.head())
@@ -799,7 +783,6 @@ def execute_scenario(anomaly_detector, design):
 
                 elif category == "model" and input_data is not None:
                     logger.info("Entrenando modelo")
-                    # Entrenar modelo
                     model = cls(**extract_parameters(element_def["properties"], params))
                     logger.info("Parámetros: %s", model.get_params())
                     if element_def.get("model_type") == "classification":
@@ -832,12 +815,12 @@ def execute_scenario(anomaly_detector, design):
                         
                         model.fit(X_train, y_train)
                         y_pred = model.predict(X_test)
-                        
-                        # Calcular las métricas de regresión
-                        metrics = calculate_regression_metrics(y_test, y_pred)
-                        
-                        # Guardar las métricas de regresión
-                        save_regression_metrics(anomaly_detector, model_data["type"], metrics, anomaly_detector.execution)
+
+                        models[element_id] = {
+                            "type": el_type,
+                            "y_test": y_test,
+                            "y_pred": y_pred
+                        }
 
                     elif element_def.get("model_type") == "anomalyDetection":
                         logger.info("Modelo Detección de anomalías")
@@ -849,7 +832,6 @@ def execute_scenario(anomaly_detector, design):
                             feature_values = input_data[column].values
                             anomalies = [i for i, (val, pred) in enumerate(zip(feature_values, y_pred)) if pred == 1]
 
-                            # Llamar a la función para guardar las métricas de anomalía
                             save_anomaly_metrics(anomaly_detector, el_type, column, feature_values, anomalies, anomaly_detector.execution)
                             
                         models[element_id] = {

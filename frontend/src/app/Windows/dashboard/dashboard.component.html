@@ -1,5 +1,4 @@
 <div class="container">
-  <!-- Logout and back buttons -->
   <div class="top-bar">
     <div class="top-bar-left">
       <button class="back-btn" *ngIf="!isDashboard()" (click)="goBack()">← Back</button>
@@ -12,7 +11,6 @@
     </div>
   </div>
 
-  <!-- Sidebar -->
   <ng-container *ngIf="!isNewScenario()">
     <div class="sidebar">
       <div class="option" 
@@ -44,14 +42,12 @@
   </ng-container>
 
   <div class="content">
-    <!--Dashboard content -->
     <ng-container *ngIf="isDashboard()">
       <button class="default-button">Anomalies detected</button>
       <button class="default-button">Network / Data statistics</button>
       <button class="default-button">Tested actions / mitigations</button>
     </ng-container>
   
-    <!-- Options content -->
     <router-outlet *ngIf="!isDashboard()"></router-outlet>
   </div>
 </div>

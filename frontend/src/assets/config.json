@@ -499,9 +499,7 @@
               }
             }
           ]
-        }
-      ],
-      "regression": [
+        },
         {
           "type": "LogisticRegression",
           "displayName": "Logistic Regression",
@@ -539,6 +537,58 @@
               "type": "number",
               "default": 100,
               "min": 1
+            }
+          ]
+        }
+      ],
+      "regression": [
+        {
+          "type": "LinearRegression",
+          "displayName": "Linear Regression",
+          "icon": "fa fa-chart-line",
+          "class": "sklearn.linear_model.LinearRegression",
+          "category": "model",
+          "properties": [
+            {
+              "name": "fit_intercept",
+              "label": "Fit Intercept",
+              "type": "select",
+              "default": "true",
+              "options": ["true", "false"]
+            },
+            {
+              "name": "positive",
+              "label": "Positive",
+              "type": "select",
+              "default": "false",
+              "options": ["true", "false"]
+            },
+            {
+              "name": "copy_X",
+              "label": "Copy X",
+              "type": "select",
+              "default": "true",
+              "options": ["true", "false"]
+            },
+            {
+              "name": "n_jobs",
+              "label": "Number of Jobs",
+              "placeholder": "Number of parallel jobs (-1 for all cores)",
+              "type": "conditional-select",
+              "default": "None",
+              "options": ["None", "custom"]
+            },
+            {
+              "name": "custom_n_jobs",
+              "label": "Custom n jobs",
+              "placeholder": "N jobs",
+              "type": "number",
+              "default": 0,
+              "min": -1,
+              "conditional": {
+                "dependsOn": "n_jobs",
+                "value": "custom"
+              }
             }
           ]
         }
@@ -866,8 +916,8 @@
       ],
       "monitoring": [
         {
-          "type": "Monitor",
-          "displayName": "Monitor",
+          "type": "ClassificationMonitor",
+          "displayName": "Classification Monitor",
           "icon": "fa fa-chart-line",
           "category": "monitoring",
           "properties": [
@@ -881,6 +931,26 @@
                 "recall",
                 "precision",
                 "confusionMatrix"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "RegressionMonitor",
+          "displayName": "Regression Monitor",
+          "icon": "fa fa-chart-line",
+          "category": "monitoring",
+          "properties": [
+            {
+              "name": "metrics",
+              "type": "multi-select",
+              "default": [],
+              "options": [
+                "mse",
+                "rmse",
+                "mae",
+                "r2",
+                "msle"
               ]
             }
           ]

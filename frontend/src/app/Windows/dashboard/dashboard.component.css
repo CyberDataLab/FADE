@@ -13,7 +13,7 @@ html, body {
 
 .top-bar {
   width: 100%;
-  background-color: #2470bc;
+  background-color: #00578f;
   padding: 10px;
   display: flex;
   align-items: center;
@@ -73,27 +73,27 @@ html, body {
   box-sizing: border-box;
   position: relative;
   transition: all 0.2s;
-  width: 100%; /* Asegura que el ancho ocupe todo el sidebar */
+  width: 100%; 
   text-align: center; 
   font-size: 16px;
 }
 
 .option:hover {
-  background-color: #f8f9fa; /* Color claro de fondo */
-  color: #2470bc; /* Color del texto principal */
-  transform: scale(1.02); /* Ligero zoom */
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); /* Sutil sombra */
+  background-color: #f8f9fa; 
+  color: #2470bc;
+  transform: scale(1.02);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .option:focus {
-  color: #2470bc; /* Cambia el color del texto cuando la opción está seleccionada */
-  outline: none; /* Evita que aparezca el contorno por defecto en algunos navegadores */
+  color: #2470bc; 
+  outline: none; 
 }
 
 
 .option.selected {
-  color: #2470bc; /* Cambia el color del texto */
-  font-weight: bold; /* (Opcional) Resalta el texto */
+  color: #2470bc;
+  font-weight: bold;
 }
 
 .content {

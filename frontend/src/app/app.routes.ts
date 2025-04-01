@@ -10,7 +10,6 @@ import { OptionsComponent } from './Windows/options/options.component';
 import { UserComponent } from './Windows/user/user.component';
 import { ResetPasswordComponent } from './Authentication/reset-password/reset-password.component';
 import { SendEmailComponent } from './Authentication/send-email/send-email.component';
-import { FeaturesComponent } from './Windows/anomaly-detector/features/features.component';
 import { MetricsComponent } from './Windows/anomaly-detector/metrics/metrics.component';
 import { TimelineADComponent } from './Windows/anomaly-detector/timeline-ad/timeline-ad.component';
 import { NewScenarioComponent } from './Windows/anomaly-detector/new-scenario/new-scenario.component';
@@ -21,7 +20,6 @@ export const routes: Routes = [
     { path: 'register', component: RegisterComponent },
     { path: 'dashboard', component: DashboardComponent, children: [
         { path: 'anomaly-detector', component: AnomalyDetectorComponent, children: [
-            { path: ':id/features', component: FeaturesComponent },
             { path: ':id/timeline-ad', component: TimelineADComponent },
             { path: ':id/metrics', component: MetricsComponent },
             { path: 'new-scenario', component: NewScenarioComponent },

@@ -13,7 +13,7 @@ import { ScenarioService } from '../scenario.service';
 })
 export class DashboardComponent {
 
-  selectedOption: string = '';  // Variable para almacenar la opción seleccionada
+  selectedOption: string = '';  
   
   constructor(
     private authenticationService: AuthenticationService,
@@ -23,12 +23,12 @@ export class DashboardComponent {
   ) {}
 
   navigateTo(path: string): void {
-    this.selectedOption = path;  // Actualiza la opción seleccionada
+    this.selectedOption = path;  
     this.router.navigate([`/dashboard/${path}`]);
   }
 
   isSelected(option: string): boolean {
-    return this.selectedOption === option;  // Compara si la opción está seleccionada
+    return this.selectedOption === option;  
   }
 
   isDashboard(): boolean {

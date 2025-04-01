@@ -3,6 +3,7 @@ import { ActivatedRoute } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { ScenarioService } from '../../scenario.service';
 import { Chart } from 'chart.js/auto';
+import { HttpClient } from '@angular/common/http';
 
 @Component({
   selector: 'app-metrics',
@@ -22,28 +23,46 @@ export class MetricsComponent implements OnInit {
   modalMetric: any = null;
   modalExecutionNumber: number = 0;
 
+  private modelTypes: {
+    classification: string[],
+    regression: string[]
+  } = { classification: [], regression: [] };
+
   constructor(
     private route: ActivatedRoute,
     private scenarioService: ScenarioService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private http: HttpClient
   ) {}
 
   ngOnInit(): void {
     this.uuid = this.route.snapshot.paramMap.get('id') || '';
+    this.loadConfig();
     this.getMetrics();
+  }
+
+  private loadConfig(): void {
+    this.http.get('assets/config.json').subscribe({
+      next: (config: any) => {
+        this.modelTypes.classification = config.sections.dataModel.classification.map((m: any) => m.type);
+        this.modelTypes.regression = config.sections.dataModel.regression.map((m: any) => m.type);
+      },
+      error: (err:any) => console.error('Error loading config:', err)
+    });
   }
 
   private createAllCharts() {
     this.groupedMetrics.forEach(execution => {
       execution.models.forEach((model: any) => {
-        const barChartId = `bar-${execution.executionNumber}-${model.safeModelName}`;
-        const matrixChartId = `matrix-${execution.executionNumber}-${model.safeModelName}`;
-        
-        if (!this.charts[barChartId]) {
-          this.createBarChart(model, barChartId);
-        }
-        if (!this.charts[matrixChartId]) {
-          this.createConfusionMatrix(model, matrixChartId);
+        if (model.modelType === 'classification') {
+          const barChartId = `bar-${execution.executionNumber}-${model.safeModelName}`;
+          const matrixChartId = `matrix-${execution.executionNumber}-${model.safeModelName}`;
+          
+          if (!this.charts[barChartId]) this.createBarChart(model, barChartId);
+          if (!this.charts[matrixChartId]) this.createConfusionMatrix(model, matrixChartId);
+        } else if (model.modelType === 'regression') {
+          const regressionChartId = `regression-${execution.executionNumber}-${model.safeModelName}`;
+          if (!this.charts[regressionChartId]) this.createRegressionChart(model, regressionChartId);
         }
       });
     });
@@ -51,16 +70,20 @@ export class MetricsComponent implements OnInit {
 
   getMetrics(): void {
     this.scenarioService.getScenarioClassificationMetrics(this.uuid).subscribe({
-      next: (data: any) => {
-        this.metrics = data.metrics || [];
-        this.groupMetricsByExecution();
+      next: (classificationData: any) => {
+        this.metrics = classificationData.metrics || [];
         
-        this.cdr.detectChanges();
-        this.createAllCharts();
+        this.scenarioService.getScenarioRegressionMetrics(this.uuid).subscribe({
+          next: (regressionData: any) => {
+            this.metrics = [...this.metrics, ...(regressionData.metrics || [])];
+            this.groupMetricsByExecution();
+            this.cdr.detectChanges();
+            this.createAllCharts();
+          },
+          error: (err: any) => console.error('Error fetching regression metrics:', err)
+        });
       },
-      error: (err: any) => {
-        console.error('Error fetching metrics:', err);
-      }
+      error: (err: any) => console.error('Error fetching classification metrics:', err)
     });
   }
 
@@ -68,84 +91,134 @@ export class MetricsComponent implements OnInit {
     const executions: any = {};
     
     this.metrics.forEach(metric => {
-      if (!metric.model_name || !metric.execution) {
-        console.warn('Invalid metric:', metric);
+      if (!metric.model_name || !metric.execution) return;
+  
+      const isClassification = this.modelTypes.classification.includes(metric.model_name);
+      const isRegression = this.modelTypes.regression.includes(metric.model_name);
+
+      if (!isClassification && !isRegression) {
         return;
       }
-
+      
       const safeModelName = metric.model_name.replace(/[^a-zA-Z0-9]/g, '-');
-
+  
       if (!executions[metric.execution]) {
         executions[metric.execution] = { 
           executionNumber: metric.execution, 
           models: [] 
         };
       }
+      
       executions[metric.execution].models.push({
         modelName: metric.model_name,
         safeModelName: safeModelName,
-        accuracy: metric.accuracy || 0,
-        precision: metric.precision || 0,
-        recall: metric.recall || 0,
-        f1_score: metric.f1_score || 0,
-        confusion_matrix: metric.confusion_matrix || []
+        modelType: isClassification ? 'classification' : 'regression',
+        accuracy: metric.accuracy,
+        precision: metric.precision,
+        recall: metric.recall,
+        f1_score: metric.f1_score,
+        confusion_matrix: metric.confusion_matrix,
+        mse: metric.mse,
+        rmse: metric.rmse,
+        mae: metric.mae,
+        r2: metric.r2,
+        msle: metric.msle
       });
     });
   
     this.groupedMetrics = Object.values(executions);
   }
 
+  private createRegressionChart(metric: any, chartId: string) {
+    try {
+      const canvas = document.getElementById(chartId);
+      if (!canvas) return;
+  
+      if (this.charts[chartId]) {
+        this.charts[chartId].destroy();
+      }
+  
+      this.charts[chartId] = new Chart(canvas as HTMLCanvasElement, {
+        type: 'bar',
+        data: {
+          labels: ['MSE', 'RMSE', 'MAE', 'R²', 'MSLE'],
+          datasets: [{
+            label: 'Regression Metrics',
+            data: [
+              metric.mse,
+              metric.rmse,
+              metric.mae,
+              metric.r2,
+              metric.msle
+            ],
+            backgroundColor: 'rgba(255, 159, 64, 0.8)',
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: { beginAtZero: true }
+          }
+        }
+      });
+    } catch (error) {
+      console.error(`Error creating regression chart ${chartId}:`, error);
+    }
+  }
+
   private createBarChart(metric: any, chartId: string) {
     try {
-        const safeMetric = {
-            accuracy: Number(metric.accuracy || 0),
-            precision: Number(metric.precision || 0),
-            recall: Number(metric.recall || 0),
-            f1_score: Number(metric.f1_score || 0)
-        };
+      const safeMetric = {
+        accuracy: Number(metric.accuracy || 0),
+        precision: Number(metric.precision || 0),
+        recall: Number(metric.recall || 0),
+        f1_score: Number(metric.f1_score || 0)
+      };
 
-        const canvas = document.getElementById(chartId);
-        if (!canvas) {
-            console.error(`Canvas ${chartId} not found`);
-            return;
-        }
+      const canvas = document.getElementById(chartId);
+      if (!canvas) {
+        console.error(`Canvas ${chartId} not found`);
+        return;
+      }
 
-        if (this.charts[chartId]) {
-            this.charts[chartId].destroy();
-        }
+      if (this.charts[chartId]) {
+        this.charts[chartId].destroy();
+      }
 
-        this.charts[chartId] = new Chart(canvas as HTMLCanvasElement, {
-            type: 'bar',
-            data: {
-                labels: ['Accuracy', 'Precision', 'Recall', 'F1 Score'],
-                datasets: [{
-                    label: 'Metrics',
-                    data: [
-                        safeMetric.accuracy,
-                        safeMetric.precision,
-                        safeMetric.recall,
-                        safeMetric.f1_score
-                    ],
-                    backgroundColor: [
-                        'rgba(54, 162, 235, 0.8)',
-                        'rgba(75, 192, 192, 0.8)',
-                        'rgba(255, 99, 132, 0.8)',
-                        'rgba(153, 102, 255, 0.8)'
-                    ],
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        max: 1
-                    }
-                }
+      this.charts[chartId] = new Chart(canvas as HTMLCanvasElement, {
+        type: 'bar',
+        data: {
+          labels: ['Accuracy', 'Precision', 'Recall', 'F1 Score'],
+          datasets: [{
+            label: 'Metrics',
+            data: [
+              safeMetric.accuracy,
+              safeMetric.precision,
+              safeMetric.recall,
+              safeMetric.f1_score
+            ],
+            backgroundColor: [
+              'rgba(54, 162, 235, 0.8)',
+              'rgba(75, 192, 192, 0.8)',
+              'rgba(255, 99, 132, 0.8)',
+              'rgba(153, 102, 255, 0.8)'
+            ],
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+                beginAtZero: true,
+                max: 1
             }
-        });
+          }
+        }
+      });
     } catch (error) {
         console.error(`Error creating bar chart ${chartId}:`, error);
     }
@@ -240,11 +313,9 @@ export class MetricsComponent implements OnInit {
     this.modalMetric = model;
   
     setTimeout(() => {
-      // Esperamos un pequeño momento antes de crear el gráfico
       const modalCanvasId = `modal-${type}-chart`;
-      
-      // Limpiamos el gráfico previo si existe
       const modalCanvas = document.getElementById(modalCanvasId) as HTMLCanvasElement;
+      
       if (modalCanvas && this.charts[modalCanvasId]) {
         this.charts[modalCanvasId].destroy();
       }
@@ -253,10 +324,11 @@ export class MetricsComponent implements OnInit {
         this.createBarChart(this.modalMetric, modalCanvasId);
       } else if (type === 'matrix') {
         this.createConfusionMatrix(this.modalMetric, modalCanvasId);
+      } else if (type === 'regression') {
+        this.createRegressionChart(this.modalMetric, modalCanvasId);
       }
-    }, 100); // Le damos un pequeño delay para asegurarnos que el modal se haya renderizado
+    }, 100);
   }
-  
 
   closeModal() {
     this.showModal = false;

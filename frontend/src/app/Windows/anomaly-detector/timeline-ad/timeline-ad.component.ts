@@ -98,6 +98,10 @@ export class TimelineADComponent implements OnInit {
         safeFeatureName: safeFeatureName,
         anomalies: metric.anomalies || { values: [], anomaly_indices: [] }
       });
+
+      model.features.sort((a: any, b: any) => 
+        a.featureName.localeCompare(b.featureName)
+      );
     });
 
     this.groupedMetrics = Object.values(executions);
@@ -129,12 +133,15 @@ export class TimelineADComponent implements OnInit {
             tension: 0.1,
             pointRadius: (ctx: any) => anomalyIndices.has(ctx.dataIndex) ? 5 : 0,
             pointBackgroundColor: (ctx: any) => anomalyIndices.has(ctx.dataIndex) ? '#FF5252' : 'transparent',
-            pointBorderColor: (ctx: any) => anomalyIndices.has(ctx.dataIndex) ? '#FF5252' : 'transparent'
+            pointBorderColor: (ctx: any) => anomalyIndices.has(ctx.dataIndex) ? '#FF5252' : 'transparent'          
           }]
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          elements: {
+            point: { hitRadius: 10 }
+          },
           scales: {
             x: {
               title: { display: true, text: 'Data Point Index' },
@@ -148,6 +155,8 @@ export class TimelineADComponent implements OnInit {
           plugins: {
             legend: { display: false },
             tooltip: {
+              mode: 'nearest',
+              intersect: false,
               callbacks: {
                 label: (ctx: any) => {
                   const isAnomaly = anomalyIndices.has(ctx.dataIndex);

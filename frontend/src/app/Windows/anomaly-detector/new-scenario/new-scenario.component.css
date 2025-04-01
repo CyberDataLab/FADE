@@ -1,10 +1,9 @@
-/* Reset básico */
 html, body {
   margin: 0;
   padding: 0;
   height: 100%;
   width: 100%;
-  overflow: hidden; /* Evitar scroll */
+  overflow: hidden; 
   box-sizing: border-box;
 }
 
@@ -29,7 +28,7 @@ html, body {
 
 .design-container {
   width: 250px;
-  background-color: #2a3d4f;
+  background-color: #30426a;
   color: white;
   height: 100vh;
   overflow: auto;
@@ -49,7 +48,7 @@ html, body {
 
 .section-header {
   padding: 10px;
-  background-color: #4a5c70;
+  background-color: #7690ad97;
   border-radius: 5px;
   display: flex;
   align-items: center;
@@ -58,7 +57,7 @@ html, body {
 }
   
 .section-header:hover {
-  background-color: #1e2a33;
+  background-color: #43556a;
 }
 
 .section-header i {
@@ -71,7 +70,7 @@ html, body {
 
 .sub-section {
   padding: 10px 0;
-  background-color: #3d4a5b;
+  background-color: #3d4a5bd0;
   border-radius: 5px;
 }
 
@@ -142,8 +141,8 @@ html, body {
   height: calc(100vh - 60px);
   border: 2px dashed #ccc;
   border-radius: 0;
-  background-image: linear-gradient(to right, rgba(255, 255, 255, 0.25) 1px, transparent 1px),
-                    linear-gradient(to bottom, rgba(255, 255, 255, 0.25) 1px, transparent 1px);
+  background-image: linear-gradient(to right, rgba(0, 0, 0, 0.25) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(0, 0, 0, 0.25) 1px, transparent 1px);
   background-size: 20px 20px;
   margin: 0;
   padding: 0;
@@ -263,7 +262,7 @@ html, body {
 .config-container {
   width: 400px;
   padding: 10px;
-  background-color: #2a3d4f;
+  background-color: #30426a;
   color: white;
   position: fixed;
   top: 60px; 
@@ -363,7 +362,7 @@ svg {
 
 .sub-section {
   padding: 10px 0;
-  background-color: #3d4a5b;
+  background-color: #4a5c7063;
   border-radius: 5px;
 }
 
@@ -395,7 +394,7 @@ svg {
 }
 
 .csv-columns-container .column-item.selected {
-  background-color: #007bff;
+  background-color: #7690ad97;
   box-shadow: 0 2px 4px rgba(33, 150, 243, 0.2);
 }
 
@@ -427,7 +426,7 @@ svg {
 }
 
 .metrics-container .metric-item.selected {
-  background-color: #007bff;
+  background-color: #7690ad97;
   box-shadow: 0 2px 4px rgba(33, 150, 243, 0.2);
 }
 

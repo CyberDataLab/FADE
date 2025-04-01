@@ -131,12 +131,10 @@ export class NewScenarioComponent implements OnInit{
 
   toggleSubSection(section: string): void {
     if (section === 'classification' || section === 'regression' || section === 'anomalyDetection' || section === 'monitoring') {
-      // Solo toggle las subsecciones, sin tocar el estado de 'dataModel'
       this.activeSubSections[section] = !this.activeSubSections[section];
     }
   }
   
-
   addDragEventListeners() {
     const draggableElements = document.querySelectorAll('.option');
   
@@ -189,7 +187,6 @@ export class NewScenarioComponent implements OnInit{
     }
   }
   
-  
   deselectElement(element: HTMLElement) {
     this.selectedElements = this.selectedElements.filter((el) => el !== element);
     element.classList.remove('selected');
@@ -219,29 +216,29 @@ export class NewScenarioComponent implements OnInit{
   
   deleteSelectedElements(): void {
     if (this.selectedElements.length > 0) {
-        const elementsToDelete = [...this.selectedElements];
+      const elementsToDelete = [...this.selectedElements];
 
-        this.connections = this.connections.filter((connection) => {
-            const isConnected = elementsToDelete.includes(connection.startElement) || 
-                              elementsToDelete.includes(connection.endElement);
-            
-            if (isConnected && connection.line.parentElement) {
-                connection.line.parentElement.removeChild(connection.line);
-            }
-            return !isConnected;
-        });
-
-        elementsToDelete.forEach(element => {
-            if (element.parentElement) {
-                element.parentElement.removeChild(element);
-            }
-        });
-
-        this.droppedElements = this.droppedElements.filter(el => !elementsToDelete.includes(el));
+      this.connections = this.connections.filter((connection) => {
+        const isConnected = elementsToDelete.includes(connection.startElement) || 
+                            elementsToDelete.includes(connection.endElement);
         
-        this.selectedElements = [];
-        
-        this.updateUnsavedState();
+        if (isConnected && connection.line.parentElement) {
+          connection.line.parentElement.removeChild(connection.line);
+        }
+        return !isConnected;
+      });
+
+      elementsToDelete.forEach(element => {
+        if (element.parentElement) {
+          element.parentElement.removeChild(element);
+        }
+      });
+
+      this.droppedElements = this.droppedElements.filter(el => !elementsToDelete.includes(el));
+      
+      this.selectedElements = [];
+      
+      this.updateUnsavedState();
     }
   }
 
@@ -582,13 +579,13 @@ export class NewScenarioComponent implements OnInit{
     const svg = dropArea.querySelector('svg') || document.createElementNS(svgNamespace, 'svg');
 
     if (!dropArea.contains(svg)) {
-        svg.setAttribute('width', `${dropArea.offsetWidth}`);
-        svg.setAttribute('height', `${dropArea.offsetHeight}`);
-        svg.style.position = 'absolute';
-        svg.style.top = '0';
-        svg.style.left = '0';
-        svg.style.pointerEvents = 'none'; 
-        dropArea.appendChild(svg);
+      svg.setAttribute('width', `${dropArea.offsetWidth}`);
+      svg.setAttribute('height', `${dropArea.offsetHeight}`);
+      svg.style.position = 'absolute';
+      svg.style.top = '0';
+      svg.style.left = '0';
+      svg.style.pointerEvents = 'none'; 
+      dropArea.appendChild(svg);
     }
 
     const scale = this.getZoomScale();
@@ -602,39 +599,39 @@ export class NewScenarioComponent implements OnInit{
     const closestPair = this.getClosestPair(distances);
 
     if (closestPair.startEdge && closestPair.endEdge) {
-        let startX = (closestPair.startEdge.x - dropAreaRect.left) / scale;
-        let startY = (closestPair.startEdge.y - dropAreaRect.top) / scale;
-        let endX = (closestPair.endEdge.x - dropAreaRect.left) / scale;
-        let endY = (closestPair.endEdge.y - dropAreaRect.top) / scale;
+      let startX = (closestPair.startEdge.x - dropAreaRect.left) / scale;
+      let startY = (closestPair.startEdge.y - dropAreaRect.top) / scale;
+      let endX = (closestPair.endEdge.x - dropAreaRect.left) / scale;
+      let endY = (closestPair.endEdge.y - dropAreaRect.top) / scale;
 
-        const startElementStyles = window.getComputedStyle(startElement);
-        const endElementStyles = window.getComputedStyle(endElement);
+      const startElementStyles = window.getComputedStyle(startElement);
+      const endElementStyles = window.getComputedStyle(endElement);
 
-        const startAdjustmentX = parseInt(startElementStyles.borderLeftWidth, 10) || 0;
-        const startAdjustmentY = parseInt(startElementStyles.borderTopWidth, 10) || 0;
-        const endAdjustmentX = parseInt(endElementStyles.borderLeftWidth, 10) || 0;
-        const endAdjustmentY = parseInt(endElementStyles.borderTopWidth, 10) || 0;
+      const startAdjustmentX = parseInt(startElementStyles.borderLeftWidth, 10) || 0;
+      const startAdjustmentY = parseInt(startElementStyles.borderTopWidth, 10) || 0;
+      const endAdjustmentX = parseInt(endElementStyles.borderLeftWidth, 10) || 0;
+      const endAdjustmentY = parseInt(endElementStyles.borderTopWidth, 10) || 0;
 
-        startX += startAdjustmentX / scale;
-        startY += startAdjustmentY / scale;
-        endX += endAdjustmentX / scale;
-        endY += endAdjustmentY / scale;
+      startX += startAdjustmentX / scale;
+      startY += startAdjustmentY / scale;
+      endX += endAdjustmentX / scale;
+      endY += endAdjustmentY / scale;
 
-        const line = document.createElementNS(svgNamespace, 'line');
-        line.setAttribute('x1', `${startX}`);
-        line.setAttribute('y1', `${startY}`);
-        line.setAttribute('x2', `${endX}`);
-        line.setAttribute('y2', `${endY}`);
-        line.setAttribute('stroke', 'black');
-        line.setAttribute('stroke-width', '2');
+      const line = document.createElementNS(svgNamespace, 'line');
+      line.setAttribute('x1', `${startX}`);
+      line.setAttribute('y1', `${startY}`);
+      line.setAttribute('x2', `${endX}`);
+      line.setAttribute('y2', `${endY}`);
+      line.setAttribute('stroke', 'black');
+      line.setAttribute('stroke-width', '2');
 
-        svg.appendChild(line);
+      svg.appendChild(line);
 
-        this.connections.push({
-            startElement,
-            endElement,
-            line
-        });
+      this.connections.push({
+        startElement,
+        endElement,
+        line
+      });
     }
 
     this.isConnecting = false;
@@ -642,86 +639,86 @@ export class NewScenarioComponent implements OnInit{
   }
 
   private calculateAllDistances(startRect: DOMRect, endRect: DOMRect): { startEdge: { x: number, y: number }, endEdge: { x: number, y: number }, distance: number }[] {
-      const startEdges = this.getEdges(startRect);
-      const endEdges = this.getEdges(endRect);
+    const startEdges = this.getEdges(startRect);
+    const endEdges = this.getEdges(endRect);
 
-      const distances: { startEdge: { x: number, y: number }, endEdge: { x: number, y: number }, distance: number }[] = [];
-      
-      startEdges.forEach((startEdge) => {
-          endEdges.forEach((endEdge) => {
-              const distance = Math.hypot(startEdge.x - endEdge.x, startEdge.y - endEdge.y);
-              distances.push({ startEdge, endEdge, distance });
-          });
+    const distances: { startEdge: { x: number, y: number }, endEdge: { x: number, y: number }, distance: number }[] = [];
+    
+    startEdges.forEach((startEdge) => {
+      endEdges.forEach((endEdge) => {
+        const distance = Math.hypot(startEdge.x - endEdge.x, startEdge.y - endEdge.y);
+        distances.push({ startEdge, endEdge, distance });
       });
+    });
 
-      return distances;
+    return distances;
   }
 
   private getEdges(rect: DOMRect): { x: number, y: number }[] {
-      const left = { x: rect.left, y: rect.top + rect.height / 2 };     
-      const right = { x: rect.right, y: rect.top + rect.height / 2 };  
-      const top = { x: rect.left + rect.width / 2, y: rect.top };        
-      const bottom = { x: rect.left + rect.width / 2, y: rect.bottom };  
+    const left = { x: rect.left, y: rect.top + rect.height / 2 };     
+    const right = { x: rect.right, y: rect.top + rect.height / 2 };  
+    const top = { x: rect.left + rect.width / 2, y: rect.top };        
+    const bottom = { x: rect.left + rect.width / 2, y: rect.bottom };  
 
-      return [top, bottom, left, right];
+    return [top, bottom, left, right];
   }
 
   private getClosestPair(distances: { startEdge: { x: number, y: number }, endEdge: { x: number, y: number }, distance: number }[]): { startEdge: { x: number, y: number }, endEdge: { x: number, y: number } } {
-      let minDistance = Infinity;
-      let closestPair: { startEdge: { x: number, y: number }, endEdge: { x: number, y: number } } = { startEdge: { x: 0, y: 0 }, endEdge: { x: 0, y: 0 } };
+    let minDistance = Infinity;
+    let closestPair: { startEdge: { x: number, y: number }, endEdge: { x: number, y: number } } = { startEdge: { x: 0, y: 0 }, endEdge: { x: 0, y: 0 } };
 
-      distances.forEach((pair) => {
-          if (pair.distance < minDistance) {
-              minDistance = pair.distance;
-              closestPair = pair;
-          }
-      });
+    distances.forEach((pair) => {
+      if (pair.distance < minDistance) {
+        minDistance = pair.distance;
+        closestPair = pair;
+      }
+    });
 
-      return closestPair;
+    return closestPair;
   }
 
   updateConnections(element: HTMLElement) {
     this.connections.forEach((connection) => {
-        if (connection.startElement === element || connection.endElement === element) {
-            const dropArea = document.getElementById('drop-area');
-            if (!dropArea) return;
+      if (connection.startElement === element || connection.endElement === element) {
+        const dropArea = document.getElementById('drop-area');
+        if (!dropArea) return;
 
-            const scale = this.getZoomScale();
+        const scale = this.getZoomScale();
 
-            const startRect = connection.startElement.getBoundingClientRect();
-            const endRect = connection.endElement.getBoundingClientRect();
-            const dropAreaRect = dropArea.getBoundingClientRect();
+        const startRect = connection.startElement.getBoundingClientRect();
+        const endRect = connection.endElement.getBoundingClientRect();
+        const dropAreaRect = dropArea.getBoundingClientRect();
 
-            const distances = this.calculateAllDistances(startRect, endRect);
+        const distances = this.calculateAllDistances(startRect, endRect);
 
-            const closestPair = this.getClosestPair(distances);
+        const closestPair = this.getClosestPair(distances);
 
-            if (closestPair.startEdge && closestPair.endEdge) {
-                let startX = (closestPair.startEdge.x - dropAreaRect.left) / scale;
-                let startY = (closestPair.startEdge.y - dropAreaRect.top) / scale;
-                let endX = (closestPair.endEdge.x - dropAreaRect.left) / scale;
-                let endY = (closestPair.endEdge.y - dropAreaRect.top) / scale;
+        if (closestPair.startEdge && closestPair.endEdge) {
+          let startX = (closestPair.startEdge.x - dropAreaRect.left) / scale;
+          let startY = (closestPair.startEdge.y - dropAreaRect.top) / scale;
+          let endX = (closestPair.endEdge.x - dropAreaRect.left) / scale;
+          let endY = (closestPair.endEdge.y - dropAreaRect.top) / scale;
 
-                const startElementStyles = window.getComputedStyle(connection.startElement);
-                const endElementStyles = window.getComputedStyle(connection.endElement);
+          const startElementStyles = window.getComputedStyle(connection.startElement);
+          const endElementStyles = window.getComputedStyle(connection.endElement);
 
-                const startAdjustmentX = (parseInt(startElementStyles.borderLeftWidth, 10) || 0) / scale;
-                const startAdjustmentY = (parseInt(startElementStyles.borderTopWidth, 10) || 0) / scale;
-                const endAdjustmentX = (parseInt(endElementStyles.borderLeftWidth, 10) || 0) / scale;
-                const endAdjustmentY = (parseInt(endElementStyles.borderTopWidth, 10) || 0) / scale;
+          const startAdjustmentX = (parseInt(startElementStyles.borderLeftWidth, 10) || 0) / scale;
+          const startAdjustmentY = (parseInt(startElementStyles.borderTopWidth, 10) || 0) / scale;
+          const endAdjustmentX = (parseInt(endElementStyles.borderLeftWidth, 10) || 0) / scale;
+          const endAdjustmentY = (parseInt(endElementStyles.borderTopWidth, 10) || 0) / scale;
 
-                startX += startAdjustmentX;
-                startY += startAdjustmentY;
-                endX += endAdjustmentX;
-                endY += endAdjustmentY;
+          startX += startAdjustmentX;
+          startY += startAdjustmentY;
+          endX += endAdjustmentX;
+          endY += endAdjustmentY;
 
-                const line = connection.line;
-                line.setAttribute('x1', `${startX}`);
-                line.setAttribute('y1', `${startY}`);
-                line.setAttribute('x2', `${endX}`);
-                line.setAttribute('y2', `${endY}`);
-            }
+          const line = connection.line;
+          line.setAttribute('x1', `${startX}`);
+          line.setAttribute('y1', `${startY}`);
+          line.setAttribute('x2', `${endX}`);
+          line.setAttribute('y2', `${endY}`);
         }
+      }
     });
   }
 
@@ -735,16 +732,17 @@ export class NewScenarioComponent implements OnInit{
         
         if (!elementType) return;
 
-        // Casos especiales que mantienen su implementación original
         if (elementType === 'CSV') {
           this.handleCSVConfiguration(selectedElement, configContent);
           return;
-        } else if (elementType === 'Monitor') {
-          this.handleMonitorConfiguration(selectedElement, configContent);
+        } else if (elementType === 'ClassificationMonitor') {
+          this.handleClassificationMonitorConfiguration(selectedElement, configContent);
+          return;
+        } else if (elementType === 'RegressionMonitor') {
+          this.handleRegressionMonitorConfiguration(selectedElement, configContent);
           return;
         }
 
-        // Configuración dinámica para otros elementos
         const elementConfig = this.getElementConfig(elementType);
         if (!elementConfig) return;
 
@@ -756,9 +754,8 @@ export class NewScenarioComponent implements OnInit{
   }
 
   private getElementConfig(elementType: string): any {
-    const config = this.config; // Asegurar que el config está cargado
+    const config = this.config;
     
-    // Buscar recursivamente en todas las secciones
     const deepSearch = (obj: any): any => {
       if (obj.elements) {
         const found = obj.elements.find((e: any) => e.type === elementType);
@@ -792,14 +789,12 @@ export class NewScenarioComponent implements OnInit{
   private generateConfigHTML(config: any, elementId: string): string {
     let html = `<h3 style="margin-bottom: 30px;">${config.displayName} Configuration</h3>`;
     
-    // Verificar existencia de propiedades
     if (!config.properties || !Array.isArray(config.properties)) {
       console.error(`Configuración inválida para ${config.type}`);
       return html + '<p>Error de configuración</p>';
     }
   
     config.properties.forEach((prop: any) => {
-      // Validar estructura de propiedad
       if (!prop.name || !prop.type) {
         console.warn(`Propiedad inválida en ${config.type}:`, prop);
         return;
@@ -882,110 +877,108 @@ export class NewScenarioComponent implements OnInit{
     const elementId = element.id;
     
     if (!this.elementParameters[elementId]) {
-        this.elementParameters[elementId] = {};
-        
-        config.properties.forEach((prop: any) => {
-            this.elementParameters[elementId][prop.name] = prop.default;
+      this.elementParameters[elementId] = {};
+      
+      config.properties.forEach((prop: any) => {
+        this.elementParameters[elementId][prop.name] = prop.default;
 
-            if (prop.conditional) {
-                const parentValue = this.elementParameters[elementId][prop.conditional.dependsOn];
-                if (parentValue !== prop.conditional.value) {
-                    this.elementParameters[elementId][prop.name] = prop.default;
-                }
-            }
-        });
+        if (prop.conditional) {
+          const parentValue = this.elementParameters[elementId][prop.conditional.dependsOn];
+          if (parentValue !== prop.conditional.value) {
+            this.elementParameters[elementId][prop.name] = prop.default;
+          }
+        }
+      });
     }
 
     config.properties.forEach((prop: any) => {
-        const paramKey = prop.name;
-        const controlId = `${paramKey}-${elementId}`;
-        
-        switch (prop.type) {
-          case 'conditional-select': {
-            const selectId = `${paramKey}-select-${elementId}`;
-            const select = document.getElementById(selectId) as HTMLSelectElement;
-        
-            if (select) {
-              if (!(paramKey in this.elementParameters[elementId])) {
-                  this.elementParameters[elementId][paramKey] = prop.default;
-              }
+      const paramKey = prop.name;
+      const controlId = `${paramKey}-${elementId}`;
       
-              select.value = this.elementParameters[elementId][paramKey];
+      switch (prop.type) {
+        case 'conditional-select': {
+          const selectId = `${paramKey}-select-${elementId}`;
+          const select = document.getElementById(selectId) as HTMLSelectElement;
       
-              select.addEventListener('change', () => {
-                const newValue = select.value;
-                this.elementParameters[elementId][paramKey] = newValue;
+          if (select) {
+            if (!(paramKey in this.elementParameters[elementId])) {
+                this.elementParameters[elementId][paramKey] = prop.default;
+            }
     
-                config.properties
-                  .filter((p: any) => p.conditional?.dependsOn === paramKey)
-                  .forEach((dependentProp: any) => {
-                    const dependentRow = document.getElementById(`${dependentProp.name}-row-${elementId}`);
-
-                    if (dependentRow) {
-                      const isVisible = newValue === dependentProp.conditional.value;
-                      dependentRow.style.display = isVisible ? 'grid' : 'none';
-
-                      if (isVisible) {
-                        if (!(dependentProp.name in this.elementParameters[elementId])) {
-                            this.elementParameters[elementId][dependentProp.name] = dependentProp.default;
-                        }
-                      } else {
-                        delete this.elementParameters[elementId][dependentProp.name];
-                      }
-                    }
-                  });
-              });
-            }
-          break;
-          }
-        
-        case 'number': {
-            const input = document.getElementById(controlId) as HTMLInputElement;
-            if (input) {
-                input.value = this.elementParameters[elementId][paramKey] || '';
-        
-                input.addEventListener('input', () => {
-                    const parentProp = config.properties.find((p: any) => p.name === prop.conditional?.dependsOn);
-                    if (parentProp && this.elementParameters[elementId][parentProp.name] === 'custom') {
-                        this.elementParameters[elementId][paramKey] = input.value;
-                    } else {
-                        delete this.elementParameters[elementId][paramKey];
-                    }
-                });
-        
-                if (prop.conditional) {
-                    const parentValue = this.elementParameters[elementId][prop.conditional.dependsOn];
-                    const row = document.getElementById(`${prop.name}-row-${elementId}`);
-                    if (row) {
-                        row.style.display = parentValue === prop.conditional.value ? 'grid' : 'none';
-                    }
-                }
-            }
-            break;
-        }
-            case 'select': {
-                const selectEl = document.getElementById(controlId) as HTMLSelectElement;
-                if (selectEl) {
-                    selectEl.value = this.elementParameters[elementId][paramKey] || '';
-
-                    selectEl.addEventListener('change', () => {
-                        if (selectEl.value === 'custom') {
-                            this.elementParameters[elementId][paramKey] = 'custom';
-                        } else {
-                            this.elementParameters[elementId][paramKey] = selectEl.value;
-                            delete this.elementParameters[elementId][`${paramKey}_custom`];
-                        }
-                    });
-                }
-                break;
-            }
-        }
-    });
-}
-
-
+            select.value = this.elementParameters[elementId][paramKey];
+    
+            select.addEventListener('change', () => {
+              const newValue = select.value;
+              this.elementParameters[elementId][paramKey] = newValue;
   
-  // Mantener las implementaciones originales para CSV y Monitor
+              config.properties
+                .filter((p: any) => p.conditional?.dependsOn === paramKey)
+                .forEach((dependentProp: any) => {
+                  const dependentRow = document.getElementById(`${dependentProp.name}-row-${elementId}`);
+
+                  if (dependentRow) {
+                    const isVisible = newValue === dependentProp.conditional.value;
+                    dependentRow.style.display = isVisible ? 'grid' : 'none';
+
+                    if (isVisible) {
+                      if (!(dependentProp.name in this.elementParameters[elementId])) {
+                        this.elementParameters[elementId][dependentProp.name] = dependentProp.default;
+                      }
+                    } else {
+                      delete this.elementParameters[elementId][dependentProp.name];
+                    }
+                  }
+                });
+            });
+          }
+          break;
+        }
+      
+        case 'number': {
+          const input = document.getElementById(controlId) as HTMLInputElement;
+          if (input) {
+            input.value = this.elementParameters[elementId][paramKey] || '';
+    
+            input.addEventListener('input', () => {
+              const parentProp = config.properties.find((p: any) => p.name === prop.conditional?.dependsOn);
+              if (parentProp && this.elementParameters[elementId][parentProp.name] === 'custom') {
+                this.elementParameters[elementId][paramKey] = input.value;
+              } else {
+                delete this.elementParameters[elementId][paramKey];
+              }
+            });
+    
+            if (prop.conditional) {
+              const parentValue = this.elementParameters[elementId][prop.conditional.dependsOn];
+              const row = document.getElementById(`${prop.name}-row-${elementId}`);
+              if (row) {
+                row.style.display = parentValue === prop.conditional.value ? 'grid' : 'none';
+              }
+            }
+          }
+          break;
+        }
+
+        case 'select': {
+          const selectEl = document.getElementById(controlId) as HTMLSelectElement;
+          if (selectEl) {
+            selectEl.value = this.elementParameters[elementId][paramKey] || '';
+
+            selectEl.addEventListener('change', () => {
+              if (selectEl.value === 'custom') {
+                this.elementParameters[elementId][paramKey] = 'custom';
+              } else {
+                this.elementParameters[elementId][paramKey] = selectEl.value;
+                delete this.elementParameters[elementId][`${paramKey}_custom`];
+              }
+            });
+          }
+          break;
+        }
+      }
+    });
+  }
+
   private handleCSVConfiguration(selectedElement: HTMLElement, configContent: HTMLElement): void {
     configContent.innerHTML = `<h3>CSV file configuration</h3><p>Please select a CSV file:</p> <div id="csv-columns-selection"></div>`;
     
@@ -1004,10 +997,16 @@ export class NewScenarioComponent implements OnInit{
     }
   }
   
-  private handleMonitorConfiguration(selectedElement: HTMLElement, configContent: HTMLElement): void {
-    configContent.innerHTML = `<h3>Monitor Configuration</h3><p>Select metrics to monitor:</p><div id="metrics-selection"></div>`;
+  private handleClassificationMonitorConfiguration(selectedElement: HTMLElement, configContent: HTMLElement): void {
+    configContent.innerHTML = `<h3>Classification Monitor Configuration</h3><p>Select metrics to monitor:</p><div id="metrics-selection"></div>`;
     const metrics = ['f1Score', 'accuracy', 'recall', 'precision', 'confusionMatrix'];
-    this.updateMetricsSelectionUI(metrics, selectedElement.id);
+    this.updateClassificationMetricsSelectionUI(metrics, selectedElement.id);
+  }
+
+  private handleRegressionMonitorConfiguration(selectedElement: HTMLElement, configContent: HTMLElement): void {
+    configContent.innerHTML = `<h3>Regression Monitor Configuration</h3><p>Select metrics to monitor:</p><div id="metrics-selection"></div>`;
+    const metrics = ['mse', 'rmse', 'mae', 'r2', 'msle'];
+    this.updateRegressionMetricsSelectionUI(metrics, selectedElement.id);
   }
   
   private createFileInput(id: string, accept: string, handler: (e: Event) => void): HTMLInputElement {
@@ -1043,12 +1042,11 @@ export class NewScenarioComponent implements OnInit{
           const elementId = this.currentCSVElementId;
           if (!elementId) return;
           
-          // Nueva estructura como array de objetos
           this.elementParameters[elementId] = {
             csvFileName: file.name,
             columns: columns.map((col:any) => ({
               name: col.trim(),
-              selected: true // Valor por defecto
+              selected: true
             }))
           };
           
@@ -1066,48 +1064,44 @@ export class NewScenarioComponent implements OnInit{
     let columnSelectionDiv = document.getElementById('csv-columns-container');
   
     if (!columnSelectionDiv) {
-        columnSelectionDiv = this.renderer.createElement('div');
-        this.renderer.setAttribute(columnSelectionDiv, 'id', 'csv-columns-container');
-        this.renderer.setAttribute(columnSelectionDiv, 'class', 'csv-columns-container');
+      columnSelectionDiv = this.renderer.createElement('div');
+      this.renderer.setAttribute(columnSelectionDiv, 'id', 'csv-columns-container');
+      this.renderer.setAttribute(columnSelectionDiv, 'class', 'csv-columns-container');
     } else {
-        columnSelectionDiv.innerHTML = '';
+      columnSelectionDiv.innerHTML = '';
     }
   
-    // Verificar y inicializar la estructura si no existe
     if (!this.elementParameters[elementId]?.columns) {
-        this.elementParameters[elementId] = { 
-            columns: columns.map(col => ({ name: col.trim(), selected: true })) 
-        };
+      this.elementParameters[elementId] = { 
+        columns: columns.map(col => ({ name: col.trim(), selected: true })) 
+      };
     }
   
-    // Iterar manteniendo el orden del CSV
     this.elementParameters[elementId].columns.forEach((col: any) => {
-        const columnElement = this.renderer.createElement('div');
-        this.renderer.setAttribute(columnElement, 'class', 'column-item');
-  
-        if (col.selected) {
-            this.renderer.addClass(columnElement, 'selected');
-        }
-  
-        const columnText = this.renderer.createText(col.name);
-        this.renderer.appendChild(columnElement, columnText);
-  
-        this.renderer.listen(columnElement, 'click', () => {
-            // Actualizar estado en el array
-            col.selected = !col.selected;
-            columnElement.classList.toggle('selected');
-            
-            // Actualizar parámetros
-            this.elementParameters[elementId].columns = [...this.elementParameters[elementId].columns];
-        });
-  
-        this.renderer.appendChild(columnSelectionDiv, columnElement);
+      const columnElement = this.renderer.createElement('div');
+      this.renderer.setAttribute(columnElement, 'class', 'column-item');
+
+      if (col.selected) {
+        this.renderer.addClass(columnElement, 'selected');
+      }
+
+      const columnText = this.renderer.createText(col.name);
+      this.renderer.appendChild(columnElement, columnText);
+
+      this.renderer.listen(columnElement, 'click', () => {
+        col.selected = !col.selected;
+        columnElement.classList.toggle('selected');
+        
+        this.elementParameters[elementId].columns = [...this.elementParameters[elementId].columns];
+      });
+
+      this.renderer.appendChild(columnSelectionDiv, columnElement);
     });
   
     this.renderer.appendChild(configContent, columnSelectionDiv);
   }
 
-  updateMetricsSelectionUI(metrics: string[], elementId: string): void {
+  updateClassificationMetricsSelectionUI(metrics: string[], elementId: string): void {
     const configContent = this.configContainer?.nativeElement.querySelector('.config-content');
     if (!configContent) return;
   
@@ -1134,14 +1128,54 @@ export class NewScenarioComponent implements OnInit{
       const metricElement = this.renderer.createElement('div');
       this.renderer.setAttribute(metricElement, 'class', `metric-item ${storedMetrics[metric] ? 'selected' : ''}`);
       
-      // Solo el texto de la métrica
       const metricText = this.renderer.createText(metric);
       this.renderer.appendChild(metricElement, metricText);
   
       this.renderer.listen(metricElement, 'click', () => {
         storedMetrics[metric] = !storedMetrics[metric];
         metricElement.classList.toggle('selected');
-        // Eliminada la lógica del check
+        this.elementParameters[elementId].metrics = { ...storedMetrics };
+      });
+  
+      this.renderer.appendChild(metricsDiv, metricElement);
+    });
+  
+    this.renderer.appendChild(configContent, metricsDiv);
+  }
+
+  updateRegressionMetricsSelectionUI(metrics: string[], elementId: string): void {
+    const configContent = this.configContainer?.nativeElement.querySelector('.config-content');
+    if (!configContent) return;
+  
+    let metricsDiv = document.getElementById('metrics-container');
+    
+    if (!metricsDiv) {
+      metricsDiv = this.renderer.createElement('div');
+      this.renderer.setAttribute(metricsDiv, 'id', 'metrics-container');
+      this.renderer.setAttribute(metricsDiv, 'class', 'metrics-container');
+    } else {
+      metricsDiv.innerHTML = '';
+    }
+  
+    if (!this.elementParameters[elementId]) {
+      this.elementParameters[elementId] = { metrics: {} };
+      metrics.forEach(metric => {
+        this.elementParameters[elementId].metrics[metric] = true;
+      });
+    }
+  
+    const storedMetrics = this.elementParameters[elementId].metrics;
+  
+    metrics.forEach(metric => {
+      const metricElement = this.renderer.createElement('div');
+      this.renderer.setAttribute(metricElement, 'class', `metric-item ${storedMetrics[metric] ? 'selected' : ''}`);
+      
+      const metricText = this.renderer.createText(metric);
+      this.renderer.appendChild(metricElement, metricText);
+  
+      this.renderer.listen(metricElement, 'click', () => {
+        storedMetrics[metric] = !storedMetrics[metric];
+        metricElement.classList.toggle('selected');
         this.elementParameters[elementId].metrics = { ...storedMetrics };
       });
   
@@ -1228,11 +1262,11 @@ export class NewScenarioComponent implements OnInit{
     const transform = window.getComputedStyle(dropArea).transform;
 
     if (transform && transform !== 'none') {
-        const match = transform.match(/matrix\((.+)\)/);
-        if (match) {
-            const values = match[1].split(',').map(parseFloat);
-            return values[0]; 
-        }
+      const match = transform.match(/matrix\((.+)\)/);
+      if (match) {
+        const values = match[1].split(',').map(parseFloat);
+        return values[0]; 
+      }
     }
 
     return 1; 
@@ -1244,13 +1278,13 @@ export class NewScenarioComponent implements OnInit{
       this.elementParameters[elementId] = {};
     }
   
-    // Manejar casos especiales
     if (nameElement === 'CSV') {
       this.handleCSVParameters(elementId);
-    } else if (nameElement === 'Monitor') {
-      this.handleMonitorParameters(elementId);
+    } else if (nameElement === 'ClassificationMonitor') {
+      this.handleClassificationMonitorParameters(elementId);
+    } else if (nameElement === 'RegressionMonitor') {
+      this.handleRegressionMonitorParameters(elementId);
     }
-    // Los demás elementos se manejan automáticamente con los listeners
   }
 
   private handleCSVParameters(elementId: string): void {
@@ -1260,7 +1294,19 @@ export class NewScenarioComponent implements OnInit{
     }
   }
   
-  private handleMonitorParameters(elementId: string): void {
+  private handleClassificationMonitorParameters(elementId: string): void {
+    const metricElements = document.querySelectorAll('.metric-item');
+    this.elementParameters[elementId].metrics = {};
+    
+    metricElements.forEach(el => {
+      const metricName = el.textContent?.trim();
+      if (metricName) {
+        this.elementParameters[elementId].metrics[metricName] = el.classList.contains('selected');
+      }
+    });
+  }
+
+  private handleRegressionMonitorParameters(elementId: string): void {
     const metricElements = document.querySelectorAll('.metric-item');
     this.elementParameters[elementId].metrics = {};
     
@@ -1276,7 +1322,6 @@ export class NewScenarioComponent implements OnInit{
     const savedElements = this.droppedElements.map((element: HTMLElement) => {
       const elementParams = this.elementParameters[element.id] || {};
       
-      // Convertir array a formato de guardado para CSV
       if (element.getAttribute('data-type') === 'CSV' && elementParams.columns) {
         elementParams.columns = elementParams.columns.map((col: any) => ({
           name: col.name,
@@ -1448,11 +1493,10 @@ export class NewScenarioComponent implements OnInit{
   private loadElementsFromJSON(savedElements: any[]): void {
     let maxId = -1;
     savedElements.forEach((element: any) => {
-      // Restaurar columnas para elementos CSV
       if (element.type === 'CSV' && element.parameters?.columns) {
         this.elementParameters[element.id] = {
           ...element.parameters,
-          columns: element.parameters.columns // Mantener el orden original del array
+          columns: element.parameters.columns 
         };
       }
       const newElement = this.createElement(element.type);
@@ -1562,12 +1606,14 @@ export class NewScenarioComponent implements OnInit{
       case 'PCA': return 'fa fa-cogs'; 
       case 'Normalizer': return 'fa fa-adjust'; 
       case 'KNNImputer': return 'fa fa-users'; 
-      case 'Monitor': return 'fas fa-desktop';
+      case 'ClassificationMonitor': return 'fas fa-desktop';
+      case 'RegressionMonitor': return 'fas fa-desktop';
       case 'CNN': return 'fa fa-brain';
       case 'RNN': return 'fa fa-sync-alt';
       case 'KNN': return 'fa fa-users';
       case 'RandomForest': return 'fa fa-tree';
       case 'LogisticRegression': return 'fa fa-chart-line';
+      case 'LinearRegression': return 'fa fa-chart-line';
       case 'SVM': return 'fa fa-vector-square';
       case 'GradientBoosting': return 'fa fa-fire';
       case 'DecisionTree': return 'fa fa-tree';
@@ -1591,14 +1637,16 @@ export class NewScenarioComponent implements OnInit{
       case 'KNNImputer': return 'KNN Imputer';
       case 'RandomForest': return 'Random Forest';
       case 'LogisticRegression': return 'Logistic Regression';
+      case 'LinearRegression': return 'Linear Regression';
       case 'GradientBoosting': return 'Gradient Boosting';
       case 'DecisionTree': return 'Decision Tree';
       case 'IsolationForest': return 'Isolation Forest';
       case 'Autoencoder': return 'Auto-encoder';
       case 'OneClassSVM': return 'One-Class SVM';
       case 'KMeans': return 'K-Means';
+      case 'ClassificationMonitor': return 'Classification Monitor';
+      case 'RegressionMonitor': return 'Regression Monitor';
       default: return type;
     }
   }
-
 }

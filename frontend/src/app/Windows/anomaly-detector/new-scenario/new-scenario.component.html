@@ -1,7 +1,7 @@
 <div class="app-container">
   <div class="design-container">
     <div class="menu">
-      <!-- Sección Data Source -->
+      <!-- Data Source -->
       <div class="section">
         <div class="section-header" (click)="toggleSection('dataSource')">
           <i class="fa fa-database"></i>
@@ -21,7 +21,7 @@
         </div>
       </div>
 
-      <!-- Sección Data Processing -->
+      <!-- Data Processing -->
       <div class="section">
         <div class="section-header" (click)="toggleSection('dataProcessing')">
           <i class="fa fa-cogs"></i>
@@ -41,14 +41,14 @@
         </div>
       </div>
 
-      <!-- Sección Data Model -->
+      <!-- Data Model -->
       <div class="section">
         <div class="section-header" (click)="toggleSection('dataModel')">
           <i class="fa fa-project-diagram"></i>
           <span>Data Model</span>
         </div>
         <div *ngIf="activeSections['dataModel']" class="sub-section">
-          <!-- Subsección Supervisado -->
+          <!-- Classification -->
           <div class="sub-category">
             <div class="sub-category-header" (click)="toggleSubSection('classification')">
               <i class="fa fa-check-circle"></i>
@@ -68,7 +68,7 @@
             </div>
           </div>
 
-          <!-- Subsección regresion -->
+          <!-- Regression -->
           <div class="sub-category">
             <div class="sub-category-header" (click)="toggleSubSection('regression')">
               <i class="fa fa-check-circle"></i>
@@ -88,7 +88,7 @@
             </div>
           </div>
 
-          <!-- Subsección anomay detection -->
+          <!-- Anomaly Detection -->
           <div class="sub-category">
             <div class="sub-category-header" (click)="toggleSubSection('anomalyDetection')">
               <i class="fa fa-check-circle"></i>
@@ -108,7 +108,7 @@
             </div>
           </div>
           
-          <!-- Subsección Monitoring -->
+          <!-- Monitoring -->
           <div class="sub-category">
             <div class="sub-category-header" (click)="toggleSubSection('monitoring')">
               <i class="fa fa-check-circle"></i>
@@ -129,6 +129,7 @@
           </div>
         </div>
       </div>
+      
       <div class="controls">
         <button class="zoom-button zoom-in" (click)="zoomIn()">
           <i class="fa fa-search-plus"></i>

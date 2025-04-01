@@ -168,6 +168,15 @@ export class ScenarioService {
     return EMPTY;
   }
 
+  getScenarioRegressionMetrics(uuid: string): Observable<any> {
+    if (isPlatformBrowser(this.platformId)) {
+      return this.handleRequest(
+        this.http.get(`${this.apiUrl}${uuid}/regression-metrics/`, { headers: this.getAuthHeaders() })
+      );
+    }
+    return EMPTY;
+  }
+
   getScenarioAnomalyMetrics(uuid: string): Observable<any> {
     if (isPlatformBrowser(this.platformId)) {
       return this.handleRequest(

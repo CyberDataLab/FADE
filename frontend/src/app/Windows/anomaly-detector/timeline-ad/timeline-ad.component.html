@@ -1,4 +1,4 @@
-<div class="metrics-container">
+<div class="anomalies-container">
   <h2>Anomaly Detection Metrics</h2>
   <div *ngFor="let execution of groupedMetrics">
     <h3>Execution: {{ execution.executionNumber }}</h3>
@@ -16,7 +16,6 @@
   </div>
 </div>
 
-<!-- Modal -->
 <div class="modal-overlay" *ngIf="showModal" (click)="closeModal()">
   <div class="modal-content" (click)="$event.stopPropagation()">
     <button class="close-btn" (click)="closeModal()">✖</button>

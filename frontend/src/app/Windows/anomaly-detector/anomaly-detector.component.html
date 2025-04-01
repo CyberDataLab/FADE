@@ -31,19 +31,23 @@
           <td>{{ scenario.date | date:'dd/MM/yyyy HH:mm:ss' }}</td>
           <td>
             <div class="action-buttons">
-              <button class="default-button edit-button" (click)="editScenario(scenario.uuid)">Edit</button>
-              <button class="default-button" (click)="downloadScenario(scenario)">
+              <button class="default-button edit-button" (click)="editScenario(scenario.uuid)" title="Edit">
+                <i class="fas fa-pencil-alt"></i>
+              </button>
+              <button class="default-button" (click)="downloadScenario(scenario)" title="Download">
                 <i class="fas fa-download"></i>
               </button>
-              <button class="default-button" (click)="runScenario(scenario.status, scenario.uuid)">
+              <button class="default-button" (click)="runScenario(scenario.status, scenario.uuid)" title="Run">
                 <i class="fas fa-play"></i>
               </button>
-              
-              <button class="default-button" *ngIf="scenario.status === 'Finished'" (click)="viewFeatures(scenario.uuid)">Features</button>
-              <button class="default-button" *ngIf="scenario.status === 'Finished'" (click)="viewTimelineAD(scenario.uuid)">Timeline AD</button>
-              <button class="default-button" *ngIf="scenario.status === 'Finished'" (click)="viewMetrics(scenario.uuid)">Metrics</button>
-              <button class="default-button delete-button" (click)="deleteScenario(scenario.uuid)">
-                <i class="fas fa-times"></i>
+              <button class="default-button" *ngIf="scenario.status === 'Finished' && hasAnomalyDetection(scenario)" (click)="viewTimelineAD(scenario.uuid)" title="Timeline AD">
+                <i class="fas fa-chart-line"></i>
+              </button>
+              <button class="default-button" *ngIf="scenario.status === 'Finished' && hasClassificationOrRegression(scenario)" (click)="viewMetrics(scenario.uuid)" title="Metrics">
+                <i class="fas fa-chart-bar"></i>
+              </button>
+              <button class="default-button delete-button" (click)="deleteScenario(scenario.uuid)" title="Delete">
+                <i class="fas fa-trash-alt"></i>
               </button>
             </div>
           </td>
