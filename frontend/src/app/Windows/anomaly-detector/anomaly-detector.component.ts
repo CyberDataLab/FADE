@@ -1,12 +1,12 @@
 import { Component, ViewChild, ElementRef, Inject } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
-import { RouterModule } from '@angular/router';
-import { Router } from '@angular/router';
+import { RouterModule, Router, NavigationEnd } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ScenarioService } from '../scenario.service';
 import { Scenario } from '../../DTOs/Scenario';
 import { PLATFORM_ID } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import { filter } from 'rxjs/operators';
 
 @Component({
     selector: 'app-anomaly-detector',
@@ -46,12 +46,7 @@ export class AnomalyDetectorComponent {
       }
     }
     this.loadConfig();
-    this.getScenarios();  
-    this.scenarios.sort((a, b) => {
-      const dateA = new Date(a.date).getTime();
-      const dateB = new Date(b.date).getTime();
-      return dateA - dateB; 
-    });
+    this.getScenarios(); 
   }
   
   private loadConfig(): void {
@@ -149,6 +144,10 @@ export class AnomalyDetectorComponent {
     this.router.navigate([`/dashboard/anomaly-detector/${uuid}/metrics`]);
   }
 
+  production(uuid: string) {
+    this.router.navigate([`/dashboard/anomaly-detector/${uuid}/production`]);
+  }
+
   hasClassificationOrRegression(scenario: Scenario): boolean {
     const design = typeof scenario.design === 'string' ? 
                   JSON.parse(scenario.design) : 
@@ -226,6 +225,7 @@ export class AnomalyDetectorComponent {
       this.scenarioService.runScenario(uuid).subscribe({
         next: (response:any) => {
           alert('Scenario running successfully');
+          this.getScenarios();
   
           const metrics = response.metrics;
         },

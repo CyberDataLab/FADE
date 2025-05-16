@@ -9,11 +9,13 @@ import { AuthenticationService } from './Authentication/authentication.service';
 import { UserService } from './User/user.service';
 import { LoginComponent } from './Authentication/login/login.component';
 import { DragDropModule } from '@angular/cdk/drag-drop';
+import { NewScenarioComponent } from './Windows/anomaly-detector/new-scenario/new-scenario.component';
 
 @NgModule({
   declarations: [
     AppComponent,
-    LoginComponent
+    LoginComponent,
+    NewScenarioComponent
   ],
   imports: [
     BrowserModule,

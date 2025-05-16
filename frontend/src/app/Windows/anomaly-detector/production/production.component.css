@@ -1,0 +1,88 @@
+/* Estilo base del botón */
+.button {
+  background-color: #f4f4f4;
+  color: rgba(98, 96, 96);  
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  margin: 0 5px;
+  padding: 10px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.button:hover {
+  background-color: #e0e0e0;
+}
+
+.button i {
+  font-size: 16px;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  height: 100%; 
+  overflow: hidden; 
+}
+
+/* Posicionamiento arriba a la izquierda */
+.button-container {
+  display: inline-block;
+  position: fixed; 
+  top: 120px;
+  left: 250px;  
+  z-index: 10; 
+}
+
+.table-container {
+  position: absolute;
+  width: 60%;
+  height: 90%;
+  max-height: 80vh; 
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.scenario-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 18px;
+}
+
+.scenario-table th, .scenario-table td {
+  padding: 12px;
+  text-align: left;
+  color: rgba(98, 96, 96); 
+}
+
+.scenario-table th {
+  background-color: #0097a6;
+  color: white;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 4px;
+}
+
+.scenario-table tbody tr:not(:last-child) td {
+  border-bottom: 1px solid #0097a6;
+  padding-bottom: 8px; 
+}
+
+::-webkit-scrollbar {
+  width: 8px; 
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #2676798f;
+  border-radius: 10px; 
+}
+
+::-webkit-scrollbar-track {
+  background-color: rgba(245, 246, 250, 0.4); 
+}

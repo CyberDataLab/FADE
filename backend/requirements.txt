@@ -5,7 +5,9 @@ django-cors-headers
 mysqlclient
 python-decouple
 pyjwt
+pyshark
 pandas>=1.1.0
 scikit-learn>=1.0.0
 celery==5.3.6
 redis==5.0.1
+shap

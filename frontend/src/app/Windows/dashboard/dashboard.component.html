@@ -2,6 +2,7 @@
   <div class="top-bar">
     <div class="top-bar-left">
       <button class="back-btn" *ngIf="!isDashboard()" (click)="goBack()">← Back</button>
+      <button *ngIf="saveButtonVisible" class="save-button" (click)="onSaveClick()">💾</button>
     </div>
     
     <div class="logout-container">

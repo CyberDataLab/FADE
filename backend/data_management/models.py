@@ -146,6 +146,7 @@ class AnomalyMetric(models.Model):
     feature_name = models.CharField(max_length=255)
     anomalies = models.JSONField()  # Almacena índices de filas anómalas
     date = models.DateTimeField(auto_now_add=True)
+    production = models.BooleanField(default=False)
 
     class Meta:
         db_table = "AnomalyMetric"

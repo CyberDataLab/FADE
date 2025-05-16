@@ -128,7 +128,7 @@ html, body {
   background-color: #6c757d;
 }
 
-.back-btn {
+.back-btn, .save-button {
   background-color: transparent;
   color: white;
   border: none;
@@ -137,6 +137,10 @@ html, body {
   border-radius: 4px;
 }
 
-.back-btn:hover {
+.back-btn:hover, .save-button:hover {
   border: #ffffff 1px solid;
+}
+
+.save-button i {
+  font-size: 16px;
 }

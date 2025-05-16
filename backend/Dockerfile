@@ -6,7 +6,9 @@ WORKDIR /app
 
 # Install system dependencies required for mysqlclient 
 RUN apt-get update && apt-get install -y \
-    default-libmysqlclient-dev build-essential pkg-config
+    default-libmysqlclient-dev build-essential pkg-config \
+    tshark openssh-client netcat-openbsd bsdmainutils \
+ && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements file
 COPY requirements.txt /app/

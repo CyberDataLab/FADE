@@ -34,5 +34,5 @@ class RegressionMetricSerializer(serializers.ModelSerializer):
 class AnomalyMetricSerializer(serializers.ModelSerializer):
     class Meta:
         model = AnomalyMetric
-        fields = ['id', 'detector', 'execution', 'model_name', 'feature_name', 'anomalies', 'date']
+        fields = ['id', 'detector', 'execution', 'model_name', 'feature_name', 'anomalies', 'date', 'production']
         extra_kwargs = {'user': {'read_only': True}}

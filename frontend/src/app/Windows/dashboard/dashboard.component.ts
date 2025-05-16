@@ -4,6 +4,8 @@ import { Router, RouterModule } from '@angular/router';
 import { AuthenticationService } from '../../Authentication/authentication.service';
 import { Location } from '@angular/common';
 import { ScenarioService } from '../scenario.service';
+import { ToolbarService } from '../anomaly-detector/new-scenario/toolbar.service';
+import { Subscription } from 'rxjs';
 
 @Component({
     selector: 'app-dashboard',
@@ -14,13 +16,24 @@ import { ScenarioService } from '../scenario.service';
 export class DashboardComponent {
 
   selectedOption: string = '';  
+  saveButtonVisible: boolean = false;
+  private toolbarSub: Subscription | null = null;
   
   constructor(
     private authenticationService: AuthenticationService,
     private router: Router,
     private location: Location,
-    private scenarioDesign: ScenarioService
+    private scenarioDesign: ScenarioService,
+    private toolbarService: ToolbarService,
   ) {}
+
+  ngOnInit(): void {
+    this.toolbarSub = this.toolbarService.saveButtonVisible$.subscribe(
+      (visible) => {
+        this.saveButtonVisible = visible;
+      }
+    );
+  }
 
   navigateTo(path: string): void {
     this.selectedOption = path;  
@@ -44,7 +57,7 @@ export class DashboardComponent {
   }
 
   isFinishedScenario(): boolean {
-    return this.router.url.includes('features') || this.router.url.includes('timeline-ad') || this.router.url.includes('metrics');
+    return this.router.url.includes('production') || this.router.url.includes('timeline-ad') || this.router.url.includes('metrics');
   }
 
   async goBack(): Promise<void> {
@@ -72,8 +85,10 @@ export class DashboardComponent {
       }
       urlParts.pop();
       const newUrl = urlParts.join('/');
+      this.router.routeReuseStrategy.shouldReuseRoute = () => false;
       this.router.navigateByUrl(newUrl);
     } else {
+      this.router.routeReuseStrategy.shouldReuseRoute = () => false;
       this.router.navigate(['/dashboard']);
       this.selectedOption = '';
     }
@@ -84,5 +99,13 @@ export class DashboardComponent {
       alert('Logout correctly.');
       this.router.navigate(['/login']);
     }
+  }
+
+  onSaveClick(): void {
+    this.toolbarService.triggerSave();
+  }
+
+  ngOnDestroy(): void {
+    this.toolbarSub?.unsubscribe();
   }
 }

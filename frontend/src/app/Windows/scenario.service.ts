@@ -98,7 +98,7 @@ export class ScenarioService {
     );
   }
 
-  saveScenario(name: string, design: any, csvFile?: File): Observable<any> {
+  saveScenario(name: string, design: any, csvFile?: File, networkFile?:File): Observable<any> {
     if (isPlatformBrowser(this.platformId)) {
       const formData = new FormData();
       formData.append('name', name);
@@ -106,6 +106,10 @@ export class ScenarioService {
   
       if (csvFile) {
         formData.append('csv_file', csvFile);
+      }
+
+      if (networkFile) {
+        formData.append('network_file', networkFile);
       }
   
       return this.handleRequest(this.http.post(this.apiUrl + 'create/', formData, {
@@ -181,6 +185,33 @@ export class ScenarioService {
     if (isPlatformBrowser(this.platformId)) {
       return this.handleRequest(
         this.http.get(`${this.apiUrl}${uuid}/anomaly-metrics/`, { headers: this.getAuthHeaders() })
+      );
+    }
+    return EMPTY;
+  }
+
+  getScenarioProductionAnomalyMetrics(uuid: string): Observable<any> {
+    if (isPlatformBrowser(this.platformId)) {
+      return this.handleRequest(
+        this.http.get(`${this.apiUrl}${uuid}/anomaly-production-metrics/`, { headers: this.getAuthHeaders() })
+      );
+    }
+    return EMPTY;
+  }
+
+  playProduction(uuid: string): Observable<any> {
+    if (isPlatformBrowser(this.platformId)) {
+      return this.handleRequest(
+        this.http.post(`${this.apiUrl}${uuid}/play-production/`, {}, { headers: this.getAuthHeaders() })
+      );
+    }
+    return EMPTY;
+  }
+
+  stopProduction(uuid: string): Observable<any> {
+    if (isPlatformBrowser(this.platformId)) {
+      return this.handleRequest(
+        this.http.post(`${this.apiUrl}${uuid}/stop-production/`, {}, { headers: this.getAuthHeaders() })
       );
     }
     return EMPTY;

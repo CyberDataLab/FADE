@@ -43,6 +43,9 @@
               <button class="default-button" *ngIf="scenario.status === 'Finished' && hasAnomalyDetection(scenario)" (click)="viewTimelineAD(scenario.uuid)" title="Timeline AD">
                 <i class="fas fa-chart-line"></i>
               </button>
+              <button class="default-button" *ngIf="scenario.status === 'Finished' && hasAnomalyDetection(scenario)" (click)="production(scenario.uuid)" title="Production AD">
+              <i class="fa-solid fa-cloud-arrow-up"></i>
+              </button>
               <button class="default-button" *ngIf="scenario.status === 'Finished' && hasClassificationOrRegression(scenario)" (click)="viewMetrics(scenario.uuid)" title="Metrics">
                 <i class="fas fa-chart-bar"></i>
               </button>

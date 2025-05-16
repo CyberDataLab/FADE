@@ -1,0 +1,32 @@
+<div class="button-container" *ngIf="isProductionRoute()">
+  <button class="button" (click)="toggle()">
+    <i class="fas" [ngClass]="isPlaying ? 'fa-stop' : 'fa-play'"></i>
+  </button>
+</div>
+
+<div class="content">
+  <div class="table-container">
+    <table class="scenario-table">
+      <thead>
+        <tr>
+          <th>Anomaly</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let anomaly of productionAnomalies">
+          <td>{{ anomaly.anomalies?.anomaly_indices }}</td>
+          <td>
+            <div class="action-buttons">
+              
+              <!-- Puedes añadir más acciones aquí -->
+            </div>
+          </td>
+        </tr>
+        <tr *ngIf="productionAnomalies.length === 0">
+          <td colspan="2" class="empty-row">No production anomalies yet</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>

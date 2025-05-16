@@ -1,8 +1,8 @@
--- MySQL dump 10.13  Distrib 8.0.40, for Linux (aarch64)
+-- MySQL dump 10.13  Distrib 8.0.42, for Linux (aarch64)
 --
 -- Host: localhost    Database: defender
 -- ------------------------------------------------------
--- Server version	8.0.40
+-- Server version	8.0.42
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
@@ -14,6 +14,158 @@
 /*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
 /*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
+
+--
+-- Table structure for table `AnomalyDetector`
+--
+
+DROP TABLE IF EXISTS `AnomalyDetector`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `AnomalyDetector` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `scenario_id` bigint DEFAULT NULL,
+  `execution` int NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `AnomalyDetector_scenario_id_e05d3066_fk_Scenario_id` (`scenario_id`),
+  CONSTRAINT `AnomalyDetector_scenario_id_e05d3066_fk_Scenario_id` FOREIGN KEY (`scenario_id`) REFERENCES `Scenario` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `AnomalyDetector`
+--
+
+LOCK TABLES `AnomalyDetector` WRITE;
+/*!40000 ALTER TABLE `AnomalyDetector` DISABLE KEYS */;
+INSERT INTO `AnomalyDetector` VALUES (1,34,1);
+/*!40000 ALTER TABLE `AnomalyDetector` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `AnomalyMetric`
+--
+
+DROP TABLE IF EXISTS `AnomalyMetric`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `AnomalyMetric` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `execution` int NOT NULL,
+  `model_name` varchar(255) NOT NULL,
+  `feature_name` varchar(255) NOT NULL,
+  `anomalies` json NOT NULL,
+  `date` datetime(6) NOT NULL,
+  `detector_id` bigint NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `AnomalyMetric_detector_id_1eba2ee8_fk_AnomalyDetector_id` (`detector_id`),
+  CONSTRAINT `AnomalyMetric_detector_id_1eba2ee8_fk_AnomalyDetector_id` FOREIGN KEY (`detector_id`) REFERENCES `AnomalyDetector` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `AnomalyMetric`
+--
+
+LOCK TABLES `AnomalyMetric` WRITE;
+/*!40000 ALTER TABLE `AnomalyMetric` DISABLE KEYS */;
+INSERT INTO `AnomalyMetric` VALUES (1,1,'IsolationForest','protocol','{\"values\": [1, 0, -1, 1, -1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, -1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1], \"anomaly_indices\": [0, 1, 2, 3, 4, 8, 26, 29, 30, 32, 33, 34, 39]}','2025-04-30 14:40:44.598645',1),(2,1,'IsolationForest','packet_count','{\"values\": [4.966654292109234, 3.498515298272462, -0.2766992573078078, 0.004943733346593227, -0.2766992573078078, -0.2707068532513312, -0.2707068532513312, -0.2707068532513312, 0.8139182809709367, -0.2707068532513312, -0.2707068532513312, -0.2707068532513312, -0.2707068532513312, -0.2707068532513312, -0.2707068532513312, -0.2707068532513312, -0.2707068532513312, -0.2707068532513312, -0.2707068532513312, -0.2707068532513312, -0.2707068532513312, -0.2707068532513312, -0.2707068532513312, -0.2707068532513312, -0.2707068532513312, -0.2707068532513312, -0.2766992573078078, -0.2707068532513312, -0.2707068532513312, -0.14486636806532224, -0.2047904086300884, -0.1987980045736118, -0.1987980045736118, -0.1987980045736118, -0.1928056005171352, -0.2707068532513312, -0.2707068532513312, -0.2707068532513312, -0.2707068532513312, -0.2766992573078078], \"anomaly_indices\": [0, 1, 2, 3, 4, 8, 26, 29, 30, 32, 33, 34, 39]}','2025-04-30 14:40:44.602422',1),(3,1,'IsolationForest','total_bytes','{\"values\": [5.161678476302073, 3.276500833815302, -0.25625916004248717, -0.1438241267401861, -0.25625916004248717, -0.25492845806296527, -0.2552688701972615, -0.25499035117829183, 0.6198812125862605, -0.2548479970130407, -0.25499035117829183, -0.25479229320924673, -0.2549160794398999, -0.2548108611438447, -0.25495321530909587, -0.2534120767374636, -0.2541981193021114, -0.25469945353625684, -0.2548294290784427, -0.2546561283555282, -0.25477991458618143, -0.2547056428477895, -0.2548294290784427, -0.2549222687514326, -0.2549160794398999, -0.2549037008168346, -0.2561106165657033, -0.2549222687514326, -0.2549222687514326, -0.20327865332291775, -0.21453701100082628, -0.2139923515859522, -0.21349101735180673, -0.2133115273173596, -0.21236456265286263, -0.25504605498208577, -0.2555411999046986, -0.2548913221937693, -0.2551017587858797, -0.24885674344942585], \"anomaly_indices\": [0, 1, 2, 3, 4, 8, 26, 29, 30, 32, 33, 34, 39]}','2025-04-30 14:40:44.605334',1),(4,1,'IsolationForest','avg_packet_size','{\"values\": [2.6399217796216994, 2.2959506456960583, -0.8231625870113849, 0.3880087898154481, -0.8231625870113849, -0.5162073817870888, -0.616104046209197, -0.5343704116820176, 1.8206004037602952, -0.49259544292368146, -0.5343704116820176, -0.4762487160182456, -0.5125747758081031, -0.4816976249867242, -0.5234725937450604, -0.07121314936133417, -0.30188362902692945, -0.4490041711758525, -0.48714653395520285, -0.4362900502494023, -0.4726161100392598, -0.4508204741653453, -0.48714653395520285, -0.5143910787975959, -0.5125747758081031, -0.5089421698291173, -0.7359800435157269, -0.5143910787975959, -0.5143910787975959, 0.3689639316575046, 0.906237290214986, 0.7936065454929166, 0.8146237657999057, 0.8221484496135192, 0.7383736364886239, -0.5507171385874535, -0.6960213777468836, -0.5053095638501316, -0.5670638654928893, 3.5214341638555746], \"anomaly_indices\": [0, 1, 2, 3, 4, 8, 26, 29, 30, 32, 33, 34, 39]}','2025-04-30 14:40:44.607345',1),(5,1,'IsolationForest','flow_duration','{\"values\": [3.761196922938475, 3.8564027470621554, -0.4803745898766156, 2.666339255850521, -0.4803745898766156, -0.3090346443507327, -0.311291676298971, -0.3553744543826899, 0.5774089119469955, -0.26494131455472486, -0.2583541495379487, -0.2895259766027003, -0.28558604999253423, -0.2801901939828124, -0.273557925568409, -0.3185855991427874, -0.3181140824308949, -0.2939254199382342, -0.28163867511487, -0.3004252747082273, -0.30113513598005837, -0.28951108006770415, -0.28971052811959724, -0.33511682195846143, -0.32983889685079265, -0.33418309886904907, -0.4803745898766156, -0.34094571196466894, -0.3326922039915163, -0.1653128747077386, -0.16774514783850122, -0.1662499081382612, -0.16344087680988728, -0.16129494818516202, -0.1458395862303221, -0.30623078543034354, -0.32862400166332767, -0.32061607962129235, -0.320816355258463, -0.4803745898766156], \"anomaly_indices\": [0, 1, 2, 3, 4, 8, 26, 29, 30, 32, 33, 34, 39]}','2025-04-30 14:40:44.608899',1),(6,1,'IsolationForest','avg_ttl','{\"values\": [-0.36741971800536943, -0.3133735211445817, -2.2229668597559353, -0.3803539388627597, -2.2229668597559353, -0.24831217751679557, -0.24831217751679557, -0.24831217751679557, -0.3480369380423576, -0.24831217751679557, -0.24831217751679557, -0.24831217751679557, -0.24831217751679557, -0.24831217751679557, -0.24831217751679557, -0.24831217751679557, -0.24831217751679557, -0.24831217751679557, -0.24831217751679557, -0.24831217751679557, -0.24831217751679557, -0.24831217751679557, -0.24831217751679557, -0.24831217751679557, -0.24831217751679557, -0.24831217751679557, -0.21646290844842236, -0.24831217751679557, -0.24831217751679557, 1.3123020068334923, 2.4735753559418696, 2.281429765628278, 2.254130392141101, 2.2950794523718665, 2.127643294983846, -0.24831217751679557, -0.24831217751679557, -0.24831217751679557, -0.24831217751679557, -0.21646290844842236], \"anomaly_indices\": [0, 1, 2, 3, 4, 8, 26, 29, 30, 32, 33, 34, 39]}','2025-04-30 14:40:44.610697',1);
+/*!40000 ALTER TABLE `AnomalyMetric` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `ClassificationMetric`
+--
+
+DROP TABLE IF EXISTS `ClassificationMetric`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `ClassificationMetric` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `accuracy` decimal(5,2) DEFAULT NULL,
+  `precision` decimal(5,2) DEFAULT NULL,
+  `recall` decimal(5,2) DEFAULT NULL,
+  `f1_score` decimal(5,2) DEFAULT NULL,
+  `confusion_matrix` longtext,
+  `date` datetime(6) NOT NULL,
+  `detector_id` bigint DEFAULT NULL,
+  `model_name` varchar(255) NOT NULL,
+  `execution` int NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `Metric_detector_id_a8c3c16e_fk_AnomalyDetector_id` (`detector_id`),
+  CONSTRAINT `Metric_detector_id_a8c3c16e_fk_AnomalyDetector_id` FOREIGN KEY (`detector_id`) REFERENCES `AnomalyDetector` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `ClassificationMetric`
+--
+
+LOCK TABLES `ClassificationMetric` WRITE;
+/*!40000 ALTER TABLE `ClassificationMetric` DISABLE KEYS */;
+/*!40000 ALTER TABLE `ClassificationMetric` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `File`
+--
+
+DROP TABLE IF EXISTS `File`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `File` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) NOT NULL,
+  `file_type` varchar(10) NOT NULL,
+  `entry_count` int NOT NULL,
+  `content` varchar(100) NOT NULL,
+  `references` int NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `File`
+--
+
+LOCK TABLES `File` WRITE;
+/*!40000 ALTER TABLE `File` DISABLE KEYS */;
+INSERT INTO `File` VALUES (1,'packets_window.pcap','pcap',0,'files/packets_window_qEZWQfI.pcap',1);
+/*!40000 ALTER TABLE `File` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `RegressionMetric`
+--
+
+DROP TABLE IF EXISTS `RegressionMetric`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `RegressionMetric` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `execution` int NOT NULL,
+  `model_name` varchar(255) NOT NULL,
+  `mse` decimal(10,5) DEFAULT NULL,
+  `rmse` decimal(10,5) DEFAULT NULL,
+  `mae` decimal(10,5) DEFAULT NULL,
+  `r2` decimal(5,2) DEFAULT NULL,
+  `msle` decimal(10,5) DEFAULT NULL,
+  `date` datetime(6) NOT NULL,
+  `detector_id` bigint DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `RegressionMetric_detector_id_6256c6fd_fk_AnomalyDetector_id` (`detector_id`),
+  CONSTRAINT `RegressionMetric_detector_id_6256c6fd_fk_AnomalyDetector_id` FOREIGN KEY (`detector_id`) REFERENCES `AnomalyDetector` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `RegressionMetric`
+--
+
+LOCK TABLES `RegressionMetric` WRITE;
+/*!40000 ALTER TABLE `RegressionMetric` DISABLE KEYS */;
+/*!40000 ALTER TABLE `RegressionMetric` ENABLE KEYS */;
+UNLOCK TABLES;
 
 --
 -- Table structure for table `Scenario`
@@ -30,11 +182,14 @@ CREATE TABLE `Scenario` (
   `user_id` bigint NOT NULL,
   `status` varchar(255) NOT NULL,
   `uuid` char(32) NOT NULL,
+  `file_id` int DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uuid` (`uuid`),
   KEY `Scenario_user_id_31ea73d4_fk_User_id` (`user_id`),
+  KEY `Scenario_file_id_e186ee4b_fk_File_id` (`file_id`),
+  CONSTRAINT `Scenario_file_id_e186ee4b_fk_File_id` FOREIGN KEY (`file_id`) REFERENCES `File` (`id`),
   CONSTRAINT `Scenario_user_id_31ea73d4_fk_User_id` FOREIGN KEY (`user_id`) REFERENCES `User` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=34 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=35 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -43,6 +198,7 @@ CREATE TABLE `Scenario` (
 
 LOCK TABLES `Scenario` WRITE;
 /*!40000 ALTER TABLE `Scenario` DISABLE KEYS */;
+INSERT INTO `Scenario` VALUES (34,'prueba','\"{\\\"elements\\\":[{\\\"id\\\":\\\"72c819188e218617\\\",\\\"type\\\":\\\"Network\\\",\\\"position\\\":{\\\"left\\\":-223,\\\"top\\\":-12},\\\"parameters\\\":{\\\"networkFileName\\\":\\\"packets_window.pcap\\\"}},{\\\"id\\\":\\\"ea4bd13dc26340c7\\\",\\\"type\\\":\\\"StandardScaler\\\",\\\"position\\\":{\\\"left\\\":58,\\\"top\\\":-52},\\\"parameters\\\":{\\\"with_std\\\":\\\"True\\\",\\\"with_mean\\\":\\\"True\\\"}},{\\\"id\\\":\\\"67c75bd1825e4cb0\\\",\\\"type\\\":\\\"IsolationForest\\\",\\\"position\\\":{\\\"left\\\":320,\\\"top\\\":-44},\\\"parameters\\\":{\\\"n_estimators\\\":100,\\\"max_samples\\\":\\\"auto\\\",\\\"contamination\\\":\\\"auto\\\",\\\"max_features\\\":1,\\\"random_state\\\":\\\"None\\\"}}],\\\"connections\\\":[{\\\"startId\\\":\\\"ea4bd13dc26340c7\\\",\\\"endId\\\":\\\"67c75bd1825e4cb0\\\"},{\\\"startId\\\":\\\"72c819188e218617\\\",\\\"endId\\\":\\\"ea4bd13dc26340c7\\\"}]}\"','2025-04-30 14:40:33.132560',13,'Finished','65e53285a5fe464884cf518999b8fbe2',1);
 /*!40000 ALTER TABLE `Scenario` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -319,7 +475,7 @@ CREATE TABLE `auth_permission` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `auth_permission_content_type_id_codename_01ab375a_uniq` (`content_type_id`,`codename`),
   CONSTRAINT `auth_permission_content_type_id_2f476e4b_fk_django_co` FOREIGN KEY (`content_type_id`) REFERENCES `django_content_type` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=81 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=101 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -328,7 +484,7 @@ CREATE TABLE `auth_permission` (
 
 LOCK TABLES `auth_permission` WRITE;
 /*!40000 ALTER TABLE `auth_permission` DISABLE KEYS */;
-INSERT INTO `auth_permission` VALUES (1,'Can add log entry',1,'add_logentry'),(2,'Can change log entry',1,'change_logentry'),(3,'Can delete log entry',1,'delete_logentry'),(4,'Can view log entry',1,'view_logentry'),(5,'Can add permission',2,'add_permission'),(6,'Can change permission',2,'change_permission'),(7,'Can delete permission',2,'delete_permission'),(8,'Can view permission',2,'view_permission'),(9,'Can add group',3,'add_group'),(10,'Can change group',3,'change_group'),(11,'Can delete group',3,'delete_group'),(12,'Can view group',3,'view_group'),(13,'Can add user',4,'add_user'),(14,'Can change user',4,'change_user'),(15,'Can delete user',4,'delete_user'),(16,'Can view user',4,'view_user'),(17,'Can add content type',5,'add_contenttype'),(18,'Can change content type',5,'change_contenttype'),(19,'Can delete content type',5,'delete_contenttype'),(20,'Can view content type',5,'view_contenttype'),(21,'Can add session',6,'add_session'),(22,'Can change session',6,'change_session'),(23,'Can delete session',6,'delete_session'),(24,'Can view session',6,'view_session'),(25,'Can add data controller',7,'add_datacontroller'),(26,'Can change data controller',7,'change_datacontroller'),(27,'Can delete data controller',7,'delete_datacontroller'),(28,'Can view data controller',7,'view_datacontroller'),(29,'Can add data filter',8,'add_datafilter'),(30,'Can change data filter',8,'change_datafilter'),(31,'Can delete data filter',8,'delete_datafilter'),(32,'Can view data filter',8,'view_datafilter'),(33,'Can add data mixer',9,'add_datamixer'),(34,'Can change data mixer',9,'change_datamixer'),(35,'Can delete data mixer',9,'delete_datamixer'),(36,'Can view data mixer',9,'view_datamixer'),(37,'Can add data receiver',10,'add_datareceiver'),(38,'Can change data receiver',10,'change_datareceiver'),(39,'Can delete data receiver',10,'delete_datareceiver'),(40,'Can view data receiver',10,'view_datareceiver'),(41,'Can add data storage',11,'add_datastorage'),(42,'Can change data storage',11,'change_datastorage'),(43,'Can delete data storage',11,'delete_datastorage'),(44,'Can view data storage',11,'view_datastorage'),(45,'Can add data sync',12,'add_datasync'),(46,'Can change data sync',12,'change_datasync'),(47,'Can delete data sync',12,'delete_datasync'),(48,'Can view data sync',12,'view_datasync'),(49,'Can add action controller',13,'add_actioncontroller'),(50,'Can change action controller',13,'change_actioncontroller'),(51,'Can delete action controller',13,'delete_actioncontroller'),(52,'Can view action controller',13,'view_actioncontroller'),(53,'Can add action receiver',14,'add_actionreceiver'),(54,'Can change action receiver',14,'change_actionreceiver'),(55,'Can delete action receiver',14,'delete_actionreceiver'),(56,'Can view action receiver',14,'view_actionreceiver'),(57,'Can add action sync',15,'add_actionsync'),(58,'Can change action sync',15,'change_actionsync'),(59,'Can delete action sync',15,'delete_actionsync'),(60,'Can view action sync',15,'view_actionsync'),(61,'Can add perform action',16,'add_performaction'),(62,'Can change perform action',16,'change_performaction'),(63,'Can delete perform action',16,'delete_performaction'),(64,'Can view perform action',16,'view_performaction'),(65,'Can add policy management',17,'add_policymanagement'),(66,'Can change policy management',17,'change_policymanagement'),(67,'Can delete policy management',17,'delete_policymanagement'),(68,'Can view policy management',17,'view_policymanagement'),(69,'Can add user',18,'add_customuser'),(70,'Can change user',18,'change_customuser'),(71,'Can delete user',18,'delete_customuser'),(72,'Can view user',18,'view_customuser'),(73,'Can add user',19,'add_user'),(74,'Can change user',19,'change_user'),(75,'Can delete user',19,'delete_user'),(76,'Can view user',19,'view_user'),(77,'Can add scenario',20,'add_scenario'),(78,'Can change scenario',20,'change_scenario'),(79,'Can delete scenario',20,'delete_scenario'),(80,'Can view scenario',20,'view_scenario');
+INSERT INTO `auth_permission` VALUES (1,'Can add log entry',1,'add_logentry'),(2,'Can change log entry',1,'change_logentry'),(3,'Can delete log entry',1,'delete_logentry'),(4,'Can view log entry',1,'view_logentry'),(5,'Can add permission',2,'add_permission'),(6,'Can change permission',2,'change_permission'),(7,'Can delete permission',2,'delete_permission'),(8,'Can view permission',2,'view_permission'),(9,'Can add group',3,'add_group'),(10,'Can change group',3,'change_group'),(11,'Can delete group',3,'delete_group'),(12,'Can view group',3,'view_group'),(13,'Can add user',4,'add_user'),(14,'Can change user',4,'change_user'),(15,'Can delete user',4,'delete_user'),(16,'Can view user',4,'view_user'),(17,'Can add content type',5,'add_contenttype'),(18,'Can change content type',5,'change_contenttype'),(19,'Can delete content type',5,'delete_contenttype'),(20,'Can view content type',5,'view_contenttype'),(21,'Can add session',6,'add_session'),(22,'Can change session',6,'change_session'),(23,'Can delete session',6,'delete_session'),(24,'Can view session',6,'view_session'),(25,'Can add data controller',7,'add_datacontroller'),(26,'Can change data controller',7,'change_datacontroller'),(27,'Can delete data controller',7,'delete_datacontroller'),(28,'Can view data controller',7,'view_datacontroller'),(29,'Can add data filter',8,'add_datafilter'),(30,'Can change data filter',8,'change_datafilter'),(31,'Can delete data filter',8,'delete_datafilter'),(32,'Can view data filter',8,'view_datafilter'),(33,'Can add data mixer',9,'add_datamixer'),(34,'Can change data mixer',9,'change_datamixer'),(35,'Can delete data mixer',9,'delete_datamixer'),(36,'Can view data mixer',9,'view_datamixer'),(37,'Can add data receiver',10,'add_datareceiver'),(38,'Can change data receiver',10,'change_datareceiver'),(39,'Can delete data receiver',10,'delete_datareceiver'),(40,'Can view data receiver',10,'view_datareceiver'),(41,'Can add data storage',11,'add_datastorage'),(42,'Can change data storage',11,'change_datastorage'),(43,'Can delete data storage',11,'delete_datastorage'),(44,'Can view data storage',11,'view_datastorage'),(45,'Can add data sync',12,'add_datasync'),(46,'Can change data sync',12,'change_datasync'),(47,'Can delete data sync',12,'delete_datasync'),(48,'Can view data sync',12,'view_datasync'),(49,'Can add action controller',13,'add_actioncontroller'),(50,'Can change action controller',13,'change_actioncontroller'),(51,'Can delete action controller',13,'delete_actioncontroller'),(52,'Can view action controller',13,'view_actioncontroller'),(53,'Can add action receiver',14,'add_actionreceiver'),(54,'Can change action receiver',14,'change_actionreceiver'),(55,'Can delete action receiver',14,'delete_actionreceiver'),(56,'Can view action receiver',14,'view_actionreceiver'),(57,'Can add action sync',15,'add_actionsync'),(58,'Can change action sync',15,'change_actionsync'),(59,'Can delete action sync',15,'delete_actionsync'),(60,'Can view action sync',15,'view_actionsync'),(61,'Can add perform action',16,'add_performaction'),(62,'Can change perform action',16,'change_performaction'),(63,'Can delete perform action',16,'delete_performaction'),(64,'Can view perform action',16,'view_performaction'),(65,'Can add policy management',17,'add_policymanagement'),(66,'Can change policy management',17,'change_policymanagement'),(67,'Can delete policy management',17,'delete_policymanagement'),(68,'Can view policy management',17,'view_policymanagement'),(69,'Can add user',18,'add_customuser'),(70,'Can change user',18,'change_customuser'),(71,'Can delete user',18,'delete_customuser'),(72,'Can view user',18,'view_customuser'),(73,'Can add user',19,'add_user'),(74,'Can change user',19,'change_user'),(75,'Can delete user',19,'delete_user'),(76,'Can view user',19,'view_user'),(77,'Can add scenario',20,'add_scenario'),(78,'Can change scenario',20,'change_scenario'),(79,'Can delete scenario',20,'delete_scenario'),(80,'Can view scenario',20,'view_scenario'),(81,'Can add file',21,'add_file'),(82,'Can change file',21,'change_file'),(83,'Can delete file',21,'delete_file'),(84,'Can view file',21,'view_file'),(85,'Can add anomaly detector',22,'add_anomalydetector'),(86,'Can change anomaly detector',22,'change_anomalydetector'),(87,'Can delete anomaly detector',22,'delete_anomalydetector'),(88,'Can view anomaly detector',22,'view_anomalydetector'),(89,'Can add classification metric',23,'add_classificationmetric'),(90,'Can change classification metric',23,'change_classificationmetric'),(91,'Can delete classification metric',23,'delete_classificationmetric'),(92,'Can view classification metric',23,'view_classificationmetric'),(93,'Can add anomaly metric',24,'add_anomalymetric'),(94,'Can change anomaly metric',24,'change_anomalymetric'),(95,'Can delete anomaly metric',24,'delete_anomalymetric'),(96,'Can view anomaly metric',24,'view_anomalymetric'),(97,'Can add regression metric',25,'add_regressionmetric'),(98,'Can change regression metric',25,'change_regressionmetric'),(99,'Can delete regression metric',25,'delete_regressionmetric'),(100,'Can view regression metric',25,'view_regressionmetric');
 /*!40000 ALTER TABLE `auth_permission` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -604,7 +760,7 @@ CREATE TABLE `django_content_type` (
   `model` varchar(100) NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `django_content_type_app_label_model_76bd3d3b_uniq` (`app_label`,`model`)
-) ENGINE=InnoDB AUTO_INCREMENT=21 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=26 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -613,7 +769,7 @@ CREATE TABLE `django_content_type` (
 
 LOCK TABLES `django_content_type` WRITE;
 /*!40000 ALTER TABLE `django_content_type` DISABLE KEYS */;
-INSERT INTO `django_content_type` VALUES (18,'accounts','customuser'),(19,'accounts','user'),(13,'action_execution','actioncontroller'),(14,'action_execution','actionreceiver'),(15,'action_execution','actionsync'),(16,'action_execution','performaction'),(17,'action_execution','policymanagement'),(1,'admin','logentry'),(3,'auth','group'),(2,'auth','permission'),(4,'auth','user'),(5,'contenttypes','contenttype'),(7,'data_management','datacontroller'),(8,'data_management','datafilter'),(9,'data_management','datamixer'),(10,'data_management','datareceiver'),(11,'data_management','datastorage'),(12,'data_management','datasync'),(20,'data_management','scenario'),(6,'sessions','session');
+INSERT INTO `django_content_type` VALUES (18,'accounts','customuser'),(19,'accounts','user'),(13,'action_execution','actioncontroller'),(14,'action_execution','actionreceiver'),(15,'action_execution','actionsync'),(16,'action_execution','performaction'),(17,'action_execution','policymanagement'),(1,'admin','logentry'),(3,'auth','group'),(2,'auth','permission'),(4,'auth','user'),(5,'contenttypes','contenttype'),(22,'data_management','anomalydetector'),(24,'data_management','anomalymetric'),(23,'data_management','classificationmetric'),(7,'data_management','datacontroller'),(8,'data_management','datafilter'),(9,'data_management','datamixer'),(10,'data_management','datareceiver'),(11,'data_management','datastorage'),(12,'data_management','datasync'),(21,'data_management','file'),(25,'data_management','regressionmetric'),(20,'data_management','scenario'),(6,'sessions','session');
 /*!40000 ALTER TABLE `django_content_type` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -630,7 +786,7 @@ CREATE TABLE `django_migrations` (
   `name` varchar(255) NOT NULL,
   `applied` datetime(6) NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=36 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=46 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -639,7 +795,7 @@ CREATE TABLE `django_migrations` (
 
 LOCK TABLES `django_migrations` WRITE;
 /*!40000 ALTER TABLE `django_migrations` DISABLE KEYS */;
-INSERT INTO `django_migrations` VALUES (1,'contenttypes','0001_initial','2024-10-17 17:11:44.441187'),(2,'auth','0001_initial','2024-10-17 17:11:44.649390'),(6,'contenttypes','0002_remove_content_type_name','2024-10-17 17:11:44.734800'),(7,'auth','0002_alter_permission_name_max_length','2024-10-17 17:11:44.758061'),(8,'auth','0003_alter_user_email_max_length','2024-10-17 17:11:44.769907'),(9,'auth','0004_alter_user_username_opts','2024-10-17 17:11:44.773757'),(10,'auth','0005_alter_user_last_login_null','2024-10-17 17:11:44.792801'),(11,'auth','0006_require_contenttypes_0002','2024-10-17 17:11:44.794251'),(12,'auth','0007_alter_validators_add_error_messages','2024-10-17 17:11:44.798533'),(13,'auth','0008_alter_user_username_max_length','2024-10-17 17:11:44.822660'),(14,'auth','0009_alter_user_last_name_max_length','2024-10-17 17:11:44.845913'),(15,'auth','0010_alter_group_name_max_length','2024-10-17 17:11:44.854353'),(16,'auth','0011_update_proxy_permissions','2024-10-17 17:11:44.858629'),(17,'auth','0012_alter_user_first_name_max_length','2024-10-17 17:11:44.880094'),(18,'data_management','0001_initial','2024-10-17 17:11:44.920462'),(20,'action_execution','0001_initial','2024-10-17 17:23:43.492099'),(22,'accounts','0001_initial','2024-11-04 16:13:12.469707'),(23,'admin','0001_initial','2024-11-04 16:19:14.952155'),(24,'admin','0002_logentry_remove_auto_add','2024-11-04 16:19:14.954904'),(25,'admin','0003_logentry_add_action_flag_choices','2024-11-04 16:19:14.956699'),(26,'accounts','0002_rename_customuser_user_alter_user_options_and_more','2024-11-04 16:19:14.958184'),(27,'sessions','0001_initial','2024-11-04 16:19:38.878524'),(28,'accounts','0002_alter_customuser_options_alter_customuser_table','2024-11-04 16:23:47.377663'),(29,'accounts','0003_remove_customuser_lastname_remove_customuser_name_and_more','2024-11-04 16:26:26.062184'),(30,'accounts','0004_customuser_is_verified_customuser_verification_code_and_more','2024-11-04 17:31:44.082807'),(31,'accounts','0005_remove_customuser_is_verified_and_more','2024-11-04 18:02:42.446015'),(32,'accounts','0006_customuser_admin_username_and_more','2024-11-05 08:39:32.169433'),(33,'data_management','0002_scenario','2025-01-28 10:07:29.060433'),(34,'data_management','0003_alter_scenario_name','2025-01-28 12:02:34.316663'),(35,'data_management','0004_scenario_status_scenario_uuid','2025-01-29 11:17:37.432425');
+INSERT INTO `django_migrations` VALUES (1,'contenttypes','0001_initial','2024-10-17 17:11:44.441187'),(2,'auth','0001_initial','2024-10-17 17:11:44.649390'),(6,'contenttypes','0002_remove_content_type_name','2024-10-17 17:11:44.734800'),(7,'auth','0002_alter_permission_name_max_length','2024-10-17 17:11:44.758061'),(8,'auth','0003_alter_user_email_max_length','2024-10-17 17:11:44.769907'),(9,'auth','0004_alter_user_username_opts','2024-10-17 17:11:44.773757'),(10,'auth','0005_alter_user_last_login_null','2024-10-17 17:11:44.792801'),(11,'auth','0006_require_contenttypes_0002','2024-10-17 17:11:44.794251'),(12,'auth','0007_alter_validators_add_error_messages','2024-10-17 17:11:44.798533'),(13,'auth','0008_alter_user_username_max_length','2024-10-17 17:11:44.822660'),(14,'auth','0009_alter_user_last_name_max_length','2024-10-17 17:11:44.845913'),(15,'auth','0010_alter_group_name_max_length','2024-10-17 17:11:44.854353'),(16,'auth','0011_update_proxy_permissions','2024-10-17 17:11:44.858629'),(17,'auth','0012_alter_user_first_name_max_length','2024-10-17 17:11:44.880094'),(18,'data_management','0001_initial','2024-10-17 17:11:44.920462'),(20,'action_execution','0001_initial','2024-10-17 17:23:43.492099'),(22,'accounts','0001_initial','2024-11-04 16:13:12.469707'),(23,'admin','0001_initial','2024-11-04 16:19:14.952155'),(24,'admin','0002_logentry_remove_auto_add','2024-11-04 16:19:14.954904'),(25,'admin','0003_logentry_add_action_flag_choices','2024-11-04 16:19:14.956699'),(26,'accounts','0002_rename_customuser_user_alter_user_options_and_more','2024-11-04 16:19:14.958184'),(27,'sessions','0001_initial','2024-11-04 16:19:38.878524'),(28,'accounts','0002_alter_customuser_options_alter_customuser_table','2024-11-04 16:23:47.377663'),(29,'accounts','0003_remove_customuser_lastname_remove_customuser_name_and_more','2024-11-04 16:26:26.062184'),(30,'accounts','0004_customuser_is_verified_customuser_verification_code_and_more','2024-11-04 17:31:44.082807'),(31,'accounts','0005_remove_customuser_is_verified_and_more','2024-11-04 18:02:42.446015'),(32,'accounts','0006_customuser_admin_username_and_more','2024-11-05 08:39:32.169433'),(33,'data_management','0002_scenario','2025-01-28 10:07:29.060433'),(34,'data_management','0003_alter_scenario_name','2025-01-28 12:02:34.316663'),(35,'data_management','0004_scenario_status_scenario_uuid','2025-01-29 11:17:37.432425'),(36,'data_management','0005_file_scenario_file','2025-04-30 14:39:16.658407'),(37,'data_management','0006_anomalydetector_metric','2025-04-30 14:39:16.731091'),(38,'data_management','0007_rename_precission_metric_precision_metric_model_name','2025-04-30 14:39:16.769047'),(39,'data_management','0008_rename_f1score_metric_f1_score','2025-04-30 14:39:16.780582'),(40,'data_management','0009_alter_metric_accuracy_alter_metric_f1_score_and_more','2025-04-30 14:39:16.883604'),(41,'data_management','0010_file_references_alter_file_content','2025-04-30 14:39:16.907121'),(42,'data_management','0011_alter_metric_accuracy_alter_metric_confusion_matrix_and_more','2025-04-30 14:39:16.996579'),(43,'data_management','0012_anomalydetector_execution_metric_execution','2025-04-30 14:39:17.054751'),(44,'data_management','0013_rename_metric_classificationmetric_and_more','2025-04-30 14:39:17.114116'),(45,'data_management','0014_rename_timestamp_anomalymetric_date_regressionmetric','2025-04-30 14:39:17.159270');
 /*!40000 ALTER TABLE `django_migrations` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -678,4 +834,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-02-11  9:54:08
+-- Dump completed on 2025-04-30 14:42:43

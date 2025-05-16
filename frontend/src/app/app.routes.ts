@@ -13,6 +13,7 @@ import { SendEmailComponent } from './Authentication/send-email/send-email.compo
 import { MetricsComponent } from './Windows/anomaly-detector/metrics/metrics.component';
 import { TimelineADComponent } from './Windows/anomaly-detector/timeline-ad/timeline-ad.component';
 import { NewScenarioComponent } from './Windows/anomaly-detector/new-scenario/new-scenario.component';
+import { ProductionComponent } from './Windows/anomaly-detector/production/production.component';
 
 export const routes: Routes = [
     { path: '', redirectTo: '/login', pathMatch: 'full'},
@@ -21,6 +22,7 @@ export const routes: Routes = [
     { path: 'dashboard', component: DashboardComponent, children: [
         { path: 'anomaly-detector', component: AnomalyDetectorComponent, children: [
             { path: ':id/timeline-ad', component: TimelineADComponent },
+            { path: ':id/production', component: ProductionComponent },
             { path: ':id/metrics', component: MetricsComponent },
             { path: 'new-scenario', component: NewScenarioComponent },
             { path: 'edit-scenario/:id', component: NewScenarioComponent }

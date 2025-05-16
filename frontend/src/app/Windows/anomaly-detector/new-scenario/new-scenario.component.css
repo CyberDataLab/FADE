@@ -134,6 +134,7 @@ html, body {
   overflow: visible;
   margin: 0;
   padding: 0;
+  height: calc(100vh - 60px);
 }
 
 .drop-area {
@@ -148,7 +149,8 @@ html, body {
   padding: 0;
   top: 60px;
   box-sizing: border-box;
-  position: relative; 
+  position: absolute;
+  z-index: 1; 
 }
   
 .drop-area .draggable {
@@ -184,24 +186,6 @@ html, body {
 }
 
 .zoom-button i {
-  font-size: 16px;
-}
-
-.save-button {
-  background-color: #f4f4f4;
-  border: 1px solid #ccc;
-  border-radius: 5px;
-  margin: 0 5px;
-  padding: 10px;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-}
-
-.save-button:hover {
-  background-color: #e0e0e0;
-}
-
-.save-button i {
   font-size: 16px;
 }
 
@@ -295,7 +279,9 @@ html, body {
 }
 
 svg {
-  z-index: -1;  
+  z-index: -1;
+  pointer-events: none;
+  overflow: visible;
 }
 
 :host ::ng-deep .gear-icon {
@@ -305,7 +291,7 @@ svg {
   top: 3px;
   color: white;  
   cursor: pointer;
-  display: none;
+  display: show;
   z-index: 2;
 }
 

@@ -1,4 +1,10 @@
-import { Component } from '@angular/core';
+import {
+    Component,
+    AfterViewInit,
+    ViewChild,
+    ElementRef,
+    Injector
+  } from "@angular/core";
 
 @Component({
     selector: 'app-policies',
@@ -7,5 +13,6 @@ import { Component } from '@angular/core';
     styleUrl: './policies.component.css'
 })
 export class PoliciesComponent {
+
 
 }

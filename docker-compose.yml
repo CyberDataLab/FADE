@@ -21,6 +21,8 @@ services:
     volumes:
       - ./backend:/app
       - ./frontend:/app/frontend  # Volumen adicional para que backend acceda a los archivos de frontend
+      - ./ssh_keys:/root/.ssh
+      - /tmp/pcap_shared:/app/pcap_shared
     ports:
       - "8000:8000"
     environment:

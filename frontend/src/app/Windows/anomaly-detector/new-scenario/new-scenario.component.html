@@ -128,35 +128,15 @@
             </div>
           </div>
         </div>
-      </div>
-      
-      <div class="controls">
-        <button class="zoom-button zoom-in" (click)="zoomIn()">
-          <i class="fa fa-search-plus"></i>
-        </button>
-        <button class="zoom-button zoom-out" (click)="zoomOut()">
-          <i class="fa fa-search-minus"></i>
-        </button>
-        <button class="save-button save-scenario" (click)="saveScenario()">
-          💾 
-        </button>
-        <button class="save-button load-scenario" (click)="triggerFileInput()">
-          📂
-        </button>
-      
-        <input type="file" id="fileInput" style="display: none;" (change)="loadScenario($event)" accept=".json">
-      </div>
-      
+      </div>     
     </div>
   </div>
 
-  <div class="workspace" (mousedown)="onMouseDown($event)" (mousemove)="onMouseMoveSelection($event)" (mouseup)="onMouseUp($event)">
-    <div id="drop-area" 
+  <div class="workspace" >
+    <div id="drop-area" #dropArea
         class="drop-area" 
         (dragover)="onDragOver($event)" 
         (drop)="onDrop($event)">
-      <div id="content-container" class="content-container">
-      </div>
     </div>
     <div id="selection-box" *ngIf="isSelecting"></div>
   </div>

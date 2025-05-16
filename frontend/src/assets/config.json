@@ -30,8 +30,8 @@
             {
               "name": "networkFileName",
               "type": "file",
-              "default": null,
-              "accept": ".txt"
+              "default": {},
+              "accept": ".pcap"
             }
           ]
         }
@@ -195,6 +195,34 @@
               "type": "select",
               "default": "uniform",
               "options": ["uniform", "distance"]
+            }
+          ]
+        },
+        {
+          "type": "DataSplitter",
+          "displayName": "Data Splitter",
+          "icon": "fa fa-random",
+          "class": "sklearn.model_selection.train_test_split",
+          "category": "preprocessing",
+          "appliesTo": "generic",
+          "properties": [
+            {
+              "name": "train_size",
+              "label": "Train Size (%)",
+              "type": "number",
+              "default": 80,
+              "min": 1,
+              "max": 99,
+              "step": 1
+            },
+            {
+              "name": "test_size",
+              "label": "Test Size (%)",
+              "type": "number",
+              "default": 20,
+              "min": 1,
+              "max": 99,
+              "step": 1
             }
           ]
         }
