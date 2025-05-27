@@ -23,6 +23,7 @@ import pandas as pd
 import numpy as np
 import importlib
 import shap
+from celery import shared_task
 from collections import defaultdict
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import f1_score, precision_score, recall_score, accuracy_score, confusion_matrix, mean_squared_error, mean_absolute_error, r2_score
@@ -100,7 +101,7 @@ def extract_features_from_pcap(file_obj):
 
     cap = None
     data = []
-    flow_dict = defaultdict(list)  # Para agrupar por flujo
+    flow_dict = defaultdict(list)
 
     try:
         cap = pyshark.FileCapture(tmp_path, keep_packets=False)
@@ -120,7 +121,6 @@ def extract_features_from_pcap(file_obj):
                 flags = pkt.tcp.flags if hasattr(pkt, 'tcp') and hasattr(pkt.tcp, 'flags') else None
                 ttl = pkt.ip.ttl if hasattr(pkt.ip, 'ttl') else None
 
-                # Crear un identificador de flujo (bidireccional)
                 flow_key = tuple(sorted([(src, src_port), (dst, dst_port)])) + (proto,)
 
                 flow_dict[flow_key].append({
@@ -142,7 +142,6 @@ def extract_features_from_pcap(file_obj):
             del cap
         logger.info("Captura cerrada correctamente")
 
-    # Agregación por flujo
     aggregated = []
     for flow, packets in flow_dict.items():
         times = [p['time'] for p in packets if p['time'] is not None]
@@ -173,7 +172,7 @@ def ip_to_int(ip_str):
     try:
         return int(ipaddress.IPv4Address(ip_str))
     except:
-        return 0  # Para IPs inválidas o nulas
+        return 0
     
 def extract_parameters(properties, params):
     extracted = {}
@@ -732,20 +731,22 @@ def put_scenario_by_uuid(request, uuid):
         return JsonResponse({'error': 'Scenario not found'}, status=status.HTTP_404_NOT_FOUND)
 
 
+import fnmatch
+
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
 def delete_scenario_by_uuid(request, uuid):
-    user = request.user  
+    user = request.user
 
     try:
         scenario = Scenario.objects.get(uuid=uuid, user=user.id)
 
-        file_instance = scenario.file  
+        file_instance = scenario.file
         if file_instance:
             file_instance.references -= 1 
             if file_instance.references == 0:
                 file_path = os.path.join('files', file_instance.name)
-                if os.path.exists(file_path):  
+                if os.path.exists(file_path):
                     os.remove(file_path)
                 file_instance.delete()
             else:
@@ -756,12 +757,26 @@ def delete_scenario_by_uuid(request, uuid):
             ClassificationMetric.objects.filter(detector=anomaly_detector).delete()
             anomaly_detector.delete()
 
+        base_path = os.path.join(settings.BASE_DIR, 'models_storage')
+        scenario_uuid = str(scenario.uuid)
+
+        for filename in os.listdir(base_path):
+            if scenario_uuid in filename:
+                model_path = os.path.join(base_path, filename)
+                logger.info(f"Eliminando modelo: {model_path}")
+                try:
+                    os.remove(model_path)
+                    logger.info(f"Modelo eliminado: {model_path}")
+                except Exception as e:
+                    logger.warning(f"No se pudo eliminar {model_path}: {str(e)}")
+
         scenario.delete()
 
         return JsonResponse({'message': 'Scenario and related data deleted successfully'}, status=status.HTTP_200_OK)
 
     except Scenario.DoesNotExist:
         return JsonResponse({'error': 'Scenario not found or you do not have permission to delete it'}, status=status.HTTP_404_NOT_FOUND)
+
 
 @api_view(['PATCH'])
 @permission_classes([IsAuthenticated])
@@ -783,6 +798,8 @@ def run_scenario_by_uuid(request, uuid):
         result = execute_scenario(anomaly_detector, scenario, design)
 
         if result.get('error'):
+            scenario.status = "Error"
+            scenario.save()
             return JsonResponse(result, status=status.HTTP_400_BAD_REQUEST)
 
         scenario.status = 'Finished'
@@ -795,6 +812,7 @@ def run_scenario_by_uuid(request, uuid):
     except Scenario.DoesNotExist:
         return JsonResponse({'error': 'Scenario not found or without permits to run it'}, status=status.HTTP_404_NOT_FOUND)
 
+@shared_task
 def execute_scenario(anomaly_detector, scenario, design):
     try:
         anomaly_detector.execution += 1
@@ -802,6 +820,8 @@ def execute_scenario(anomaly_detector, scenario, design):
         config = load_config()
         element_types = {}
         splitter = False
+        code_processing = False
+        code_splitter = False
 
         validate_design(config, design)
         
@@ -896,7 +916,6 @@ def execute_scenario(anomaly_detector, scenario, design):
                 logger.info("Nombre del archivo de red: %s", network_file_name)
                 try:
                     file = File.objects.get(name=network_file_name)
-                    # Usar FileField temporalmente como archivo real
                     with open(file.content.path, 'rb') as f:
                         df = extract_features_from_pcap(f)
                     logger.info("DataFrame extraído: %s", df.head())
@@ -925,8 +944,10 @@ def execute_scenario(anomaly_detector, scenario, design):
                             raise ValueError(f"Error de tipo: {el_type} conectado a modelo {model_type}")
 
                         model_data = models.get(model_id)
+                        logger.info("Datos del modelo: %s", model_data)
                         if model_data:
                             if el_type == "ClassificationMonitor":
+                                logger.info("Calculando métricas de clasificación")
                                 metrics_config = params.get("metrics", {})
                                 metrics = calculate_classification_metrics(model_data["y_test"], model_data["y_pred"], metrics_config)
                                 save_classification_metrics(anomaly_detector, model_element["type"], metrics, anomaly_detector.execution)
@@ -934,6 +955,7 @@ def execute_scenario(anomaly_detector, scenario, design):
                                 logger.info("Calculando métricas de regresión")
                                 metrics = calculate_regression_metrics(model_data["y_test"], model_data["y_pred"])
                                 save_regression_metrics(anomaly_detector, model_element["type"], metrics, anomaly_detector.execution)
+
             elif el_type == "DataSplitter":
                 logger.info("Ejecutando DataSplitter")
                 splitter = True
@@ -949,7 +971,6 @@ def execute_scenario(anomaly_detector, scenario, design):
                     test_size = splitter_params.get("test_size", 20) / 100
                     logger.info("Tamaños de train y test: %s, %s", train_size, test_size)
 
-                    # Asegura que los tamaños no se superpongan
                     if round(train_size + test_size, 2) > 1.0:
                         return {"error": "La suma de train_size y test_size no puede ser mayor que 100%"}
 
@@ -962,7 +983,6 @@ def execute_scenario(anomaly_detector, scenario, design):
                         test_size=test_size
                     )
 
-                    # Guardamos ambos sets para los nodos siguientes
                     data_storage[element_id] = {
                         "train": (X_train, y_train),
                         "test": (X_test, y_test)
@@ -972,6 +992,50 @@ def execute_scenario(anomaly_detector, scenario, design):
 
                 except Exception as e:
                     return {"error": f"Error en DataSplitter: {str(e)}"}
+                
+            elif el_type in ["CodeProcessing", "CodeSplitter"]:
+                logger.info("Ejecutando función personalizada")
+
+                user_code = params.get("code", "")
+                if input_data is None:
+                    return {"error": "CustomCode requiere datos de entrada"}
+                if not user_code.strip():
+                    return {"error": "No se ha proporcionado código en el elemento CustomCode"}
+
+                exec_context = {
+                    "__builtins__": __builtins__,
+                    "pd": pd,
+                    "np": __import__('numpy'),
+                }
+
+                try:
+                    exec(user_code, exec_context)
+                    user_functions = {k: v for k, v in exec_context.items() if callable(v)}
+                    if len(user_functions) != 1:
+                        return {"error": "Debes definir una única función en el código"}
+
+                    user_function = list(user_functions.values())[0]
+                    output_data = user_function(input_data)
+
+                    # Detección automática
+                    if isinstance(output_data, pd.DataFrame):
+                        logger.info("CustomCode detectado como preprocesador")
+                        data_storage[element_id] = output_data
+                        code_processing = True
+                        logger.info(data_storage)
+
+                    elif isinstance(output_data, dict) and "train" in output_data and "test" in output_data:
+                        logger.info("CustomCode detectado como splitter")
+                        data_storage[element_id] = output_data
+                        code_splitter = True
+                        logger.info(data_storage)
+
+                    else:
+                        return {"error": "La función debe retornar un DataFrame o un dict con claves 'train' y 'test'"}
+
+                except Exception as e:
+                    return {"error": f"Error ejecutando función personalizada: {str(e)}"}
+
                 
             else:
                 element_def = element_types.get(el_type)
@@ -1029,7 +1093,7 @@ def execute_scenario(anomaly_detector, scenario, design):
                         step_id = f"{element_id}_{scenario.uuid}"
                         step_path = os.path.join(settings.BASE_DIR, 'models_storage', f"{step_id}.pkl")
 
-                        joblib.dump(transformer, step_path)  # o el modelo
+                        joblib.dump(transformer, step_path)
                         logger.info(f"Guardado: {step_path}")
 
                         data_storage[element_id] = output_data
@@ -1044,7 +1108,7 @@ def execute_scenario(anomaly_detector, scenario, design):
 
                     if element_def.get("model_type") == "classification":
                         logger.info("Modelo clasificación")
-                        if splitter:
+                        if splitter or code_splitter:
                             for conn in connections:
                                 if conn["endId"] == element_id:
                                     source_id = conn["startId"]
@@ -1059,7 +1123,6 @@ def execute_scenario(anomaly_detector, scenario, design):
 
                                     elif output_type == "test":
                                         X_test, y_test = data_storage[source_id]["test"]
-                                        # Asegúrate que el modelo ya ha sido entrenado antes de predecir
                                         trained_model = data_storage.get(element_id)
                                         if trained_model:
                                             logger.info(X_test.shape)
@@ -1095,33 +1158,31 @@ def execute_scenario(anomaly_detector, scenario, design):
 
                     elif element_def.get("model_type") == "regression":
                         logger.info("Modelo regresión")
-                        if splitter:
-                            if splitter:
-                                for conn in connections:
-                                    if conn["endId"] == element_id:
-                                        source_id = conn["startId"]
-                                        output_type = conn.get("startOutput")
+                        if splitter or code_splitter:
+                            for conn in connections:
+                                if conn["endId"] == element_id:
+                                    source_id = conn["startId"]
+                                    output_type = conn.get("startOutput")
 
-                                        if output_type == "train":
-                                            X_train, y_train = data_storage[source_id]["train"]
-                                            logger.info(X_train.shape)
-                                            logger.info(y_train.shape)
-                                            model.fit(X_train, y_train)
-                                            data_storage[element_id] = model
+                                    if output_type == "train":
+                                        X_train, y_train = data_storage[source_id]["train"]
+                                        logger.info(X_train.shape)
+                                        logger.info(y_train.shape)
+                                        model.fit(X_train, y_train)
+                                        data_storage[element_id] = model
 
-                                        elif output_type == "test":
-                                            X_test, y_test = data_storage[source_id]["test"]
-                                            # Asegúrate que el modelo ya ha sido entrenado antes de predecir
-                                            trained_model = data_storage.get(element_id)
-                                            if trained_model:
-                                                logger.info(X_test.shape)
-                                                logger.info(y_test.shape)
-                                                y_pred = trained_model.predict(X_test)
-                                                models[element_id] = {
-                                                    "type": el_type,
-                                                    "y_test": y_test,
-                                                    "y_pred": y_pred
-                                                }
+                                    elif output_type == "test":
+                                        X_test, y_test = data_storage[source_id]["test"]
+                                        trained_model = data_storage.get(element_id)
+                                        if trained_model:
+                                            logger.info(X_test.shape)
+                                            logger.info(y_test.shape)
+                                            y_pred = trained_model.predict(X_test)
+                                            models[element_id] = {
+                                                "type": el_type,
+                                                "y_test": y_test,
+                                                "y_pred": y_pred
+                                            }
                         else:
                             logger.info("Entrenando modelo sin splitter - 80/20")
                             X = input_data.iloc[:, :-1]
@@ -1153,12 +1214,10 @@ def execute_scenario(anomaly_detector, scenario, design):
 
                         input_copy = input_data.copy()
 
-                        # Codificar IPs como enteros
                         for ip_col in ['src', 'dst']:
                             if ip_col in input_copy.columns:
                                 input_copy[ip_col] = input_copy[ip_col].apply(ip_to_int)
                         
-                        # Convertir protocolo a entero (si existe)
                         if 'protocol' in input_copy.columns:
                             input_copy['protocol'] = input_copy['protocol'].astype('category').cat.codes
 
@@ -1176,7 +1235,7 @@ def execute_scenario(anomaly_detector, scenario, design):
                         step_id = f"{element_id}_{scenario.uuid}"
                         step_path = os.path.join(settings.BASE_DIR, 'models_storage', f"{step_id}.pkl")
 
-                        joblib.dump(model, step_path)  # o el modelo
+                        joblib.dump(model, step_path)
                         logger.info(f"Guardado: {step_path}")
 
                         predictions = model.predict(input_copy)
@@ -1303,7 +1362,7 @@ def play_scenario_production_by_uuid(request, uuid):
 
                 flow_dict = defaultdict(list)
                 last_flush = time.time()
-                interval = 1  # segundos
+                interval = 1
 
                 while thread_controls.get(uuid, True):
                     line = proc.stdout.readline()
@@ -1328,7 +1387,7 @@ def play_scenario_production_by_uuid(request, uuid):
                             proto = layers["ipv6"].get("ipv6_ipv6_nxt", "UNKNOWN")
                             src = layers["ipv6"].get("ipv6_ipv6_src")
                             dst = layers["ipv6"].get("ipv6_ipv6_dst")
-                            ttl = layers["ipv6"].get("ipv6_ipv6_hlim")  # Hop limit
+                            ttl = layers["ipv6"].get("ipv6_ipv6_hlim")
                         elif "ip" in layers:
                             proto = layers["ip"].get("ip_ip_proto", "UNKNOWN")
                             src = layers["ip"].get("ip_ip_src")
@@ -1401,11 +1460,10 @@ def play_scenario_production_by_uuid(request, uuid):
                             preds = [1 if x == -1 else 0 for x in preds]
 
                             df_proc["anomaly"] = preds
-                            df["anomaly"] = preds  # asumiendo que df y df_proc tienen las mismas filas
+                            df["anomaly"] = preds
 
                             logger.info(f"[MODEL] {model_instance.__class__.__name__} → Anomalías: {sum(preds)}")
 
-                            # Solo interpretamos si hay anomalías
                             df_anomalous = df_proc[df_proc["anomaly"] == 1]
                             if not df_anomalous.empty:
                                 logger.info("[SHAP] Explicando anomalías con SHAP...")
@@ -1427,7 +1485,7 @@ def play_scenario_production_by_uuid(request, uuid):
                                             reverse=True
                                         )
 
-                                        top_feature = shap_contribs[0]  # (contribution, value, feature_name)
+                                        top_feature = shap_contribs[0]
                                         feature_name = top_feature[2]
 
                                         anomaly_description = (
@@ -1446,7 +1504,7 @@ def play_scenario_production_by_uuid(request, uuid):
                                             feature_name=feature_name,
                                             feature_values=feature_values,
                                             anomalies=anomaly_description,
-                                            execution=execution,  # o incremento dinámico si lo manejas
+                                            execution=execution,
                                             production=True
                                         )
 

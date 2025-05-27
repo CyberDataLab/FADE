@@ -38,23 +38,15 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
   editorRef!: {
     editor: NodeEditor<Schemes>;
     area: AreaPlugin<Schemes, AreaExtra>;
-    addElement: (type: string, position: [number, number], displayName?: string, id?: string) => Promise<void>;
+    addElement: (type: string, position: [number, number], displayName?: string, icon?: string, id?: string) => Promise<void>;
     getNodeType: (nodeId: string) => Promise<string | undefined>;
     connectNodesById: (connections: { startId: string; startOutput: string; endId: string; endInput: string }[]) => Promise<void>;
     clearEditor: () => void;
     destroy: () => void;
   };
-  
-  socket!: ClassicPreset.Socket;
-  editor!: NodeEditor<Schemes>;
-  area!: AreaPlugin<Schemes, AreaExtra>;
-  connection!: ConnectionPlugin<Schemes, AreaExtra>;
-  render!: AngularPlugin<Schemes, AreaExtra>;
 
-  nodeFactories = new Map<string, () => Promise<ClassicPreset.Node>>();
   draggedNodeType: string | null = null;
   
-  selectedNode: ClassicPreset.Node | null = null;
   showConfigContainer = false;
 
   activeSections: { [key: string]: boolean } = {};
@@ -75,31 +67,9 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
 
   relativePositions: { element: HTMLElement; offsetX: number; offsetY: number }[] = [];
 
-  isSelecting: boolean = false;
-  selectionStart = { x: 0, y: 0 };
-  selectionEnd = { x: 0, y: 0 };
-
-  selectedElement: HTMLElement | null = null;  
-
-  isConnecting = false;
-  connectionStartElement: HTMLElement | null = null;
-
-  connections: { startElement: HTMLElement, endElement: HTMLElement, line: SVGLineElement }[] = [];
-
-  zoomLevel: number = 1; 
-  zoomStep: number = 0.02;
-  minZoom: number = 0.3;
-  maxZoom: number = 1.08;
-
-  nextElementId: number = 0;
-
   isNewScenario: boolean = true;
 
   scenarioId: string | null = null;
-
-  lastDesign: string | null = null;
-
-  actualDesign: string | null = null;
 
   selectedCSVFile: File | null = null;
   selectedNetworkFile: File | null = null;
@@ -121,21 +91,6 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
         e.preventDefault();
       }, { passive: false });
 
-      //document.addEventListener('keydown', (event) => this.onKeyDown(event));
-      //document.addEventListener('click', (event) => this.onDocumentClick(event));
-      /** 
-      const zoomInButton = document.getElementById('zoomIn');
-      const zoomOutButton = document.getElementById('zoomOut');
-      
-
-      if (zoomInButton) {
-        zoomInButton.addEventListener('click', () => this.zoomIn());
-      }
-
-      if (zoomOutButton) {
-        zoomOutButton.addEventListener('click', () => this.zoomOut());
-      }
-      */
       const saveScenario = document.getElementById('saveScenario');
       if (saveScenario) {
         saveScenario.addEventListener('click', () => this.saveScenario());
@@ -143,15 +98,15 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
 
       this.scenarioService.saveRequested$.subscribe(() => this.saveScenario());
       
-      this.scenarioService.setUnsavedChanges(this.droppedElements.length > 0);
-
       this.scenarioId = this.route.snapshot.paramMap.get('id');
 
       if (this.scenarioId) {
         this.isNewScenario = false;
         this.loadEditScenario(this.scenarioId);
       } 
+
       this.loadSections();
+
       this.toolbarService.showSaveButton();
       this.saveSub = this.toolbarService.saveRequested$.subscribe(() => {
         this.saveScenario();
@@ -185,25 +140,19 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
 
   openConfigForNode(node: ClassicPreset.Node) {
     if (!node) return;
-    this.selectedNode = node;
   
     const configContainerEl = this.configContainer?.nativeElement;
     if (!configContainerEl) return;
   
-    // Asegura que el contenedor está visible
     configContainerEl.classList.add('show');
   
-    // Limpia el contenido anterior
     const configContent = configContainerEl.querySelector('.config-content') as HTMLElement;
     if (!configContent) return;
     configContent.innerHTML = '';
   
-    // Obtener el tipo del nodo
     const elementType = (node as any).data.type;
     if (!elementType) return;
-  
-    // Manejo especial si tienes condiciones personalizadas
-    
+      
     if (elementType === 'CSV') {
       this.handleCSVConfiguration(node, configContent);
       return;
@@ -227,11 +176,9 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
     const elementConfig = this.getElementConfig(elementType);
     if (!elementConfig) return;
   
-    // Generar y mostrar configuración
     configContent.innerHTML = this.generateConfigHTML(elementConfig, node.id);
     this.setupDynamicInputs(node, elementConfig);
   
-    // Oculta menú contextual si lo hubiera
     this.hideContextMenu();
   }
   
@@ -337,6 +284,53 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
                   style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px; margin-top: -10px;">
           </div>`;
         break;
+
+        case 'textarea':
+          html += `
+            <div style="display: flex; flex-direction: column; margin-bottom: 60px;">
+              <label for="${prop.name}-${elementId}" style="margin-bottom: 10px;">
+                ${this.formatPropertyName(prop.label)}:
+              </label>
+
+              <div style="display: flex; justify-content: flex-end; gap: 5px; margin-bottom: 5px;">
+                <button id="zoom-in-${elementId}-${prop.name}" type="button"
+                  style="
+                    background: transparent;
+                    border: 1px solid transparent;
+                    border-radius: 4px;
+                    padding: 2px 8px;
+                    font-size: 20px;
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+                    color: white;
+                  "
+                  onmouseover="this.style.borderColor='#fff';"
+                  onmouseout="this.style.borderColor='transparent';"
+                >🔍+</button>
+                
+                <button id="zoom-out-${elementId}-${prop.name}" type="button"
+                  style="
+                    background: transparent;
+                    border: 1px solid transparent;
+                    border-radius: 4px;
+                    padding: 2px 8px;
+                    font-size: 20px;
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+                    color: white;
+                  "
+                  onmouseover="this.style.borderColor='#fff';"
+                  onmouseout="this.style.borderColor='transparent';"
+                >🔍−</button>
+              </div>
+
+              <textarea 
+                id="${prop.name}-${elementId}"
+                placeholder="${prop.placeholder || ''}"
+                style="width: 100%; min-height: 200px; padding: 10px; font-family: monospace; font-size: 10px; border: 1px solid #ccc; border-radius: 4px; resize: vertical; overflor-y: auto;"
+              >${formattedValue}</textarea>
+            </div>`;
+          break;
     }
 
     return html;
@@ -363,11 +357,9 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
       this.elementParameters[elementId] = {};
       
       config.properties.forEach((prop: any) => {
-        // Inicializar valores por defecto para propiedades no condicionales
         if (!prop.conditional) {
           this.elementParameters[elementId][prop.name] = prop.default;
         }
-        // Inicializar condicionales solo si cumplen la condición
         else {
           const parentValue = this.elementParameters[elementId][prop.conditional.dependsOn];
           if (parentValue === prop.conditional.value) {
@@ -426,11 +418,9 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
             input.value = this.elementParameters[elementId][paramKey] || '';
         
             input.addEventListener('input', () => {
-              // Guardar siempre el valor si no hay condición
               if (!prop.conditional) {
                 this.elementParameters[elementId][paramKey] = input.value;
               } 
-              // Lógica existente para condicionales
               else {
                 const parentValue = this.elementParameters[elementId][prop.conditional.dependsOn];
                 if (parentValue === prop.conditional.value) {
@@ -468,6 +458,54 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
           }
           break;
         }
+
+        case 'textarea': {
+          const textarea = document.getElementById(controlId) as HTMLTextAreaElement;
+        
+          if (textarea) {
+            textarea.value = this.elementParameters[elementId][paramKey] || '';
+        
+            textarea.addEventListener('input', () => {
+              this.elementParameters[elementId][paramKey] = textarea.value;
+            });
+
+            textarea.addEventListener('wheel', (e) => {
+              const scrollTop = textarea.scrollTop;
+              const scrollHeight = textarea.scrollHeight;
+              const clientHeight = textarea.clientHeight;
+            
+              const isScrollingDown = e.deltaY > 0;
+              const isScrollingUp = e.deltaY < 0;
+            
+              const atTop = scrollTop === 0;
+              const atBottom = scrollTop + clientHeight >= scrollHeight - 1;
+            
+              const shouldStop = 
+                (isScrollingUp && !atTop) ||
+                (isScrollingDown && !atBottom);
+            
+              if (shouldStop) {
+                e.stopPropagation();
+              }
+            });
+            
+            const zoomIn = document.getElementById(`zoom-in-${elementId}-${paramKey}`);
+            const zoomOut = document.getElementById(`zoom-out-${elementId}-${paramKey}`);
+        
+            const maxFontSize = 13;  
+            const minFontSize = 7; 
+
+            const updateFontSize = (delta: number) => {
+              const currentSize = parseFloat(window.getComputedStyle(textarea).fontSize);
+              const newSize = Math.max(minFontSize, Math.min(maxFontSize, currentSize + delta));
+              textarea.style.fontSize = `${newSize}px`;
+            };
+        
+            zoomIn?.addEventListener('click', () => updateFontSize(1));
+            zoomOut?.addEventListener('click', () => updateFontSize(-1));
+          }
+          break;
+        }        
       }
     });
   }
@@ -730,52 +768,6 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
     }
   }
 
-  saveParameters(selectedElement: HTMLElement, nameElement: string): void {
-    const elementId = selectedElement.id;
-    if (!this.elementParameters[elementId]) {
-      this.elementParameters[elementId] = {};
-    }
-  
-    if (nameElement === 'CSV') {
-      this.handleCSVParameters(elementId);
-    } else if (nameElement === 'ClassificationMonitor') {
-      this.handleClassificationMonitorParameters(elementId);
-    } else if (nameElement === 'RegressionMonitor') {
-      this.handleRegressionMonitorParameters(elementId);
-    }
-  }
-
-  private handleCSVParameters(elementId: string): void {
-    const csvInput = document.getElementById('csv-upload') as HTMLInputElement;
-    if (csvInput?.files?.[0]) {
-      this.elementParameters[elementId].csvFileName = csvInput.files[0].name;
-    }
-  }
-  
-  private handleClassificationMonitorParameters(elementId: string): void {
-    const metricElements = document.querySelectorAll('.metric-item');
-    this.elementParameters[elementId].metrics = {};
-    
-    metricElements.forEach(el => {
-      const metricName = el.textContent?.trim();
-      if (metricName) {
-        this.elementParameters[elementId].metrics[metricName] = el.classList.contains('selected');
-      }
-    });
-  }
-
-  private handleRegressionMonitorParameters(elementId: string): void {
-    const metricElements = document.querySelectorAll('.metric-item');
-    this.elementParameters[elementId].metrics = {};
-    
-    metricElements.forEach(el => {
-      const metricName = el.textContent?.trim();
-      if (metricName) {
-        this.elementParameters[elementId].metrics[metricName] = el.classList.contains('selected');
-      }
-    });
-  }
-
   loadSections() {
     this.http.get<any>('assets/config.json').subscribe(
       (data:any) => {
@@ -873,8 +865,7 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
 
     const { displayName, icon } = nodeInfo;
   
-    // Ahora pasas la info al addElement
-    this.editorRef.addElement(this.draggedNodeType!, [dropX, dropY], displayName, );
+    this.editorRef.addElement(this.draggedNodeType!, [dropX, dropY], displayName, icon, );
   }
 
   getDropCoordinates(event: DragEvent): [number, number] {
@@ -911,7 +902,7 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
     return null;
   }
 
-  async saveScenario(): Promise<void> {
+  async getCurrentDesign(): Promise<any> {
     const nodes = this.editorRef.editor.getNodes();
   
     const savedElements = await Promise.all(nodes.map(async (node) => {
@@ -924,14 +915,14 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
           selected: col.selected
         }));
       }
-
+  
       const nodeView = this.editorRef.area.nodeViews.get(node.id);
       const position = nodeView?.position;
-
+  
       if (!position) {
         throw new Error(`No se pudo obtener la posición del nodo con ID: ${node.id}`);
       }
-
+  
       return {
         id: node.id,
         type,
@@ -944,22 +935,24 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
     }));
   
     const connections = this.editorRef.editor.getConnections();
-
+  
     const savedConnections = connections.map((conn: any) => ({
       startId: conn.source,
-      startOutput: conn.sourceOutput, // esto es 'train' o 'test' si el nodo es Splitter
+      startOutput: conn.sourceOutput,
       endId: conn.target,
       endInput: conn.targetInput
     }));
-
   
-    const design = {
+    return {
       elements: savedElements,
       connections: savedConnections,
     };
+  }
   
-    this.actualDesign = typeof design;
-  
+
+  async saveScenario(): Promise<void> {
+    const design = await this.getCurrentDesign();
+    
     if (this.isNewScenario) {
       const name = window.prompt('Please enter the name of the scenario:');
     
@@ -972,8 +965,9 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
               this.isNewScenario = false;
               this.scenarioService.setUnsavedChanges(false);
             },
-            error: () => {
-              alert('Unexpected error while saving the scenario.');
+            error: (error: any) => {
+              const errorMsg = error?.error?.error || 'Unexpected error';
+              alert('Error creating scenario: ' + JSON.stringify(errorMsg));
             }
           });
       } else {
@@ -987,8 +981,9 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
               alert('Scenario actualized correctly.');
               this.scenarioService.setUnsavedChanges(false);
             },
-            error: () => {
-              alert('Unexpected error while saving the scenario.');
+            error: (error: any) => {
+              const errorMsg = error?.error?.error || 'Unexpected error';
+            alert('Error editing scenario: ' + JSON.stringify(errorMsg));
             }
           });
       }
@@ -1005,13 +1000,14 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
           ? JSON.parse(this.scenario.design) 
           : this.scenario.design;
   
-        this.lastDesign = typeof this.scenario.design;
         await this.editorRef.clearEditor(); // 💥 Limpieza previa
         await this.loadElementsFromJSON(designData.elements);
         await this.loadConnectionsFromJSON(designData.connections || []);
       },
       (error: any) => {
         console.error('Error getting scenario:', error);
+        const errorMsg = error?.error?.error || 'Unexpected error';
+        alert('Error loading scenario: ' + JSON.stringify(errorMsg));
       }
     );
   }
@@ -1027,8 +1023,7 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
     
       const { displayName, icon } = nodeInfo;
     
-      // Ahora pasas la info al addElement
-      await this.editorRef.addElement(element.type, [element.position.left, element.position.top], displayName, element.id);
+      await this.editorRef.addElement(element.type, [element.position.left, element.position.top], displayName, icon, element.id);
       
       if (element.type === 'CSV' && element.parameters?.columns) {
         this.elementParameters[element.id] = {

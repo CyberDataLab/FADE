@@ -76,13 +76,13 @@ export async function createEditor(
     editor,
     area,
 
-    async addElement(type: string, position: [number, number], label?: string, id?: string) {
+    async addElement(type: string, position: [number, number], label?: string, icon?: string, id?: string) {
       const node = new ClassicPreset.Node(label ?? type);
       
       // 👉 Asigna ID personalizado si viene
       if (id) node.id = id;
     
-      (node as any).data = { type };
+      (node as any).data = { type, icon };
       (node as any).position = position;
     
       const input = new ClassicPreset.Input(socket);
@@ -92,7 +92,7 @@ export async function createEditor(
         node.addOutput(type, new ClassicPreset.Output(socket));
       } else if (type === "ClassificationMonitor" || type === "RegressionMonitor") {
         node.addInput(type, input);
-      } else if (type === "DataSplitter") {
+      } else if (type === "DataSplitter" || type === "CodeSplitter") {
         // 👉 Nodo especial: 1 entrada y 2 salidas con texto personalizable
     
         node.addInput("input", new ClassicPreset.Input(socket));

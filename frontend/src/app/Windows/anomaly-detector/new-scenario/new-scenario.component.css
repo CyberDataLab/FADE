@@ -3,7 +3,7 @@ html, body {
   padding: 0;
   height: 100%;
   width: 100%;
-  overflow: hidden; 
+  overflow: auto; 
   box-sizing: border-box;
 }
 
@@ -21,7 +21,7 @@ html, body {
   overflow: hidden;
   margin: 0;
   padding: 0;
-  position: fixed;
+  position: absolute;
   top: 0;
   left: 0;
 }
@@ -30,7 +30,8 @@ html, body {
   width: 250px;
   background-color: #30426a;
   color: white;
-  height: 100vh;
+  height: calc(100vh - 60px);
+  max-height: 100%;
   overflow: auto;
   margin: 0;
   padding: 0;
@@ -38,6 +39,7 @@ html, body {
   position: relative;  
   top: 60px;
   left: 0;
+  overflow-y: auto;
 }
 
 .section {
@@ -434,4 +436,17 @@ svg {
   padding: 8px;
   border: 1px solid #ddd;
   border-radius: 4px;
+}
+
+::-webkit-scrollbar {
+  width: 8px; 
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #2e44a48f;
+  border-radius: 10px; 
+}
+
+::-webkit-scrollbar-track {
+  background-color: rgba(245, 246, 250, 0.4); 
 }

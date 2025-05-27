@@ -3,6 +3,6 @@ export interface Scenario {
     name: string;
     design: object;      
     uuid: string;
-    status: 'Draft' | 'Running' | 'Finished';
+    status: 'Draft' | 'Running' | 'Finished' | 'Error';
     date: string;
 }

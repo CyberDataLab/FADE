@@ -1,135 +1,133 @@
 <div class="app-container">
   <div class="design-container">
-    <div class="menu">
-      <!-- Data Source -->
-      <div class="section">
-        <div class="section-header" (click)="toggleSection('dataSource')">
-          <i class="fa fa-database"></i>
-          <span>Data Source</span>
-        </div>
-        <div *ngIf="activeSections['dataSource']" class="sub-section">
-          <div class="option-grid">
-            <div *ngFor="let element of config.sections.dataSource.elements"
-                 class="option"
-                 draggable="true"
-                 [attr.data-type]="element.type"
-                 (dragstart)="onDragStart($event, false)">
-              <i [class]="element.icon"></i>
-              <span>{{element.displayName}}</span>
-            </div>
+    <!-- Data Source -->
+    <div class="section">
+      <div class="section-header" (click)="toggleSection('dataSource')">
+        <i class="fa fa-database"></i>
+        <span>Data Source</span>
+      </div>
+      <div *ngIf="activeSections['dataSource']" class="sub-section">
+        <div class="option-grid">
+          <div *ngFor="let element of config.sections.dataSource.elements"
+                class="option"
+                draggable="true"
+                [attr.data-type]="element.type"
+                (dragstart)="onDragStart($event, false)">
+            <i [class]="element.icon"></i>
+            <span>{{element.displayName}}</span>
           </div>
         </div>
       </div>
-
-      <!-- Data Processing -->
-      <div class="section">
-        <div class="section-header" (click)="toggleSection('dataProcessing')">
-          <i class="fa fa-cogs"></i>
-          <span>Data Processing</span>
-        </div>
-        <div *ngIf="activeSections['dataProcessing']" class="sub-section">
-          <div class="option-grid">
-            <div *ngFor="let element of config.sections.dataProcessing.elements"
-                 class="option"
-                 draggable="true"
-                 [attr.data-type]="element.type"
-                 (dragstart)="onDragStart($event, false)">
-              <i [class]="element.icon"></i>
-              <span>{{element.displayName}}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Data Model -->
-      <div class="section">
-        <div class="section-header" (click)="toggleSection('dataModel')">
-          <i class="fa fa-project-diagram"></i>
-          <span>Data Model</span>
-        </div>
-        <div *ngIf="activeSections['dataModel']" class="sub-section">
-          <!-- Classification -->
-          <div class="sub-category">
-            <div class="sub-category-header" (click)="toggleSubSection('classification')">
-              <i class="fa fa-check-circle"></i>
-              <span>Classification</span>
-            </div>
-            <div *ngIf="activeSubSections['classification']" class="sub-section">
-              <div class="option-grid">
-                <div *ngFor="let element of config.sections.dataModel.classification"
-                    class="option"
-                    draggable="true"
-                    [attr.data-type]="element.type"
-                    (dragstart)="onDragStart($event, false)">
-                  <i [class]="element.icon"></i>
-                  <span>{{element.displayName}}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Regression -->
-          <div class="sub-category">
-            <div class="sub-category-header" (click)="toggleSubSection('regression')">
-              <i class="fa fa-check-circle"></i>
-              <span>Regression</span>
-            </div>
-            <div *ngIf="activeSubSections['regression']" class="sub-section">
-              <div class="option-grid">
-                <div *ngFor="let element of config.sections.dataModel.regression"
-                    class="option"
-                    draggable="true"
-                    [attr.data-type]="element.type"
-                    (dragstart)="onDragStart($event, false)">
-                  <i [class]="element.icon"></i>
-                  <span>{{element.displayName}}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Anomaly Detection -->
-          <div class="sub-category">
-            <div class="sub-category-header" (click)="toggleSubSection('anomalyDetection')">
-              <i class="fa fa-check-circle"></i>
-              <span>Anomaly Detection</span>
-            </div>
-            <div *ngIf="activeSubSections['anomalyDetection']" class="sub-section">
-              <div class="option-grid">
-                <div *ngFor="let element of config.sections.dataModel.anomalyDetection"
-                    class="option"
-                    draggable="true"
-                    [attr.data-type]="element.type"
-                    (dragstart)="onDragStart($event, false)">
-                  <i [class]="element.icon"></i>
-                  <span>{{element.displayName}}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          <!-- Monitoring -->
-          <div class="sub-category">
-            <div class="sub-category-header" (click)="toggleSubSection('monitoring')">
-              <i class="fa fa-check-circle"></i>
-              <span>Monitoring</span>
-            </div>
-            <div *ngIf="activeSubSections['monitoring']" class="sub-section">
-              <div class="option-grid">
-                <div *ngFor="let element of config.sections.dataModel.monitoring"
-                    class="option"
-                    draggable="true"
-                    [attr.data-type]="element.type"
-                    (dragstart)="onDragStart($event, false)">
-                  <i [class]="element.icon"></i>
-                  <span>{{element.displayName}}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>     
     </div>
+
+    <!-- Data Processing -->
+    <div class="section">
+      <div class="section-header" (click)="toggleSection('dataProcessing')">
+        <i class="fa fa-cogs"></i>
+        <span>Data Processing</span>
+      </div>
+      <div *ngIf="activeSections['dataProcessing']" class="sub-section">
+        <div class="option-grid">
+          <div *ngFor="let element of config.sections.dataProcessing.elements"
+                class="option"
+                draggable="true"
+                [attr.data-type]="element.type"
+                (dragstart)="onDragStart($event, false)">
+            <i [class]="element.icon"></i>
+            <span>{{element.displayName}}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Data Model -->
+    <div class="section">
+      <div class="section-header" (click)="toggleSection('dataModel')">
+        <i class="fa fa-project-diagram"></i>
+        <span>Data Model</span>
+      </div>
+      <div *ngIf="activeSections['dataModel']" class="sub-section">
+        <!-- Classification -->
+        <div class="sub-category">
+          <div class="sub-category-header" (click)="toggleSubSection('classification')">
+            <i class="fa fa-check-circle"></i>
+            <span>Classification</span>
+          </div>
+          <div *ngIf="activeSubSections['classification']" class="sub-section">
+            <div class="option-grid">
+              <div *ngFor="let element of config.sections.dataModel.classification"
+                  class="option"
+                  draggable="true"
+                  [attr.data-type]="element.type"
+                  (dragstart)="onDragStart($event, false)">
+                <i [class]="element.icon"></i>
+                <span>{{element.displayName}}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Regression -->
+        <div class="sub-category">
+          <div class="sub-category-header" (click)="toggleSubSection('regression')">
+            <i class="fa fa-check-circle"></i>
+            <span>Regression</span>
+          </div>
+          <div *ngIf="activeSubSections['regression']" class="sub-section">
+            <div class="option-grid">
+              <div *ngFor="let element of config.sections.dataModel.regression"
+                  class="option"
+                  draggable="true"
+                  [attr.data-type]="element.type"
+                  (dragstart)="onDragStart($event, false)">
+                <i [class]="element.icon"></i>
+                <span>{{element.displayName}}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Anomaly Detection -->
+        <div class="sub-category">
+          <div class="sub-category-header" (click)="toggleSubSection('anomalyDetection')">
+            <i class="fa fa-check-circle"></i>
+            <span>Anomaly Detection</span>
+          </div>
+          <div *ngIf="activeSubSections['anomalyDetection']" class="sub-section">
+            <div class="option-grid">
+              <div *ngFor="let element of config.sections.dataModel.anomalyDetection"
+                  class="option"
+                  draggable="true"
+                  [attr.data-type]="element.type"
+                  (dragstart)="onDragStart($event, false)">
+                <i [class]="element.icon"></i>
+                <span>{{element.displayName}}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Monitoring -->
+        <div class="sub-category">
+          <div class="sub-category-header" (click)="toggleSubSection('monitoring')">
+            <i class="fa fa-check-circle"></i>
+            <span>Monitoring</span>
+          </div>
+          <div *ngIf="activeSubSections['monitoring']" class="sub-section">
+            <div class="option-grid">
+              <div *ngFor="let element of config.sections.dataModel.monitoring"
+                  class="option"
+                  draggable="true"
+                  [attr.data-type]="element.type"
+                  (dragstart)="onDragStart($event, false)">
+                <i [class]="element.icon"></i>
+                <span>{{element.displayName}}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>     
   </div>
 
   <div class="workspace" >
@@ -138,7 +136,7 @@
         (dragover)="onDragOver($event)" 
         (drop)="onDrop($event)">
     </div>
-    <div id="selection-box" *ngIf="isSelecting"></div>
+    <div id="selection-box"></div>
   </div>
   <div #configContainer class="config-container">
     <button class="close-btn" (click)="closeConfig()">X</button>

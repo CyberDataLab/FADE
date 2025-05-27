@@ -140,7 +140,12 @@ html, body {
 }
 
 .finished {
-  color: #28a745;
+  color: #1b8e36 !important;
+  font-weight: bold;
+}
+
+.error {
+  color: #a92424 !important;
   font-weight: bold;
 }
 

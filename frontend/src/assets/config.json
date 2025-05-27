@@ -225,7 +225,39 @@
               "step": 1
             }
           ]
-        }
+        },
+        {
+          "type": "CodeProcessing",
+          "displayName": "Custom Code Processing",
+          "icon": "fa fa-code",
+          "category": "preprocessing",
+          "appliesTo": "generic",
+          "properties": [
+            {
+              "name": "code",
+              "label": "Python Code",
+              "type": "textarea",
+              "default": "",
+              "placeholder": "Write Python transformation code here..."
+            }
+          ]
+        },
+        {
+          "type": "CodeSplitter",
+          "displayName": "Custom Code Splitter",
+          "icon": "fa fa-code",
+          "category": "preprocessing",
+          "appliesTo": "generic",
+          "properties": [
+            {
+              "name": "code",
+              "label": "Python Code",
+              "type": "textarea",
+              "default": "",
+              "placeholder": "Write Python splitter code here..."
+            }
+          ]
+        }               
       ]
     },
     "dataModel": {

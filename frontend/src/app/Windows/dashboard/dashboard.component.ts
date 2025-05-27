@@ -1,11 +1,12 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router, RouterModule } from '@angular/router';
+import { Router, RouterModule, NavigationEnd } from '@angular/router';
 import { AuthenticationService } from '../../Authentication/authentication.service';
 import { Location } from '@angular/common';
 import { ScenarioService } from '../scenario.service';
 import { ToolbarService } from '../anomaly-detector/new-scenario/toolbar.service';
-import { Subscription } from 'rxjs';
+import { filter, Subscription } from 'rxjs';
+
 
 @Component({
     selector: 'app-dashboard',
@@ -33,6 +34,24 @@ export class DashboardComponent {
         this.saveButtonVisible = visible;
       }
     );
+  
+    this.updateSelectedOptionFromUrl(this.router.url);
+  
+    this.router.events.pipe(
+      filter(event => event instanceof NavigationEnd)
+    ).subscribe((event: NavigationEnd) => {
+      this.updateSelectedOptionFromUrl(event.urlAfterRedirects);
+    });
+  }
+  
+  private updateSelectedOptionFromUrl(url: string): void {
+    const parts = url.split('/');
+    const index = parts.indexOf('dashboard');
+    if (index >= 0 && parts.length > index + 1) {
+      this.selectedOption = parts[index + 1];
+    } else {
+      this.selectedOption = '';
+    }
   }
 
   navigateTo(path: string): void {

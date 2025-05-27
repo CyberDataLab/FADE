@@ -231,7 +231,9 @@ export class AnomalyDetectorComponent {
         },
         error: (error: any) => {
           console.error('Error running scenario:', error);
-          alert('Error running scenario');
+          const errorMsg = error?.error?.error || 'Unexpected error';
+          alert('Error running scenario: ' + JSON.stringify(errorMsg));
+          this.getScenarios();
         }
       });
     }
