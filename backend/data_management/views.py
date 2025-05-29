@@ -420,7 +420,6 @@ def verify_sync_data(request):
     sync.verify_sync_data()
     return JsonResponse({'message': 'Sync data verified'})
 
-# Views for Scenarios management
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 @parser_classes([MultiPartParser])
@@ -431,63 +430,64 @@ def create_scenario(request):
 
     logger.info(request.data)
 
-    csv_file = request.FILES.get('csv_file')
-    network_file = request.FILES.get('network_file')
+    csv_files = request.FILES.getlist('csv_files')
+    logger.info("CSV files received: %s", [f.name for f in csv_files])
+    network_files = request.FILES.getlist('network_files')
 
-    logger.info(network_file)
-    if not csv_file and not network_file:
+    if not csv_files and not network_files:
         return JsonResponse({"error": "At least one CSV or PCAP file is required."}, status=status.HTTP_400_BAD_REQUEST)
 
-    try:
-        if csv_file:
-            existing_file = File.objects.filter(name=csv_file.name).first()
+    saved_files = []
 
+    try:
+        for csv_file in csv_files:
+            existing_file = File.objects.filter(name=csv_file.name).first()
             if existing_file:
                 existing_file.references += 1
                 existing_file.save()
-                file_instance = existing_file
+                saved_files.append(existing_file)
             else:
                 csv_content = csv_file.read().decode('utf-8')
                 csv_reader = csv.reader(StringIO(csv_content))
-                entry_count = sum(1 for _ in csv_reader) - 1  
+                entry_count = sum(1 for _ in csv_reader) - 1
 
-                file_instance = File.objects.create(
+                new_file = File.objects.create(
                     name=csv_file.name,
                     file_type='csv',
                     entry_count=entry_count,
                     content=ContentFile(csv_content.encode('utf-8'), name=csv_file.name),
-                    references=1  
+                    references=1
                 )
+                saved_files.append(new_file)
 
-        if network_file:
+        for network_file in network_files:
             existing_file = File.objects.filter(name=network_file.name).first()
-
             if existing_file:
                 existing_file.references += 1
                 existing_file.save()
-                file_instance = existing_file
+                saved_files.append(existing_file)
             else:
                 network_content = network_file.read()
-
-                file_instance = File.objects.create(
+                new_file = File.objects.create(
                     name=network_file.name,
                     file_type='pcap',
                     entry_count=0,
                     content=ContentFile(network_content, name=network_file.name),
-                    references=1  
+                    references=1
                 )
+                saved_files.append(new_file)
 
     except Exception as e:
-        return JsonResponse({"error": f"Error while processing the CSV file: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+        return JsonResponse({"error": f"Error while processing the files: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
 
-    data['file'] = file_instance.id
     serializer = ScenarioSerializer(data=data)
-
     if serializer.is_valid():
-        serializer.save(user=user)
-        return JsonResponse(serializer.data, status=status.HTTP_201_CREATED)
+        scenario_instance = serializer.save(user=user)
+        scenario_instance.files.set(saved_files)
+        return JsonResponse(ScenarioSerializer(scenario_instance).data, status=status.HTTP_201_CREATED)
 
     return JsonResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -639,8 +639,8 @@ def put_scenario_by_uuid(request, uuid):
         scenario = Scenario.objects.get(uuid=uuid, user=user)
 
         design_json = request.POST.get('design')
-        csv_file = request.FILES.get('csv_file')  
-        network_file = request.FILES.get('network_file')
+        csv_files = request.FILES.getlist('csv_files')
+        network_files = request.FILES.getlist('network_files')
 
         if not design_json:
             return JsonResponse({'error': 'Design field is required'}, status=status.HTTP_400_BAD_REQUEST)
@@ -652,72 +652,64 @@ def put_scenario_by_uuid(request, uuid):
 
         scenario.design = design
 
-        if csv_file:
-            current_file = scenario.file  
+        # Gestionar archivos actuales
+        current_files = list(scenario.files.all())
 
-            if not current_file or csv_file.name != current_file.name:
-                existing_file = File.objects.filter(name=csv_file.name).first()
+        updated_files = []
 
-                if current_file:
-                    current_file.references -= 1
-                    if current_file.references == 0:
-                        file_path = os.path.join('files', current_file.name) 
-                        if os.path.exists(file_path):  
-                            os.remove(file_path)
-                        current_file.delete()
-                    else:
-                        current_file.save()
+        # Procesar archivos CSV nuevos
+        for csv_file in csv_files:
+            existing = File.objects.filter(name=csv_file.name).first()
+            if existing:
+                existing.references += 1
+                existing.save()
+                updated_files.append(existing)
+            else:
+                csv_content = csv_file.read().decode('utf-8')
+                csv_reader = csv.reader(StringIO(csv_content))
+                entry_count = sum(1 for _ in csv_reader) - 1
 
-                if existing_file:
-                    existing_file.references += 1
-                    existing_file.save()
-                    scenario.file = existing_file 
+                new_file = File.objects.create(
+                    name=csv_file.name,
+                    file_type='csv',
+                    entry_count=entry_count,
+                    content=ContentFile(csv_content.encode('utf-8'), name=csv_file.name),
+                    references=1
+                )
+                updated_files.append(new_file)
+
+        # Procesar archivos PCAP nuevos
+        for network_file in network_files:
+            existing = File.objects.filter(name=network_file.name).first()
+            if existing:
+                existing.references += 1
+                existing.save()
+                updated_files.append(existing)
+            else:
+                network_content = network_file.read()
+                new_file = File.objects.create(
+                    name=network_file.name,
+                    file_type='pcap',
+                    entry_count=0,
+                    content=ContentFile(network_content, name=network_file.name),
+                    references=1
+                )
+                updated_files.append(new_file)
+
+        # Eliminar referencias anteriores que ya no están en los nuevos archivos
+        for old_file in current_files:
+            if old_file not in updated_files:
+                old_file.references -= 1
+                if old_file.references <= 0:
+                    file_path = os.path.join(settings.MEDIA_ROOT, old_file.content.name)
+                    if os.path.exists(file_path):
+                        os.remove(file_path)
+                    old_file.delete()
                 else:
-                    csv_content = csv_file.read().decode('utf-8')
-                    csv_reader = csv.reader(StringIO(csv_content))
-                    entry_count = sum(1 for _ in csv_reader) - 1 
+                    old_file.save()
 
-                    new_file = File.objects.create(
-                        name=csv_file.name,
-                        file_type='csv',
-                        entry_count=entry_count,
-                        content=ContentFile(csv_content.encode('utf-8'), name=csv_file.name),
-                        references=1
-                    )
-
-                    scenario.file = new_file
-
-        if network_file:
-            current_file = scenario.file
-
-            if not current_file or network_file.name != current_file.name:
-                existing_file = File.objects.filter(name=network_file.name).first()
-
-                if current_file:
-                    current_file.references -= 1
-                    if current_file.references == 0:
-                        file_path = os.path.join('files', current_file.name)
-                        if os.path.exists(file_path):
-                            os.remove(file_path)
-                        current_file.delete()
-                    else:
-                        current_file.save()
-
-                if existing_file:
-                    existing_file.references += 1
-                    existing_file.save()
-                    scenario.file = existing_file
-                else:
-                    network_content = network_file.read()
-
-                    new_file = File.objects.create(
-                        name=network_file.name,
-                        file_type='pcap',
-                        entry_count=0,
-                        content=ContentFile(network_content, name=network_file.name),
-                        references=1
-                    )
-                    scenario.file = new_file
+        # Asociar nuevos archivos al escenario
+        scenario.files.set(updated_files)
 
         serializer = ScenarioSerializer(instance=scenario, data={'design': design}, partial=True)
         if serializer.is_valid():
@@ -731,6 +723,7 @@ def put_scenario_by_uuid(request, uuid):
         return JsonResponse({'error': 'Scenario not found'}, status=status.HTTP_404_NOT_FOUND)
 
 
+
 import fnmatch
 
 @api_view(['DELETE'])
@@ -741,22 +734,25 @@ def delete_scenario_by_uuid(request, uuid):
     try:
         scenario = Scenario.objects.get(uuid=uuid, user=user.id)
 
-        file_instance = scenario.file
-        if file_instance:
-            file_instance.references -= 1 
-            if file_instance.references == 0:
-                file_path = os.path.join('files', file_instance.name)
+        # Procesar todos los archivos asociados (csv y pcap)
+        for file_instance in scenario.files.all():
+            file_instance.references -= 1
+            if file_instance.references <= 0:
+                # Construir ruta del archivo
+                file_path = os.path.join(settings.MEDIA_ROOT, file_instance.content.name)
                 if os.path.exists(file_path):
                     os.remove(file_path)
                 file_instance.delete()
             else:
                 file_instance.save()
 
+        # Eliminar métrica y detector si existe
         anomaly_detector = AnomalyDetector.objects.filter(scenario=scenario).first()
         if anomaly_detector:
             ClassificationMetric.objects.filter(detector=anomaly_detector).delete()
             anomaly_detector.delete()
 
+        # Eliminar modelos almacenados
         base_path = os.path.join(settings.BASE_DIR, 'models_storage')
         scenario_uuid = str(scenario.uuid)
 
@@ -770,12 +766,14 @@ def delete_scenario_by_uuid(request, uuid):
                 except Exception as e:
                     logger.warning(f"No se pudo eliminar {model_path}: {str(e)}")
 
+        # Eliminar el escenario
         scenario.delete()
 
         return JsonResponse({'message': 'Scenario and related data deleted successfully'}, status=status.HTTP_200_OK)
 
     except Scenario.DoesNotExist:
         return JsonResponse({'error': 'Scenario not found or you do not have permission to delete it'}, status=status.HTTP_404_NOT_FOUND)
+
 
 
 @api_view(['PATCH'])
@@ -1042,8 +1040,8 @@ def execute_scenario(anomaly_detector, scenario, design):
                 logger.info("Definición del elemento: %s", element_def)
                 if not element_def:
                     return {"error": f"Tipo de elemento desconocido: {el_type}"}
-                
                 cls = import_class(element_def["class"])
+                
                 category = element_def.get("category", "")
                 
                 if category == "preprocessing":
@@ -1104,10 +1102,11 @@ def execute_scenario(anomaly_detector, scenario, design):
                 elif category == "model" and input_data is not None:
                     logger.info("Entrenando modelo")
                     model = cls(**extract_parameters(element_def["properties"], params))
-                    logger.info("Parámetros: %s", model.get_params())
+                    logger.info(model.get_params())
 
-                    if element_def.get("model_type") == "classification":
-                        logger.info("Modelo clasificación")
+                    if element_def.get("model_type") in ["classification", "regression"]:
+                        logger.info(f"Entrenamiento modelo {element_def.get('model_type')}")
+
                         if splitter or code_splitter:
                             for conn in connections:
                                 if conn["endId"] == element_id:
@@ -1116,87 +1115,32 @@ def execute_scenario(anomaly_detector, scenario, design):
 
                                     if output_type == "train":
                                         X_train, y_train = data_storage[source_id]["train"]
-                                        logger.info(X_train.shape)
-                                        logger.info(y_train.shape)
+                                        logger.info(X_train)
+                                        logger.info(y_train)
+
                                         model.fit(X_train, y_train)
                                         data_storage[element_id] = model
 
                                     elif output_type == "test":
                                         X_test, y_test = data_storage[source_id]["test"]
+                                        logger.info(X_test)
+                                        logger.info(y_test)
                                         trained_model = data_storage.get(element_id)
+
                                         if trained_model:
-                                            logger.info(X_test.shape)
-                                            logger.info(y_test.shape)
                                             y_pred = trained_model.predict(X_test)
                                             models[element_id] = {
                                                 "type": el_type,
                                                 "y_test": y_test,
                                                 "y_pred": y_pred
                                             }
-                            
+
                         else:
                             logger.info("Entrenando modelo sin splitter - 80/20")
                             X = input_data.iloc[:, :-1]
                             y = input_data.iloc[:, -1]
-                            X_train, X_test, y_train, y_test = train_test_split(
-                                X, y, test_size=0.2, random_state=42
-                            )
-                            logger.info(X_train)
-                            logger.info(X_train.shape)
-                            logger.info(y_train.shape)
-                            logger.info(X_test.shape)
-                            logger.info(y_test.shape)
+                            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-                            model.fit(X_train, y_train)
-                            y_pred = model.predict(X_test)
-                            
-                            models[element_id] = {
-                                "type": el_type,
-                                "y_test": y_test,
-                                "y_pred": y_pred
-                            }
-
-                    elif element_def.get("model_type") == "regression":
-                        logger.info("Modelo regresión")
-                        if splitter or code_splitter:
-                            for conn in connections:
-                                if conn["endId"] == element_id:
-                                    source_id = conn["startId"]
-                                    output_type = conn.get("startOutput")
-
-                                    if output_type == "train":
-                                        X_train, y_train = data_storage[source_id]["train"]
-                                        logger.info(X_train.shape)
-                                        logger.info(y_train.shape)
-                                        model.fit(X_train, y_train)
-                                        data_storage[element_id] = model
-
-                                    elif output_type == "test":
-                                        X_test, y_test = data_storage[source_id]["test"]
-                                        trained_model = data_storage.get(element_id)
-                                        if trained_model:
-                                            logger.info(X_test.shape)
-                                            logger.info(y_test.shape)
-                                            y_pred = trained_model.predict(X_test)
-                                            models[element_id] = {
-                                                "type": el_type,
-                                                "y_test": y_test,
-                                                "y_pred": y_pred
-                                            }
-                        else:
-                            logger.info("Entrenando modelo sin splitter - 80/20")
-                            X = input_data.iloc[:, :-1]
-                            y = input_data.iloc[:, -1]
-        
-                            X_train, X_test, y_train, y_test = train_test_split(
-                                X, y, test_size=0.2, random_state=42
-                            )
-                        
-                            logger.info(X_train.shape)
-                            logger.info(y_train.shape)
-                            logger.info(X_test.shape)
-                            logger.info(y_test.shape)
-                            
                             model.fit(X_train, y_train)
                             y_pred = model.predict(X_test)
 

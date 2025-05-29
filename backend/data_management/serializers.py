@@ -1,17 +1,19 @@
 from rest_framework import serializers
 from .models import Scenario, File, AnomalyDetector, ClassificationMetric, RegressionMetric,AnomalyMetric
 
-class ScenarioSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Scenario
-        fields = ['id', 'name', 'user', 'design', 'uuid', 'status', 'date', 'file']
-        extra_kwargs = {'user': {'read_only': True}}
-
 class FileSerializer(serializers.ModelSerializer):
     class Meta:
         model = File
         fields = ['id', 'name', 'file_type', 'entry_count', 'content', 'references']
-        extra_kwargs = {'user': {'read_only': True}}
+        extra_kwargs = {'user': {'read_only': True}}  # Esto solo si File tiene un campo user
+
+class ScenarioSerializer(serializers.ModelSerializer):
+    files = FileSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Scenario
+        fields = ['id', 'name', 'user', 'design', 'uuid', 'status', 'date', 'files']
+
 
 class AnomalyDetectorSerializer(serializers.ModelSerializer):
     class Meta:

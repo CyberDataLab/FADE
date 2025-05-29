@@ -93,12 +93,12 @@ class File(models.Model):
         
 class Scenario(models.Model):
     name = models.CharField(max_length=255, null=False, blank=True, default="Scenario name")
-    user = models.ForeignKey('accounts.CustomUser', on_delete=models.CASCADE) 
+    user = models.ForeignKey('accounts.CustomUser', on_delete=models.CASCADE)
     design = models.JSONField()
     uuid = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     status = models.CharField(max_length=255, default='Draft')
     date = models.DateTimeField(auto_now_add=True)
-    file = models.ForeignKey(File, on_delete=models.CASCADE, null=True, blank=True)  
+    files = models.ManyToManyField('File', blank=True)  # Cambiado de file -> files
 
     class Meta:
         db_table = "Scenario"

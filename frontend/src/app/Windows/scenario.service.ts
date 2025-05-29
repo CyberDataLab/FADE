@@ -98,42 +98,63 @@ export class ScenarioService {
     );
   }
 
-  saveScenario(name: string, design: any, csvFile?: File, networkFile?:File): Observable<any> {
+  saveScenario(name: string, design: any, csvFiles?: File[], networkFiles?: File[]): Observable<any> {
     if (isPlatformBrowser(this.platformId)) {
       const formData = new FormData();
       formData.append('name', name);
       formData.append('design', JSON.stringify(design));
   
-      if (csvFile) {
-        formData.append('csv_file', csvFile);
+      let message = `📁 Files to upload:\n`;
+  
+      if (csvFiles && csvFiles.length > 0) {
+        message += `\n📄 CSV files:\n`;
+        csvFiles.forEach(file => {
+          message += ` - ${file.name}\n`;
+          formData.append('csv_files', file);
+        });
       }
-
-      if (networkFile) {
-        formData.append('network_file', networkFile);
+  
+      if (networkFiles && networkFiles.length > 0) {
+        message += `\n📡 Network files:\n`;
+        networkFiles.forEach(file => {
+          message += ` - ${file.name}\n`;
+          formData.append('network_files', file);
+        });
       }
+  
+      alert(message);  // <--- Mostrar todos los nombres antes de enviar
   
       return this.handleRequest(this.http.post(this.apiUrl + 'create/', formData, {
         headers: this.getAuthHeadersWithoutContentType(),
       }));
     }
+  
     return EMPTY;
   }
   
-  editScenario(uuid: string, design: any, csvFile?: File): Observable<any> {
+  
+  
+  editScenario(uuid: string, design: any, csvFiles?: File[], networkFiles?: File[]): Observable<any> {
     if (isPlatformBrowser(this.platformId)) {
       const formData = new FormData();
       formData.append('design', JSON.stringify(design));
   
-      if (csvFile) {
-        formData.append('csv_file', csvFile);
+      if (csvFiles && csvFiles.length > 0) {
+        csvFiles.forEach(file => formData.append('csv_files', file));
+      }
+  
+      if (networkFiles && networkFiles.length > 0) {
+        networkFiles.forEach(file => formData.append('network_files', file));
       }
   
       return this.handleRequest(this.http.put(`${this.apiUrl}put/${uuid}/`, formData, {
         headers: this.getAuthHeadersWithoutContentType(),
       }));
     }
+  
     return EMPTY;
   }
+  
 
   getScenarios(): Observable<any> {
     if (isPlatformBrowser(this.platformId)) {

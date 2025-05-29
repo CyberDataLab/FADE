@@ -599,7 +599,162 @@
               "min": 1
             }
           ]
-        }
+        },
+        {
+          "type": "CNNClassifier",
+          "displayName": "CNN Classifier",
+          "icon": "fa fa-brain",
+          "class_cpu": "tensorflow.keras.models.Sequential",
+          "category": "model",
+          "properties": [
+            {
+              "name": "conv_type",
+              "label": "Convolution Type",
+              "type": "select",
+              "default": "Conv1D",
+              "options": ["Conv1D", "Conv2D"]
+            },
+            {
+              "name": "num_conv_layers",
+              "label": "Number of Conv Layers",
+              "type": "number",
+              "default": 2,
+              "min": 1,
+              "max": 10
+            },
+            {
+              "name": "conv_layers",
+              "label": "Convolutional Layers",
+              "type": "repeat-group",
+              "repeat": "num_conv_layers",
+              "template": [
+                {
+                  "name": "filters",
+                  "label": "Filters",
+                  "type": "number",
+                  "default": 32,
+                  "min": 1
+                },
+                {
+                  "name": "kernel_size",
+                  "label": "Kernel Size",
+                  "type": "number",
+                  "default": 3,
+                  "min": 1
+                },
+                {
+                  "name": "activation",
+                  "label": "Activation",
+                  "type": "select",
+                  "default": "relu",
+                  "options": ["relu", "sigmoid", "tanh", "linear"]
+                },
+                {
+                  "name": "use_pooling",
+                  "label": "Use Pooling",
+                  "type": "conditional-select",
+                  "default": "true",
+                  "options": ["true", "false"]
+                },
+                {
+                  "name": "pool_type",
+                  "label": "Pooling Type",
+                  "type": "select",
+                  "default": "max",
+                  "options": ["max", "average"],
+                  "conditional": {
+                    "dependsOn": "use_pooling",
+                    "value": "true"
+                  }
+                },
+                {
+                  "name": "pool_size",
+                  "label": "Pool Size",
+                  "type": "number",
+                  "default": 2,
+                  "min": 1,
+                  "conditional": {
+                    "dependsOn": "use_pooling",
+                    "value": "true"
+                  }
+                },
+                {
+                  "name": "use_dropout",
+                  "label": "Use Dropout",
+                  "type": "conditional-select",
+                  "default": "false",
+                  "options": ["true", "false"]
+                },
+                {
+                  "name": "dropout_rate",
+                  "label": "Dropout Rate",
+                  "type": "number",
+                  "default": 0.5,
+                  "min": 0.0,
+                  "max": 1.0,
+                  "step": 0.05,
+                  "conditional": {
+                    "dependsOn": "use_dropout",
+                    "value": "true"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "use_flatten",
+              "label": "Add Flatten Layer",
+              "type": "conditional-select",
+              "default": "true",
+              "options": ["true", "false"]
+            },
+            {
+              "name": "dense_units",
+              "label": "Dense Layer Units (after Flatten)",
+              "type": "number",
+              "default": 128,
+              "min": 1,
+              "conditional": {
+                "dependsOn": "use_flatten",
+                "value": "true"
+              }
+            },
+            {
+              "name": "output_activation",
+              "label": "Output Activation",
+              "type": "select",
+              "default": "softmax",
+              "options": ["softmax", "sigmoid"]
+            },
+            {
+              "name": "epochs",
+              "label": "Epochs",
+              "type": "number",
+              "default": 50,
+              "min": 1
+            },
+            {
+              "name": "batch_size",
+              "label": "Batch Size",
+              "type": "number",
+              "default": 32,
+              "min": 1
+            },
+            {
+              "name": "optimizer",
+              "label": "Optimizer",
+              "type": "select",
+              "default": "adam",
+              "options": ["adam", "sgd", "rmsprop"]
+            },
+            {
+              "name": "loss",
+              "label": "Loss Function",
+              "type": "select",
+              "default": "categorical_crossentropy",
+              "options": ["categorical_crossentropy", "binary_crossentropy", "mse"]
+            }
+          ]
+        }        
       ],
       "regression": [
         {

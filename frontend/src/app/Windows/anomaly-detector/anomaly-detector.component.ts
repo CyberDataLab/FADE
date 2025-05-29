@@ -85,7 +85,8 @@ export class AnomalyDetectorComponent {
     if (input?.files?.length) {
       const files = Array.from(input.files);
       const jsonFile = files.find(file => file.name.endsWith('.json'));
-      const csvFile = files.find(file => file.name.endsWith('.csv'));
+      const csvFiles = files.filter(file => file.name.endsWith('.csv'));
+      const networkFiles = files.filter(file => file.name.endsWith('.pcap'));
   
       if (!jsonFile) {
         alert('A JSON file must be selected.');
@@ -97,44 +98,60 @@ export class AnomalyDetectorComponent {
       reader.onload = async (e: ProgressEvent<FileReader>) => {
         try {
           const design = JSON.parse(e.target?.result as string);
+  
           const csvElements = design.elements.filter((el: any) => el.type === "CSV");
-          const expectedCsvName = design.elements.find((el: any) => el.type === "CSV")?.parameters?.csvFileName;
+          const networkElements = design.elements.filter((el: any) => el.type === "Network");
 
-          if (csvElements.length > 0) {
-            if (!csvFile) {
-                alert(`The corresponding CSV file must be selected: ${expectedCsvName}`);
-                return;
-            }
+          alert(JSON.stringify(networkElements));
+  
+          const expectedCsvNames = csvElements.map((el: any) => el.parameters?.csvFileName).filter(Boolean);
+          const expectedNetworkNames = networkElements.map((el: any) => el.parameters?.networkFileName).filter(Boolean);
 
-            if (csvFile.name !== expectedCsvName) {
-                alert(`The name of the selected CSV file (${csvFile.name}) does not match the expected name (${expectedCsvName}).`);
-                return;
-            }
+          alert(JSON.stringify(expectedNetworkNames));
+  
+          const missingCsv = expectedCsvNames.filter((name: string) => !csvFiles.some(file => file.name === name));
+          const missingPcap = expectedNetworkNames.filter((name: string) => !networkFiles.some(file => file.name === name));
+
+  
+          if (missingCsv.length || missingPcap.length) {
+            const msg = [
+              missingCsv.length ? `Missing CSV files: ${missingCsv.join(', ')}` : '',
+              missingPcap.length ? `Missing PCAP files: ${missingPcap.join(', ')}` : ''
+            ].filter(Boolean).join('\n');
+            alert(msg);
+            return;
           }
-    
+  
+          const matchedCsvFiles = expectedCsvNames.map((name: string) => csvFiles.find(f => f.name === name)!);
+          const matchedNetworkFiles = expectedNetworkNames.map((name: string) => networkFiles.find(f => f.name === name)!);
+
+          alert(JSON.stringify(matchedNetworkFiles));
+  
           const scenarioName = jsonFile.name.substring(0, jsonFile.name.lastIndexOf('.'));
-
-          this.scenarioService.saveScenario(scenarioName, design, csvFile)
+  
+          this.scenarioService.saveScenario(scenarioName, design, matchedCsvFiles, matchedNetworkFiles)
             .subscribe({
-                next: () => {
-                    this.getScenarios();
-                    alert('Scenario successfully imported.');
-                },
-                error: () => {
-                    alert('Unexpected error while importing the scenario.');
-                }
+              next: () => {
+                this.getScenarios();
+                alert('Scenario successfully imported.');
+              },
+              error: () => {
+                alert('Unexpected error while importing the scenario.');
+              }
             });
-
+  
         } catch (err) {
-            alert('Error loading the scenario. Invalid format.');
+          alert('Error loading the scenario. Invalid format.');
         }
       };
-
+  
       reader.readAsText(jsonFile);
     }
-
+  
     input.value = '';
   }
+  
+  
 
   viewTimelineAD(uuid: string) {
     this.router.navigate([`/dashboard/anomaly-detector/${uuid}/timeline-ad`]);

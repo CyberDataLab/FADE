@@ -71,8 +71,8 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
 
   scenarioId: string | null = null;
 
-  selectedCSVFile: File | null = null;
-  selectedNetworkFile: File | null = null;
+  selectedCSVFiles: File[] = [];
+  selectedNetworkFiles: File[] = [];
 
   private elementParameters: { [elementId: string]: any } = {};
   private currentCSVElementId: string | null = null;
@@ -218,7 +218,22 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
   
   private generateConfigHTML(config: any, elementId: string): string {
     let html = `<h3 style="margin-bottom: 30px;">${config.displayName} Configuration</h3>`;
-    
+  
+    // 🔽 Inicializar parámetros por defecto ANTES de renderizar
+    if (!this.elementParameters[elementId]) {
+      this.elementParameters[elementId] = {};
+      config.properties.forEach((prop: any) => {
+        if (!prop.conditional) {
+          this.elementParameters[elementId][prop.name] = prop.default;
+        } else {
+          const parentValue = this.elementParameters[elementId][prop.conditional.dependsOn];
+          if (parentValue === prop.conditional.value) {
+            this.elementParameters[elementId][prop.name] = prop.default;
+          }
+        }
+      });
+    }
+  
     if (!config.properties || !Array.isArray(config.properties)) {
       console.error(`Configuración inválida para ${config.type}`);
       return html + '<p>Error de configuración</p>';
@@ -229,12 +244,13 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
         console.warn(`Propiedad inválida en ${config.type}:`, prop);
         return;
       }
-      
+  
       html += this.generatePropertyHTML(prop, elementId);
     });
   
     return html;
   }
+  
   
   private generatePropertyHTML(prop: any, elementId: string): string {
     let html = '';
@@ -331,11 +347,55 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
               >${formattedValue}</textarea>
             </div>`;
           break;
+        case 'repeat-group': {
+          const containerId = `${prop.name}-container-${elementId}`;
+          html += `<div id="${containerId}">`;
+        
+          const repeatCount = this.elementParameters[elementId]?.[prop.repeat] || prop.default || 1;
+          for (let i = 0; i < repeatCount; i++) {
+            html += `<fieldset style="border: 1px solid #ccc; padding: 10px; margin-bottom: 10px;">
+                      <legend>${prop.label} #${i + 1}</legend>`;
+            for (const subProp of prop.template) {
+              const subPropClone = { ...subProp, name: `${prop.name}_${i}_${subProp.name}` };
+              html += this.generatePropertyHTML(subPropClone, elementId);
+            }
+            html += `</fieldset>`;
+          }
+        
+          html += `</div>`;
+          break;
+      }
     }
 
     return html;
   }
 
+  private evaluateInitialConditionalVisibility(config: any, elementId: string): void {
+    config.properties.forEach((prop: any) => {
+      if (prop.conditional) {
+        const dependsOn = prop.conditional.dependsOn;
+        const dependsValue = prop.conditional.value;
+  
+        // Detectar si estamos en un repeat-group por el nombre
+        const repeatMatch = prop.name.match(/^(.+?)_(\d+)_/);
+        let resolvedDependsOn = dependsOn;
+  
+        if (repeatMatch) {
+          const prefix = repeatMatch[1];
+          const index = repeatMatch[2];
+          resolvedDependsOn = `${prefix}_${index}_${dependsOn}`;
+        }
+  
+        const controllingValue = this.elementParameters[elementId]?.[resolvedDependsOn];
+        const dependentRow = document.getElementById(`${prop.name}-row-${elementId}`);
+  
+        if (dependentRow) {
+          const shouldShow = controllingValue === dependsValue;
+          dependentRow.style.display = shouldShow ? 'grid' : 'none';
+        }
+      }
+    });
+  }
 
   private formatPropertyName(name: string): string {
     return name
@@ -353,22 +413,6 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
   private setupDynamicInputs(node: ClassicPreset.Node, config: any): void {
     const elementId = node.id;
 
-    if (!this.elementParameters[elementId]) {
-      this.elementParameters[elementId] = {};
-      
-      config.properties.forEach((prop: any) => {
-        if (!prop.conditional) {
-          this.elementParameters[elementId][prop.name] = prop.default;
-        }
-        else {
-          const parentValue = this.elementParameters[elementId][prop.conditional.dependsOn];
-          if (parentValue === prop.conditional.value) {
-            this.elementParameters[elementId][prop.name] = prop.default;
-          }
-        }
-      });
-    }
-
     config.properties.forEach((prop: any) => {
       const paramKey = prop.name;
       const controlId = `${paramKey}-${elementId}`;
@@ -377,33 +421,63 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
         case 'conditional-select': {
           const selectId = `${paramKey}-select-${elementId}`;
           const select = document.getElementById(selectId) as HTMLSelectElement;
-      
+        
           if (select) {
             if (!(paramKey in this.elementParameters[elementId])) {
-                this.elementParameters[elementId][paramKey] = prop.default;
+              this.elementParameters[elementId][paramKey] = prop.default;
             }
-    
+        
             select.value = this.elementParameters[elementId][paramKey];
-    
+        
             select.addEventListener('change', () => {
               const newValue = select.value;
               this.elementParameters[elementId][paramKey] = newValue;
-  
+        
               config.properties
-                .filter((p: any) => p.conditional?.dependsOn === paramKey)
+                .filter((p: any) => {
+                  const regex = /^(.+?)_(\d+)_/;
+                  const match = paramKey.match(regex);
+                  if (match) {
+                    // Estamos en un repeat-group
+                    const prefix = match[1];
+                    const index = match[2];
+                    const expectedControlName = `${prefix}_${index}_${p.conditional?.dependsOn}`;
+                    return p.conditional && expectedControlName === paramKey;
+                  } else {
+                    return p.conditional && p.conditional.dependsOn === paramKey;
+                  }
+                })
                 .forEach((dependentProp: any) => {
-                  const dependentRow = document.getElementById(`${dependentProp.name}-row-${elementId}`);
-
+                  const regex = /^(.+?)_(\d+)_/;
+                  const match = paramKey.match(regex);
+                  let dependentName = dependentProp.name;
+        
+                  if (match) {
+                    const prefix = match[1];
+                    const index = match[2];
+                    dependentName = `${prefix}_${index}_${dependentProp.name}`;
+                  }
+        
+                  const dependentRow = document.getElementById(`${dependentName}-row-${elementId}`);
+        
                   if (dependentRow) {
                     const isVisible = newValue === dependentProp.conditional.value;
                     dependentRow.style.display = isVisible ? 'grid' : 'none';
-
+        
                     if (isVisible) {
-                      if (!(dependentProp.name in this.elementParameters[elementId])) {
-                        this.elementParameters[elementId][dependentProp.name] = dependentProp.default;
+                      if (!(dependentName in this.elementParameters[elementId])) {
+                        this.elementParameters[elementId][dependentName] = dependentProp.default;
                       }
+        
+                      // Forzar valor por defecto
+                      setTimeout(() => {
+                        const input = document.getElementById(`${dependentName}-${elementId}`) as HTMLInputElement;
+                        if (input && dependentProp.default !== undefined) {
+                          input.value = dependentProp.default.toString();
+                        }
+                      }, 0);
                     } else {
-                      delete this.elementParameters[elementId][dependentProp.name];
+                      delete this.elementParameters[elementId][dependentName];
                     }
                   }
                 });
@@ -411,6 +485,7 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
           }
           break;
         }
+        
       
         case 'number': {
           const input = document.getElementById(controlId) as HTMLInputElement;
@@ -418,29 +493,53 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
             input.value = this.elementParameters[elementId][paramKey] || '';
         
             input.addEventListener('input', () => {
-              if (!prop.conditional) {
-                this.elementParameters[elementId][paramKey] = input.value;
-              } 
-              else {
-                const parentValue = this.elementParameters[elementId][prop.conditional.dependsOn];
-                if (parentValue === prop.conditional.value) {
-                  this.elementParameters[elementId][paramKey] = input.value;
-                } else {
-                  delete this.elementParameters[elementId][paramKey];
+              const newValue = parseInt(input.value, 10);
+              this.elementParameters[elementId][paramKey] = newValue;
+        
+              // Verifica si este número controla un repeat-group
+              const affectedRepeatGroups = config.properties.filter((p: any) => 
+                p.type === 'repeat-group' && p.repeat === paramKey
+              );
+        
+              affectedRepeatGroups.forEach((repeatProp: any) => {
+                const containerId = `${repeatProp.name}-container-${elementId}`;
+                const container = document.getElementById(containerId);
+                if (container) {
+                  container.innerHTML = '';
+        
+                  for (let i = 0; i < newValue; i++) {
+                    const fieldset = document.createElement('fieldset');
+                    fieldset.style.border = '1px solid #ccc';
+                    fieldset.style.padding = '10px';
+                    fieldset.style.marginBottom = '10px';
+        
+                    const legend = document.createElement('legend');
+                    legend.textContent = `${repeatProp.label} #${i + 1}`;
+                    fieldset.appendChild(legend);
+        
+                    for (const subProp of repeatProp.template) {
+                      const subPropClone = { ...subProp, name: `${repeatProp.name}_${i}_${subProp.name}` };
+                      const html = this.generatePropertyHTML(subPropClone, elementId);
+                      const tempDiv = document.createElement('div');
+                      tempDiv.innerHTML = html;
+                      Array.from(tempDiv.children).forEach(child => fieldset.appendChild(child));
+                    }
+        
+                    container.appendChild(fieldset);
+                  }
+        
+                  // Reaplicar listeners de inputs recién creados
+                  this.setupDynamicInputs({ id: elementId } as any, { properties: repeatProp.template.map((sp: any) => ({
+                    ...sp,
+                    name: `${repeatProp.name}_${0}_${sp.name}`
+                  })) });
                 }
-              }
+              });
             });
-    
-            if (prop.conditional) {
-              const parentValue = this.elementParameters[elementId][prop.conditional.dependsOn];
-              const row = document.getElementById(`${prop.name}-row-${elementId}`);
-              if (row) {
-                row.style.display = parentValue === prop.conditional.value ? 'grid' : 'none';
-              }
-            }
           }
           break;
         }
+        
 
         case 'select': {
           const selectEl = document.getElementById(controlId) as HTMLSelectElement;
@@ -505,9 +604,37 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
             zoomOut?.addEventListener('click', () => updateFontSize(-1));
           }
           break;
-        }        
+        }
+        case 'repeat-group': {
+          const repeatCount = this.elementParameters[elementId]?.[prop.repeat] || prop.default || 1;
+
+          for (let i = 0; i < repeatCount; i++) {
+            for (const subProp of prop.template) {
+              const subPropName = `${prop.name}_${i}_${subProp.name}`;
+              const subControlId = `${subPropName}-${elementId}`;
+              const input = document.getElementById(subControlId) as HTMLInputElement | HTMLSelectElement;
+
+              if (input) {
+                if (!(subPropName in this.elementParameters[elementId])) {
+                  this.elementParameters[elementId][subPropName] = subProp.default;
+                }
+
+                // Establecer el valor inicial
+                input.value = this.elementParameters[elementId][subPropName] || subProp.default;
+
+                // Escuchar cambios
+                input.addEventListener('input', () => {
+                  this.elementParameters[elementId][subPropName] = input.value;
+                });
+              }
+            }
+          }
+          break;
+        }     
       }
     });
+    this.evaluateInitialConditionalVisibility(config, node.id);
+
   }
 
   private handleCSVConfiguration(node: ClassicPreset.Node, configContent: HTMLElement): void {
@@ -572,7 +699,13 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
     if (input && input.files) {
       const file = input.files[0];
       if (file && file.name.endsWith('.csv')) {
-        this.selectedCSVFile = file;
+        const file = input.files[0];
+
+        // Evita duplicados por nombre (opcional)
+        const alreadyExists = this.selectedCSVFiles.some(f => f.name === file.name);
+        if (!alreadyExists) {
+          this.selectedCSVFiles.push(file);
+        }
         
         const reader = new FileReader();
         reader.onload = (e: any) => {
@@ -649,7 +782,13 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
     if (input && input.files) {
       const file = input.files[0];
       if (file && file.name.endsWith('.pcap')) {
-        this.selectedNetworkFile = file;
+        const file = input.files[0];
+
+        // Evita duplicados por nombre (opcional)
+        const alreadyExists = this.selectedNetworkFiles.some(f => f.name === file.name);
+        if (!alreadyExists) {
+          this.selectedNetworkFiles.push(file);
+        }
         
         const reader = new FileReader();
         reader.onload = (e: any) => {
@@ -952,44 +1091,52 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
 
   async saveScenario(): Promise<void> {
     const design = await this.getCurrentDesign();
-    
+  
     if (this.isNewScenario) {
       const name = window.prompt('Please enter the name of the scenario:');
-    
+  
       if (name) {
-        this.scenarioService.saveScenario(name, design, this.selectedCSVFile || undefined, this.selectedNetworkFile || undefined)
-          .subscribe({
-            next: (response: any) => {
-              alert('Scenario saved correctly.');
-              this.scenarioId = response.uuid;
-              this.isNewScenario = false;
-              this.scenarioService.setUnsavedChanges(false);
-            },
-            error: (error: any) => {
-              const errorMsg = error?.error?.error || 'Unexpected error';
-              alert('Error creating scenario: ' + JSON.stringify(errorMsg));
-            }
-          });
+        this.scenarioService.saveScenario(
+          name,
+          design,
+          this.selectedCSVFiles || [],
+          this.selectedNetworkFiles || []
+        ).subscribe({
+          next: (response: any) => {
+            alert('Scenario saved correctly.');
+            this.scenarioId = response.uuid;
+            this.isNewScenario = false;
+            this.scenarioService.setUnsavedChanges(false);
+          },
+          error: (error: any) => {
+            const errorMsg = error?.error?.error || 'Unexpected error';
+            alert('Error creating scenario: ' + JSON.stringify(errorMsg));
+          }
+        });
       } else {
         alert('Error while saving the scenario, you must provide a name.');
       }
+  
     } else {
       if (this.scenarioId != null) {
-        this.scenarioService.editScenario(this.scenarioId, design, this.selectedCSVFile || undefined)
-          .subscribe({
-            next: () => {
-              alert('Scenario actualized correctly.');
-              this.scenarioService.setUnsavedChanges(false);
-            },
-            error: (error: any) => {
-              const errorMsg = error?.error?.error || 'Unexpected error';
+        this.scenarioService.editScenario(
+          this.scenarioId,
+          design,
+          this.selectedCSVFiles || [],
+          this.selectedNetworkFiles || []
+        ).subscribe({
+          next: () => {
+            alert('Scenario updated correctly.');
+            this.scenarioService.setUnsavedChanges(false);
+          },
+          error: (error: any) => {
+            const errorMsg = error?.error?.error || 'Unexpected error';
             alert('Error editing scenario: ' + JSON.stringify(errorMsg));
-            }
-          });
+          }
+        });
       }
     }
   }
-  
 
   async loadEditScenario(uuid: string): Promise<void> {
     this.scenarioService.getScenarioById(uuid).subscribe(
