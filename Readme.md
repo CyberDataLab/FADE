@@ -19,9 +19,9 @@
 
 4. The last modification of the DB is stored in the backup.sql file located in the project root directory. To load the data, execute the following command from the terminal while in the project root directory:
    ```sh
-   docker cp backup.sql db_container_name:/backup.sql
+   docker cp backup.sql <db_container_name>:/backup.sql
    ```
-   Replace name_of_db_container with the actual name of the database container returned by the previous docker ps command.
+   Replace <db_container_name> with the actual name of the database container returned by the previous docker ps command.
 
 5. Access the DB container and run the following command to restore the DB:
    ```sh
@@ -30,6 +30,19 @@
 6. To access the frontend, go to the following address in your browser:
    ```sh
    localhost:4200
+   ```
+7. If you are starting the application for the first time, you need to create a super user. To do this, check the backend docker name:
+   ```sh
+   docker ps
+   ```
+8. Enter inside the backend docker with the following command:
+   ```sh
+   docker cp backup.sql <backend_container_name>:/backup.sql
+   ```
+   Replace <backend_container_name> with the actual name of the database container returned by the previous docker ps command.
+9. 9. Once inside the backend container, run the following command to create a Django superuser. You will be prompted to enter a username, email, and password:
+    ```sh
+   python manage.py createsuperuser
    ```
 
 ## After the project has finished running:

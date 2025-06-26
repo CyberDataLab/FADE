@@ -1070,18 +1070,29 @@ def delete_scenario_by_uuid(request, uuid):
             ClassificationMetric.objects.filter(detector=anomaly_detector).delete()
             anomaly_detector.delete()
 
-        base_path = os.path.join(settings.BASE_DIR, 'models_storage')
+        folders_to_clean = [
+            'models_storage',
+            'anomaly_images',
+            'shap_global_images',
+            'shap_local_images',
+            'lime_global_images',
+            'lime_local_images'
+        ]
+
         scenario_uuid = str(scenario.uuid)
 
-        for filename in os.listdir(base_path):
-            if scenario_uuid in filename:
-                model_path = os.path.join(base_path, filename)
-                logger.info(f"Eliminando modelo: {model_path}")
-                try:
-                    os.remove(model_path)
-                    logger.info(f"Modelo eliminado: {model_path}")
-                except Exception as e:
-                    logger.warning(f"No se pudo eliminar {model_path}: {str(e)}")
+        for folder in folders_to_clean:
+            folder_path = os.path.join(settings.MEDIA_ROOT, folder)
+            if not os.path.exists(folder_path):
+                continue
+            for filename in os.listdir(folder_path):
+                if scenario_uuid in filename:
+                    file_to_delete = os.path.join(folder_path, filename)
+                    logger.info(f"Eliminando archivo: {file_to_delete}")
+                    try:
+                        os.remove(file_to_delete)
+                    except Exception as e:
+                        logger.warning(f"No se pudo eliminar {file_to_delete}: {str(e)}")
 
         scenario.delete()
 
@@ -1089,8 +1100,6 @@ def delete_scenario_by_uuid(request, uuid):
 
     except Scenario.DoesNotExist:
         return JsonResponse({'error': 'Scenario not found or you do not have permission to delete it'}, status=status.HTTP_404_NOT_FOUND)
-
-
 
 @api_view(['PATCH'])
 @permission_classes([IsAuthenticated])
@@ -1438,7 +1447,10 @@ def execute_scenario(anomaly_detector, scenario, design):
                                 )
                         
                         step_id = f"{element_id}_{scenario.uuid}"
-                        step_path = os.path.join(settings.BASE_DIR, 'models_storage', f"{step_id}.pkl")
+                        model_dir = os.path.join(settings.MEDIA_ROOT, 'models_storage')
+                        os.makedirs(model_dir, exist_ok=True)
+                        step_path = os.path.join(model_dir, f"{step_id}.pkl")
+                        joblib.dump(model, step_path)
 
                         joblib.dump(transformer, step_path)
                         logger.info(f"Guardado: {step_path}")
@@ -1583,7 +1595,10 @@ def execute_scenario(anomaly_detector, scenario, design):
                         model.fit(input_copy)
                         logger.info(model.feature_names_in_)
                         step_id = f"{element_id}_{scenario.uuid}"
-                        step_path = os.path.join(settings.BASE_DIR, 'models_storage', f"{step_id}.pkl")
+                        model_dir = os.path.join(settings.MEDIA_ROOT, 'models_storage')
+                        os.makedirs(model_dir, exist_ok=True)
+                        step_path = os.path.join(model_dir, f"{step_id}.pkl")
+                        joblib.dump(model, step_path)
 
                         joblib.dump(model, step_path)
                         logger.info(f"Guardado: {step_path}")
@@ -1817,7 +1832,7 @@ def play_scenario_production_by_uuid(request, uuid):
         design = json.loads(scenario.design) if isinstance(scenario.design, str) else scenario.design
         anomaly_detector = AnomalyDetector.objects.get(scenario=scenario)
         execution = anomaly_detector.execution
-        base_path = os.path.join(settings.BASE_DIR, 'models_storage')
+        base_path = os.path.join(settings.MEDIA_ROOT, 'models_storage')
         pipelines = build_pipelines_from_design(design, scenario.uuid, config, base_path)
 
         if not pipelines:
