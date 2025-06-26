@@ -63,7 +63,7 @@ def load_config():
             config = json.load(file)
         return config
     except FileNotFoundError:
-        logger.error(" Error: Archivo config.json no encontrado en %s", CONFIG_PATH)
+        logger.error(" Error: File config.json no encontrado en %s", CONFIG_PATH)
     except json.JSONDecodeError:
         logger.error("Error: No se pudo decodificar el archivo config.json")
 
@@ -75,17 +75,17 @@ def validate_design(config, design):
     end_ids = [conn["endId"] for conn in connections]
 
     processing_types = [el["type"] for el in config.get("sections", {}).get("dataProcessing", {}).get("elements", [])]
-    logger.info("Tipos de procesamiento: %s", processing_types)
+    logger.info("Processing types: %s", processing_types)
     classification_types = [el["type"] for el in config.get("sections", {}).get("dataModel", {}).get("classification", [])]
-    logger.info("Tipos de clasificación: %s", classification_types)
+    logger.info("Classification types: %s", classification_types)
     regression_types = [el["type"] for el in config.get("sections", {}).get("dataModel", {}).get("regression", [])]
-    logger.info("Tipos de regresión: %s", regression_types)
+    logger.info("Regression types: %s", regression_types)
     anomaly_types = [el["type"] for el in config.get("sections", {}).get("dataModel", {}).get("anomalyDetection", [])]
-    logger.info("Tipos de anomalía: %s", anomaly_types)
+    logger.info("Anomaly detection types: %s", anomaly_types)
     explainability_types = [el["type"] for el in config.get("sections", {}).get("dataModel", {}).get("explainability", [])]
-    logger.info("Tipos de explicabilidad: %s", explainability_types)
+    logger.info("Explainability types: %s", explainability_types)
     monitor_types = [el["type"] for el in config.get("sections", {}).get("dataModel", {}).get("monitoring", [])]
-    logger.info("Tipos de monitorización: %s", monitor_types)
+    logger.info("Monitoring types: %s", monitor_types)
 
     must_be_start_and_end = set(processing_types + classification_types + regression_types)
     splitter_types = {"DataSplitter", "CodeSplitter"}
@@ -103,21 +103,21 @@ def validate_design(config, design):
 
         if el_type in ["CSV", "Network"]:
             if not appears_in_start:
-                raise ValueError(f"El {el_type} '{element_id}' no aparece como startId.")
+                raise ValueError(f"{el_type} '{element_id}' must appear as startId.")
             if appears_in_end:
-                raise ValueError(f"El {el_type} '{element_id}' no puede aparecer como endId.")
+                raise ValueError(f"{el_type} '{element_id}' cannot appear as endId.")
 
         elif el_type in ["ClassificationMonitor", "RegressionMonitor"]:
             if not appears_in_end:
-                raise ValueError(f"El {el_type} '{element_id}' debe ser endId.")
+                raise ValueError(f"{el_type} '{element_id}' must appear as endId.")
             if appears_in_start:
-                raise ValueError(f"El {el_type} '{element_id}' no puede ser startId.")
+                raise ValueError(f"{el_type} '{element_id}' cannot appear as startId.")
 
         elif el_type in must_be_start_and_end:
             if not appears_in_start:
-                raise ValueError(f"El elemento '{element_id}' ({el_type}) debería aparecer como startId y no lo hace.")
+                raise ValueError(f"Element '{element_id}' ({el_type}) should appear as startId but does not.")
             if not appears_in_end:
-                raise ValueError(f"El elemento '{element_id}' ({el_type}) debería aparecer como endId y no lo hace.")
+                raise ValueError(f"Element '{element_id}' ({el_type}) should appear as endId but does not.")
 
         next_ids = forward_map.get(element_id, [])
         next_types = [elements[nid]["type"] for nid in next_ids if nid in elements]
@@ -126,28 +126,28 @@ def validate_design(config, design):
         if el_type in ["CSV", "Network"]:
             if not any(nt in valid_next_types for nt in next_types):
                 raise ValueError(
-                    f"Después de '{element_id}' ({el_type}) debe seguir un nodo de procesamiento o modelo "
-                    f"(clasificación/regresión/anomalía). Tipos siguientes encontrados: {next_types}"
+                    f"After '{element_id}' ({el_type}) there must be a processing or model node "
+                    f"(classification/regression/anomaly). Found types: {next_types}"
                 )
 
         if el_type in classification_types:
             if not any(nt == "ClassificationMonitor" for nt in next_types):
-                raise ValueError(f"Después de '{element_id}' ({el_type}) debe seguir un ClassificationMonitor.")
+                raise ValueError(f"'{element_id}' ({el_type}) must be followed by a ClassificationMonitor.")
 
         if el_type in regression_types:
             if not any(nt == "RegressionMonitor" for nt in next_types):
-                raise ValueError(f"Después de '{element_id}' ({el_type}) debe seguir un RegressionMonitor.")
-        '''
-        if el_type in anomaly_types:
-            if not any(nt in explainability_types for nt in next_types):
-                raise ValueError(f"Después de '{element_id}' ({el_type}) debe seguir un nodo de explainability.")
-        '''
+                raise ValueError(f"'{element_id}' ({el_type}) must be followed by a RegressionMonitor.")
+
+        # if el_type in anomaly_types:
+        #     if not any(nt in explainability_types for nt in next_types):
+        #         raise ValueError(f"'{element_id}' ({el_type}) must be followed by an explainability node.")
+
         prev_ids = backward_map.get(element_id, [])
         prev_types = [elements[pid]["type"] for pid in prev_ids if pid in elements]
 
         if el_type in (classification_types + regression_types):
             if not any(pt in splitter_types for pt in prev_types):
-                raise ValueError(f"Antes de '{element_id}' ({el_type}) debe haber un DataSplitter o CodeSplitter.")
+                raise ValueError(f"Before '{element_id}' ({el_type}) there must be a DataSplitter or CodeSplitter.")
 
 def import_class(full_class_name):
     module_name, class_name = full_class_name.rsplit(".", 1)
@@ -1233,9 +1233,9 @@ def execute_scenario(anomaly_detector, scenario, design):
                 try:
                     df = df[selected_columns]
                 except KeyError as e:
-                    return {"error": f"Columna no encontrada en CSV: {str(e)}"}
+                    return {"error": f"Column not found in the CSV: {str(e)}"}
                 except Exception as e:
-                    return {"error": f"Error procesando columnas: {str(e)}"}
+                    return {"error": f"Error processing columns: {str(e)}"}
                 
                 data_storage[element_id] = df
 
@@ -1253,7 +1253,7 @@ def execute_scenario(anomaly_detector, scenario, design):
                     return {"error": f"Error loading PCAP: {str(e)}"}
 
                 if df.empty:
-                    return {"error": "El archivo PCAP no contiene datos utilizables"}
+                    return {"error": "The PCAP file does not contain usable data"}
 
                 data_storage[element_id] = df
 
@@ -1291,7 +1291,7 @@ def execute_scenario(anomaly_detector, scenario, design):
                 splitter = True
 
                 if input_data is None:
-                    return {"error": "DataSplitter requiere datos de entrada"}
+                    return {"error": "DataSplitter requires input data"}
 
                 try:
                     splitter_params = extract_parameters(element_types[el_type]["properties"], params)
@@ -1302,7 +1302,7 @@ def execute_scenario(anomaly_detector, scenario, design):
                     logger.info("Tamaños de train y test: %s, %s", train_size, test_size)
 
                     if round(train_size + test_size, 2) > 1.0:
-                        return {"error": "La suma de train_size y test_size no puede ser mayor que 100%"}
+                        return {"error": "The sum of train_size and test_size cannot be greater than 100%"}
 
                     X = input_data.iloc[:, :-1]
                     y = input_data.iloc[:, -1]
@@ -1321,16 +1321,16 @@ def execute_scenario(anomaly_detector, scenario, design):
                     logger.info(data_storage)
 
                 except Exception as e:
-                    return {"error": f"Error en DataSplitter: {str(e)}"}
+                    return {"error": f"Error in DataSplitter: {str(e)}"}
                 
             elif el_type in ["CodeProcessing", "CodeSplitter"]:
                 logger.info("Ejecutando función personalizada")
 
                 user_code = params.get("code", "")
                 if input_data is None:
-                    return {"error": "CustomCode requiere datos de entrada"}
+                    return {"error": "CustomCode requires input data"}
                 if not user_code.strip():
-                    return {"error": "No se ha proporcionado código en el elemento CustomCode"}
+                    return {"error": "No code was provided in the CustomCode element"}
 
                 exec_context = {
                     "__builtins__": __builtins__,
@@ -1342,7 +1342,7 @@ def execute_scenario(anomaly_detector, scenario, design):
                     exec(user_code, exec_context)
                     user_functions = {k: v for k, v in exec_context.items() if callable(v)}
                     if len(user_functions) != 1:
-                        return {"error": "Debes definir una única función en el código"}
+                        return {"error": "You must define exactly one function in the code"}
 
                     user_function = list(user_functions.values())[0]
                     output_data = user_function(input_data)
@@ -1360,17 +1360,16 @@ def execute_scenario(anomaly_detector, scenario, design):
                         logger.info(data_storage)
 
                     else:
-                        return {"error": "La función debe retornar un DataFrame o un dict con claves 'train' y 'test'"}
+                        return {"error": "The function must return a DataFrame or a dict with 'train' and 'test' keys"}
 
                 except Exception as e:
-                    return {"error": f"Error ejecutando función personalizada: {str(e)}"}
+                    return {"error": f"Error executing custom function: {str(e)}"}
 
-                
             else:
                 element_def = element_types.get(el_type)
                 logger.info("Definición del elemento: %s", element_def)
                 if not element_def:
-                    return {"error": f"Tipo de elemento desconocido: {el_type}"}
+                    return {"error": f"Unknown element type: {el_type}"}
                 
                 category = element_def.get("category", "")
 
@@ -1496,7 +1495,7 @@ def execute_scenario(anomaly_detector, scenario, design):
 
                                 split_data = data_storage.get(source_id)
                                 if not isinstance(split_data, dict) or "train" not in split_data or "test" not in split_data:
-                                    return {"error": f"El nodo conectado ({source_id}) no tiene datos de train/test"}
+                                    return {"error": f"The connected node ({source_id}) does not produce an output with train and test data"}
 
                                 if output_type == "train":
                                     has_train = True
@@ -1510,8 +1509,7 @@ def execute_scenario(anomaly_detector, scenario, design):
                                     y_test_all.append(y_test)
 
                         if not has_train or not has_test:
-                            return {"error": f"El modelo {element_id} requiere al menos una conexión con salidas 'train' y 'test'"}
-                        
+                            return {"error": f"Model {element_id} requires at least one connection with 'train' and 'test' outputs"}
 
                         X_train_concat = pd.concat(X_train_all)
                         y_train_concat = pd.concat(y_train_all)
@@ -1572,7 +1570,7 @@ def execute_scenario(anomaly_detector, scenario, design):
                         logger.info("Modelo Detección de anomalías")
 
                         if not isinstance(input_data, pd.DataFrame):
-                            return {"error": "Los datos de entrada para detección de anomalías deben ser un DataFrame"}
+                            return {"error": "Input data for anomaly detection must be a DataFrame"}
 
                         input_copy = input_data.copy()
 
@@ -1586,7 +1584,7 @@ def execute_scenario(anomaly_detector, scenario, design):
                         #input_copy = input_copy.drop(columns=[col for col in input_copy.columns if input_copy[col].dtype == 'object'])
 
                         if input_copy.empty:
-                            return {"error": "No hay columnas numéricas después del preprocesamiento"}
+                            return {"error": "There are no numerical columns after preprocessing"}
                         
                         logger.info("Datos preprocesados para detección de anomalías: %s", input_copy)
 
@@ -1629,7 +1627,7 @@ def execute_scenario(anomaly_detector, scenario, design):
                     logger.info(f"Procesando nodo de explicabilidad dinámico: {el_type}")
 
                     if input_data is None:
-                        return {"error": f"No se encontraron datos de entrada para el nodo {el_type}"}
+                        return {"error": f"No input data found for node {el_type}"}
                     
                     logger.info("Datos de entrada para explicabilidad: %s", input_data)
 
@@ -1637,16 +1635,16 @@ def execute_scenario(anomaly_detector, scenario, design):
                     explainer_module_path = element_def.get("class")
 
                     if not explainer_module_path or not explainer_type:
-                        return {"error": f"Faltan datos de configuración en {el_type}"}
+                        return {"error": f"Missing configuration data in {el_type}"}
 
                     model_id = next((c["startId"] for c in connections if c["endId"] == element_id), None)
                     if not model_id or model_id not in models:
-                        return {"error": f"No se encontró un modelo conectado válido para {el_type}"}
+                        return {"error": f"No valid connected model found for {el_type}"}
 
                     model_info = models[model_id]
                     model_object = model_info.get("model_object")
                     if not model_object:
-                        return {"error": f"No se encontró el objeto modelo en {model_id}"}
+                        return {"error": f"Model object not found in {model_id}"}
 
                     try:
                         explainer_class = find_explainer_class(explainer_module_path, explainer_type)
@@ -1686,7 +1684,7 @@ def execute_scenario(anomaly_detector, scenario, design):
                                 logger.info(f"SHAP values generados: tipo={type(shap_values)}, shape={getattr(shap_values, 'shape', 'N/A')}")
 
                             except Exception as e:
-                                return {"error": f"Error generando SHAP values: {str(e)}"}
+                                return {"error": f"Error generating SHAP values: {str(e)}"}
 
                         elif el_type == "LIME":
                             explainer = explainer_class(
@@ -1734,14 +1732,12 @@ def execute_scenario(anomaly_detector, scenario, design):
                                 metric.save()
 
                         else:
-                            return {"error": f"Nodo explainability no soportado aún: {el_type}"}
+                            return {"error": f"Explainability node not yet supported: {el_type}"}
 
                     except Exception as e:
-                        return {"error": f"Fallo al aplicar explainer '{explainer_type}' en '{el_type}': {str(e)}"}
+                        return {"error": f"Failed to apply explainer '{explainer_type}' on '{el_type}': {str(e)}"}
 
-
-
-        return {"message": "Ejecución exitosa"}
+        return {"message": "Execution successful"}
 
     except Exception as e:
         logger.error(f"Error en execute_scenario: {str(e)}")
@@ -2254,7 +2250,7 @@ def play_scenario_production_by_uuid(request, uuid):
         thread = threading.Thread(target=capture_and_predict_streaming, args=(uuid,), daemon=True)
         thread.start()
 
-        return JsonResponse({'message': 'Captura en tiempo real iniciada'}, status=200)
+        return JsonResponse({'message': 'Real-time capture started'}, status=200)
 
     except Scenario.DoesNotExist:
         return JsonResponse({'error': 'Scenario not found'}, status=404)
@@ -2268,7 +2264,7 @@ def stop_scenario_production_by_uuid(request, uuid):
     try:
         thread_controls[uuid] = False
         logger.info(f"Parando producción para el escenario {uuid}")
-        return JsonResponse({'message': 'Captura detenida'}, status=status.HTTP_200_OK)
+        return JsonResponse({'message': 'Capture stopped'}, status=status.HTTP_200_OK)
     except Exception as e:
         logger.error(f"Error al detener captura: {str(e)}")
         return JsonResponse({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

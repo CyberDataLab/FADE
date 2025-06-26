@@ -89,7 +89,7 @@ export async function createEditor(
     
       if (type === "CSV" || type=== "Network") {
         node.addOutput(type, new ClassicPreset.Output(socket));
-      } else if (type === "ClassificationMonitor" || type === "RegressionMonitor") {
+      } else if (type === "ClassificationMonitor" || type === "RegressionMonitor" || type === "SHAP" || type === "LIME") {
         node.addInput(type, input);
       } else if (type === "DataSplitter" || type === "CodeSplitter") {
     

@@ -220,9 +220,6 @@ def token_obtain_pair_view(request):
 
 @api_view(['POST'])
 def token_refresh_view(request):
-    """
-    View for refreshing the JWT access token using a valid refresh token.
-    """
     refresh_token = request.data.get('refresh')  
 
     if not refresh_token:
