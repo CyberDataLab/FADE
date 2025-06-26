@@ -23,27 +23,34 @@
    ```
    Replace <db_container_name> with the actual name of the database container returned by the previous docker ps command.
 
-5. Access the DB container and run the following command to restore the DB:
+5. Access the DB container with the following command:
+   ```sh
+   docker exec -ti <db_container_name> sh
+   ```
+   Replace <db_container_name> with the actual name of the database container returned by the previous docker ps command.
+
+6. Run the following command to restore the DB:
    ```sh
    mysql -u root -p defender < /backup.sql
+   ````
 
-6. To access the frontend, go to the following address in your browser:
+7. To access the frontend, go to the following address in your browser:
    ```sh
    localhost:4200
    ```
-7. If you are starting the application for the first time, you need to create a super user. To do this, check the backend docker name:
+
+8. If you are starting the application for the first time, you need to create a super user. To do this, enter in the backend container:
    ```sh
-   docker ps
+   docker exec -ti <backend_container_name> sh
    ```
-8. Enter inside the backend docker with the following command:
-   ```sh
-   docker cp backup.sql <backend_container_name>:/backup.sql
-   ```
-   Replace <backend_container_name> with the actual name of the database container returned by the previous docker ps command.
-9. 9. Once inside the backend container, run the following command to create a Django superuser. You will be prompted to enter a username, email, and password:
+   Replace <backend_container_name> with the actual name of the backend container returned by the previous docker ps command.
+
+9. Once inside the backend container, run the following command to create a Django superuser. You will be prompted to enter a username, email, and password:
     ```sh
    python manage.py createsuperuser
    ```
+
+10. Now you can access in the frontend using the credentials created in the previous step.
 
 ## After the project has finished running:
 
