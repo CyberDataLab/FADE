@@ -23,29 +23,24 @@
    ```
    Replace <db_container_name> with the actual name of the database container returned by the previous docker ps command.
 
-5. Access the DB container with the following command:
-   ```sh
-   docker exec -it <db_container_name> sh
-   ```
-   Replace <db_container_name> with the actual name of the database container returned by the previous docker ps command.
-
-6. Inside the DB container, run the following command to restore the DB:
+5. Access the DB container and run the following command to restore the DB:
    ```sh
    mysql -u root -p defender < /backup.sql
-   ````
 
-7. To access the frontend, go to the following address in your browser:
+6. To access the frontend, go to the following address in your browser:
    ```sh
    localhost:4200
    ```
-
-8. If you are starting the application for the first time, you need to create a super user. Check the backend container name returned by the previous docker ps command and enter inside the backend container with the following command:
+7. If you are starting the application for the first time, you need to create a super user. To do this, check the backend docker name:
    ```sh
-   docker exec -it <backend_container_name> sh
+   docker ps
+   ```
+8. Enter inside the backend docker with the following command:
+   ```sh
+   docker cp backup.sql <backend_container_name>:/backup.sql
    ```
    Replace <backend_container_name> with the actual name of the database container returned by the previous docker ps command.
-
-9. Once inside the backend container, run the following command to create a Django superuser. You will be prompted to enter a username, email, and password:
+9. 9. Once inside the backend container, run the following command to create a Django superuser. You will be prompted to enter a username, email, and password:
     ```sh
    python manage.py createsuperuser
    ```
@@ -56,5 +51,4 @@
    ```sh
    mysqldump -u root -p defender > backup.sql
    ```
-   
 2. Modify the backup.sql file in the project root directory to save the latest database update.
