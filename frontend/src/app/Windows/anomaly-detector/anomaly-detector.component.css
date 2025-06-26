@@ -46,7 +46,7 @@ html, body {
 .scenario-table tbody {
   display: block;
   width: 100%;
-  max-height: 70vh; /* Ajusta según el diseño */
+  max-height: 70vh;
   overflow-y: auto;
 }
 

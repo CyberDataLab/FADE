@@ -1,8 +1,8 @@
 import { Component, OnInit } from '@angular/core'
 import { Router} from '@angular/router';
 import { first } from 'rxjs/operators';
-import { CommonModule } from '@angular/common'; // Importa CommonModule
-import { FormsModule } from '@angular/forms'; // Si usas formularios en el template
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { UserLogin } from '../../DTOs/UserLogin';
 import { AuthenticationService } from '../authentication.service';

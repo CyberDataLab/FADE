@@ -79,7 +79,6 @@ export async function createEditor(
     async addElement(type: string, position: [number, number], label?: string, icon?: string, id?: string) {
       const node = new ClassicPreset.Node(label ?? type);
       
-      // 👉 Asigna ID personalizado si viene
       if (id) node.id = id;
     
       (node as any).data = { type, icon };
@@ -93,7 +92,6 @@ export async function createEditor(
       } else if (type === "ClassificationMonitor" || type === "RegressionMonitor") {
         node.addInput(type, input);
       } else if (type === "DataSplitter" || type === "CodeSplitter") {
-        // 👉 Nodo especial: 1 entrada y 2 salidas con texto personalizable
     
         node.addInput("input", new ClassicPreset.Input(socket));
     
@@ -103,7 +101,6 @@ export async function createEditor(
         node.addOutput("train", output1);
         node.addOutput("test", output2);
     
-        // Permitir personalizar los labels (texto visible)
         output1.label = "train";
         output2.label = "test";
       } else {
@@ -121,7 +118,6 @@ export async function createEditor(
         const deleteControl = new DeleteButtonControl(() => {
           onDeleteClick(node);
         
-          // 🔁 Eliminar explícitamente todas las conexiones del nodo
           const connections = editor.getConnections().filter(conn =>
             conn.source === node.id || conn.target === node.id
           );
@@ -130,10 +126,8 @@ export async function createEditor(
             editor.removeConnection(connection.id);
           }
         
-          // ❌ Eliminar el nodo
           editor.removeNode(node.id);
         
-          // 🧼 Actualizar visualmente tras el ciclo de eliminación
           requestAnimationFrame(() => {
             for (const n of editor.getNodes()) {
               area.update('node', n.id);
@@ -143,7 +137,7 @@ export async function createEditor(
             }
             
             forceClearOrphanConnections();
-            forceSafariRepaintFromDropArea(); // 🖌️ Arreglo para Safari y posibles residuos
+            forceSafariRepaintFromDropArea();
           });
         });
         
@@ -156,7 +150,7 @@ export async function createEditor(
     },
 
     async connectNodesById(connections: { startId: string; startOutput: string; endId: string; endInput: string }[]) {
-      await new Promise(resolve => requestAnimationFrame(resolve)); // Espera render completo
+      await new Promise(resolve => requestAnimationFrame(resolve));
     
       for (const { startId, startOutput, endId, endInput } of connections) {
         const startNode = this.editor.getNode(startId) as ClassicPreset.Node | undefined;
@@ -178,7 +172,7 @@ export async function createEditor(
         }
       }
     
-      AreaExtensions.zoomAt(this.area, this.editor.getNodes()); // Centra
+      AreaExtensions.zoomAt(this.area, this.editor.getNodes());
     },
     
     async getNodeType(nodeId: string) {
@@ -207,7 +201,7 @@ export async function createEditor(
           area.update('connection', connection.id);
         }
     
-        forceSafariRepaintFromDropArea(); // 🔁 Forzar actualización visual
+        forceSafariRepaintFromDropArea();
       });
     },
 
@@ -220,7 +214,7 @@ function forceSafariRepaintFromDropArea() {
   if (!dropArea) return;
 
   dropArea.style.display = 'none';
-  void dropArea.offsetHeight; // ← esto fuerza reflow en Safari
+  void dropArea.offsetHeight;
   dropArea.style.display = 'block';
 }
 

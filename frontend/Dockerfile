@@ -1,6 +1,6 @@
 FROM node:18
 
-ARG WORK_DIR=/frontend
+ARG WORK_DIR=/app
 ENV PATH ${WORK_DIR}/node_modules/.bin:$PATH
 
 RUN mkdir ${WORK_DIR}

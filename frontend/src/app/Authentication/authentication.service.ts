@@ -15,6 +15,9 @@ export class AuthenticationService {
   public actualUser: Observable<User | null> = this.actualUserSubject.asObservable();
 
   url = 'http://localhost:8000/auth/login';
+  urlUser = 'http://localhost:8000/auth/get-user/';
+  urlUpdateUser = 'http://localhost:8000/auth/update-user/';
+  urlChangePassword = 'http://localhost:8000/auth/change-password/';
 
   constructor(private http: HttpClient, @Inject(PLATFORM_ID) private platformId: Object) {
     if (isPlatformBrowser(this.platformId)) {
@@ -71,4 +74,42 @@ export class AuthenticationService {
     this.actualUserSubject.next(user);
     localStorage.setItem('actual_user', JSON.stringify(user));
   }
+
+  getInfoActualUser(): Observable<User> {
+    const token = localStorage.getItem('access_token');
+  
+    return this.http.get<any>(this.urlUser, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    }).pipe(
+      map((response: any) => {
+        const user: User = response.user;
+        this.actualUserSubject.next(user);
+        localStorage.setItem('actual_user', JSON.stringify(user));
+        return user;
+      })
+    );
+  }
+
+  updateUser(userData: any) {
+    const token = localStorage.getItem('access_token');
+    return this.http.put(this.urlUpdateUser, userData, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+  }
+
+  changePassword(passwordData: { current_password: string, new_password: string }) {
+    const token = localStorage.getItem('access_token');
+
+    return this.http.post(this.urlChangePassword, passwordData, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+  }
+  
+  
 }

@@ -1,7 +1,5 @@
 from django.shortcuts import render
 from django.contrib.auth import authenticate, login
-from rest_framework import status
-from rest_framework.decorators import api_view
 from .serializers import UserSerializer
 from django.contrib.auth.models import User
 from .models import CustomUser
@@ -10,8 +8,14 @@ from django.core.mail import send_mail
 from django.conf import settings
 import jwt
 import json
+import logging
+from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+
+logger = logging.getLogger('backend')
 
 
 @api_view(['POST'])
@@ -55,27 +59,94 @@ def login_view(request):
     user = authenticate(username=username, password=password)
 
     if user is not None:
+        user.number_times_connected += 1
+        user.save()
         login(request, user)
         refresh = RefreshToken.for_user(user)
         return JsonResponse({
             'access_token': str(refresh.access_token),
             'refresh_token': str(refresh),
             'user': {
+                'id': user.id,
                 'username': user.username,
                 'email': user.email,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'numberTimesConnected': user.number_times_connected,
+                'numberTimesModifiedPassword': user.number_times_modified_password,
+                'numberDesignsCreated': user.number_designs_created,
+                'numberExecutedScenarios': user.number_executed_scenarios,
             }
-        }, status=status.HTTP_200_OK)
+            }, status=status.HTTP_200_OK)
     
     return JsonResponse({'error': 'Invalid credentials'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_user_view(request):
+    user = request.user
+    return JsonResponse({
+        'user': {
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'numberTimesConnected': user.number_times_connected,
+            'numberTimesModifiedPassword': user.number_times_modified_password,
+            'numberDesignsCreated': user.number_designs_created,
+            'numberExecutedScenarios': user.number_executed_scenarios
+            }
+    })
+
+@api_view(['PUT'])
+@permission_classes([IsAuthenticated])
+def update_user_view(request):
+    user = request.user
+    user.username = request.data.get('username', user.username)
+    user.first_name = request.data.get('first_name', user.first_name)
+    user.last_name = request.data.get('last_name', user.last_name)
+    user.email = request.data.get('email', user.email)
+    user.save()
+    return JsonResponse({
+        'username': user.username,
+        'first_name': user.first_name,
+        'last_name': user.last_name,
+        'email': user.email
+    })
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def change_password_view(request):
+    user = request.user
+    current_password = request.data.get('current_password')
+    new_password = request.data.get('new_password')
+
+    if not current_password or not new_password:
+        return JsonResponse({'error': 'Both current and new password are required.'}, status=400)
+
+    if not user.check_password(current_password):
+        return JsonResponse({'error': 'Current password is incorrect'}, status=400)
+
+    user.set_password(new_password)
+    user.number_times_modified_password += 1
+    user.save()
+
+    return JsonResponse({'message': 'Password updated successfully'}, status=200)
+
 
     
 @api_view(['POST'])
 def send_email_view(request):
     email = request.data.get('email')
+    logger.info(f"Received email: {email}")
     try:
         user = CustomUser.objects.get(email=email)
 
         token = CustomUser.generate_token(user.username, user.id)
+
+        logger.info(user.first_name)
 
         reset_url = f"http://localhost:4200/reset-password?token={token}"
         
@@ -109,6 +180,7 @@ def reset_password_view(request):
 
         if new_password and not user.check_password(new_password):
             user.set_password(new_password)
+            user.number_times_modified_password += 1
             user.save()
             return JsonResponse({'data': 'Password changed succesfully'})
 

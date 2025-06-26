@@ -2,24 +2,46 @@
   <h2>Anomaly Detection Metrics</h2>
   <div *ngFor="let execution of groupedMetrics">
     <h3>Execution: {{ execution.executionNumber }}</h3>
-
     <div *ngFor="let model of execution.models">
       <h4>Model: {{ model.modelName }}</h4>
-      <div class="charts-wrapper">
-        <div *ngFor="let feature of model.features" class="chart-container">
-          <h5>Feature: {{ feature.featureName }}</h5>
-          <canvas id="line-{{execution.executionNumber}}-{{model.safeModelName}}-{{feature.safeFeatureName}}"
-                  (click)="showChartInModal('line', execution.executionNumber, model, feature)"></canvas>
+      <div class="charts-wrapper-with-global">
+        
+        <div class="global-shap-container" *ngIf="execution.globalShapImage" (click)="showGlobalImageInModal(execution.globalShapImage, 'SHAP')">
+          <h5>Global SHAP</h5>
+          <img [src]="'http://localhost:8000/' + execution.globalShapImage" alt="Global SHAP" />
         </div>
+
+        <div class="global-lime-container" *ngIf="execution.globalLimeImage" (click)="showGlobalImageInModal(execution.globalLimeImage, 'LIME')">
+          <h5>Global LIME</h5>
+          <img [src]="'http://localhost:8000/' + execution.globalLimeImage" alt="Global LIME" />
+        </div>
+
+        <div class="charts-wrapper">
+          <div *ngFor="let feature of model.features" class="chart-container">
+            <h5>Feature: {{ feature.featureName }}</h5>
+            <canvas id="line-{{execution.executionNumber}}-{{model.safeModelName}}-{{feature.safeFeatureName}}"
+                    (click)="showChartInModal('line', execution.executionNumber, model, feature)">
+            </canvas>
+          </div>
+        </div>
+        
       </div>
     </div>
   </div>
 </div>
 
-<div class="modal-overlay" *ngIf="showModal" (click)="closeModal()">
+<div class="modal-overlay" *ngIf="showModal && !modalImageUrl" (click)="closeModal()">
   <div class="modal-content" (click)="$event.stopPropagation()">
     <button class="close-btn" (click)="closeModal()">✖</button>
     <h4>{{ modalFeatureName }}</h4>
     <canvas id="modal-line-chart"></canvas>
+  </div>
+</div>
+
+<div class="modal-overlay" *ngIf="showModal && modalImageUrl" (click)="closeModal()">
+  <div class="modal-content" (click)="$event.stopPropagation()">
+    <button class="close-btn" (click)="closeModal()">✖</button>
+    <h4>Global {{ modalImageType }} Image</h4>
+    <img [src]="modalImageUrl" alt="Global {{ modalImageType }} Image" style="max-width: 100%; height: auto;" />
   </div>
 </div>

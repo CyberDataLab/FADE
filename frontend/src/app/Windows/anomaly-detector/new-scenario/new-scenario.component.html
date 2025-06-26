@@ -106,6 +106,26 @@
             </div>
           </div>
         </div>
+
+        <!-- Explainability -->
+        <div class="sub-category">
+          <div class="sub-category-header" (click)="toggleSubSection('explainability')">
+            <i class="fa fa-check-circle"></i>
+            <span>Explainability</span>
+          </div>
+          <div *ngIf="activeSubSections['explainability']" class="sub-section">
+            <div class="option-grid">
+              <div *ngFor="let element of config.sections.dataModel.explainability"
+                  class="option"
+                  draggable="true"
+                  [attr.data-type]="element.type"
+                  (dragstart)="onDragStart($event, false)">
+                <i [class]="element.icon"></i>
+                <span>{{element.displayName}}</span>
+              </div>
+            </div>
+          </div>
+        </div>
         
         <!-- Monitoring -->
         <div class="sub-category">

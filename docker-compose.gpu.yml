@@ -16,11 +16,11 @@ services:
   backend:
     build: 
       context: ./backend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile-gpu
     command: ["./wait-for-it.sh", "db:3306", "--", "python", "manage.py", "runserver", "0.0.0.0:8000"]
     volumes:
       - ./backend:/app
-      - ./frontend:/app/frontend  # Volumen adicional para que backend acceda a los archivos de frontend
+      - ./frontend:/app/frontend  
       - ./ssh_keys:/root/.ssh
       - /tmp/pcap_shared:/app/pcap_shared
     ports:
@@ -30,8 +30,14 @@ services:
       MYSQL_USER: user
       MYSQL_PASSWORD: password
       MYSQL_ROOT_PASSWORD: rootpassword
+      EXECUTION_MODE: gpu
     depends_on:
       - db
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
   
   frontend:
     build:

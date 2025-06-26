@@ -5,7 +5,7 @@ class FileSerializer(serializers.ModelSerializer):
     class Meta:
         model = File
         fields = ['id', 'name', 'file_type', 'entry_count', 'content', 'references']
-        extra_kwargs = {'user': {'read_only': True}}  # Esto solo si File tiene un campo user
+        extra_kwargs = {'user': {'read_only': True}}
 
 class ScenarioSerializer(serializers.ModelSerializer):
     files = FileSerializer(many=True, read_only=True)
@@ -36,5 +36,5 @@ class RegressionMetricSerializer(serializers.ModelSerializer):
 class AnomalyMetricSerializer(serializers.ModelSerializer):
     class Meta:
         model = AnomalyMetric
-        fields = ['id', 'detector', 'execution', 'model_name', 'feature_name', 'anomalies', 'date', 'production']
+        fields = ['id', 'detector', 'execution', 'model_name', 'feature_name', 'anomalies', 'date', 'production', 'anomaly_image', 'global_shap_image', 'local_shap_image', 'global_lime_image', 'local_lime_image']
         extra_kwargs = {'user': {'read_only': True}}

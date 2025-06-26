@@ -11,6 +11,10 @@ class CustomUser(AbstractUser):
     first_name = models.CharField(max_length=255, null=False, blank=True, default="Name")
     last_name = models.CharField(max_length=255, null=False, blank=True, default="Last name")
     admin_username = models.CharField(max_length=255, null=False, blank=True, default='edulb96')
+    number_times_connected = models.IntegerField(default=0)
+    number_times_modified_password = models.IntegerField(default=0)
+    number_designs_created = models.IntegerField(default=0)
+    number_executed_scenarios = models.IntegerField(default=0)
     '''
     password_reset_token = models.CharField(max_length=64, blank=True, null=True)
     password_reset_expiration = models.DateTimeField(blank=True, null=True)

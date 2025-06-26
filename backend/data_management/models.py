@@ -98,7 +98,7 @@ class Scenario(models.Model):
     uuid = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     status = models.CharField(max_length=255, default='Draft')
     date = models.DateTimeField(auto_now_add=True)
-    files = models.ManyToManyField('File', blank=True)  # Cambiado de file -> files
+    files = models.ManyToManyField('File', blank=True)
 
     class Meta:
         db_table = "Scenario"
@@ -128,25 +128,30 @@ class RegressionMetric(models.Model):
     detector = models.ForeignKey(AnomalyDetector, on_delete=models.CASCADE, null=True, blank=True)
     execution = models.IntegerField(default=0)
     model_name = models.CharField(max_length=255, default='model_name')
-    mse = models.DecimalField(max_digits=10, decimal_places=5, null=True, blank=True)  # Mean Squared Error
-    rmse = models.DecimalField(max_digits=10, decimal_places=5, null=True, blank=True)  # Root Mean Squared Error
-    mae = models.DecimalField(max_digits=10, decimal_places=5, null=True, blank=True)  # Mean Absolute Error
-    r2 = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)  # R-squared
-    msle = models.DecimalField(max_digits=10, decimal_places=5, null=True, blank=True)  # Mean Squared Logarithmic Error
+    mse = models.DecimalField(max_digits=10, decimal_places=5, null=True, blank=True)
+    rmse = models.DecimalField(max_digits=10, decimal_places=5, null=True, blank=True)
+    mae = models.DecimalField(max_digits=10, decimal_places=5, null=True, blank=True)
+    r2 = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    msle = models.DecimalField(max_digits=10, decimal_places=5, null=True, blank=True)
     date = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = "RegressionMetric"
-
 
 class AnomalyMetric(models.Model):
     detector = models.ForeignKey(AnomalyDetector, on_delete=models.CASCADE)
     execution = models.IntegerField()
     model_name = models.CharField(max_length=255, default='model_name')
     feature_name = models.CharField(max_length=255)
-    anomalies = models.JSONField()  # Almacena índices de filas anómalas
+    anomalies = models.JSONField()
     date = models.DateTimeField(auto_now_add=True)
     production = models.BooleanField(default=False)
+
+    anomaly_image = models.ImageField(upload_to='anomaly_images/', null=True, blank=True)
+    global_shap_image = models.ImageField(upload_to='shap_global_images/', null=True, blank=True)
+    local_shap_image = models.ImageField(upload_to='shap_local_images/', null=True, blank=True)
+    global_lime_image = models.ImageField(upload_to='lime_global_images/', null=True, blank=True)
+    local_lime_image = models.ImageField(upload_to='lime_local_images/', null=True, blank=True)
 
     class Meta:
         db_table = "AnomalyMetric"

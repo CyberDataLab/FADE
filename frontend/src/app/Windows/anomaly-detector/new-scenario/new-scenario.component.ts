@@ -33,8 +33,6 @@ type AreaExtra = AngularArea2D<Schemes>;
 export class NewScenarioComponent implements OnInit, AfterViewInit{
   config: any = {};
 
-  //RETEJS
-
   editorRef!: {
     editor: NodeEditor<Schemes>;
     area: AreaPlugin<Schemes, AreaExtra>;
@@ -51,10 +49,11 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
 
   activeSections: { [key: string]: boolean } = {};
 
-  activeSubSections: { [key in 'classification' | 'regression' | 'anomalyDetection' | 'monitoring']: boolean } = {
+  activeSubSections: { [key in 'classification' | 'regression' | 'anomalyDetection' | 'explainability' | 'monitoring']: boolean } = {
     classification: false,
     regression: false,
     anomalyDetection: false,
+    explainability: false,
     monitoring: false
   };
 
@@ -199,6 +198,10 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
         const found = obj.regression.find((e: any) => e.type === elementType);
         if (found) return found;
       }
+      if (obj.explainability) {
+        const found = obj.explainability.find((e: any) => e.type === elementType);
+        if (found) return found;
+      }
       if (obj.anomalyDetection) {
         const found = obj.anomalyDetection.find((e: any) => e.type === elementType);
         if (found) return found;
@@ -219,7 +222,6 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
   private generateConfigHTML(config: any, elementId: string): string {
     let html = `<h3 style="margin-bottom: 30px;">${config.displayName} Configuration</h3>`;
   
-    // 🔽 Inicializar parámetros por defecto ANTES de renderizar
     if (!this.elementParameters[elementId]) {
       this.elementParameters[elementId] = {};
       config.properties.forEach((prop: any) => {
@@ -245,16 +247,31 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
         return;
       }
   
-      html += this.generatePropertyHTML(prop, elementId);
+      if (prop.type === 'conditional-repeat-group-by-index') {
+        html += `<div id="${prop.name}-container-${elementId}"></div>`;
+      } else {
+        html += this.generatePropertyHTML(prop, elementId);
+      }
     });
   
     return html;
   }
   
   
+  
   private generatePropertyHTML(prop: any, elementId: string): string {
     let html = '';
-    const currentValue = this.elementParameters[elementId]?.[prop.name] || prop.default;
+    let currentValue: any = undefined;
+
+    if (prop.groupName !== undefined && prop.repeatIndex !== undefined) {
+      const originalName = prop.name.replace(`${prop.groupName}_${prop.repeatIndex}_`, '');
+      const group = this.elementParameters[elementId]?.[prop.groupName] || [];
+      currentValue = group[prop.repeatIndex]?.[originalName] ?? prop.default;
+    } else {
+      currentValue = this.elementParameters[elementId]?.[prop.name] ?? prop.default;
+    }
+
+
     const formattedValue = currentValue !== undefined ? currentValue.toString() : prop.default;
 
     switch (prop.type) {
@@ -271,11 +288,15 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
           </div>`;
         break;
 
-      case 'select':
+      case 'select': {
+        const hasConditional = prop.conditional !== undefined;
+        const initialDisplay = hasConditional ? 'none' : 'grid';
+        const divId = `${prop.name}-row-${elementId}`;
+      
         html += `
-          <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: flex-start;">
-            <label for="${prop.name}-${elementId}" style="flex: 1;">${this.formatPropertyName(prop.label)}:</label>
-            <select id="${prop.name}-${elementId}" style="height: 3.6em; padding: 0.75em 1em; font-size: 16px; line-height: 1.2; flex: 2; box-sizing: border-box;">
+          <div id="${divId}" style="display: ${initialDisplay}; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center;">
+            <label for="${prop.name}-${elementId}" style="text-align: left;">${this.formatPropertyName(prop.label)}:</label>
+            <select id="${prop.name}-${elementId}" style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px; margin-top: -10px;">
               ${prop.options.map((opt: string) => `
                 <option value="${opt}" ${formattedValue === opt ? 'selected' : ''}>
                   ${this.formatOptionName(opt)}
@@ -284,6 +305,19 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
             </select>
           </div>`;
         break;
+      }
+        
+        
+      case 'dynamic-select':
+        html += `
+          <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: flex-start;">
+            <label for="${prop.name}-${elementId}" style="flex: 1;">${this.formatPropertyName(prop.label)}:</label>
+            <select id="${prop.name}-${elementId}" style="height: 3.6em; padding: 0.75em 1em; font-size: 16px; line-height: 1.2; flex: 2; box-sizing: border-box;">
+              <!-- Opciones generadas dinámicamente en setupDynamicInputs -->
+            </select>
+          </div>`;
+        break;
+        
 
       case 'number':
         const hasConditional = prop.conditional !== undefined;
@@ -347,24 +381,6 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
               >${formattedValue}</textarea>
             </div>`;
           break;
-        case 'repeat-group': {
-          const containerId = `${prop.name}-container-${elementId}`;
-          html += `<div id="${containerId}">`;
-        
-          const repeatCount = this.elementParameters[elementId]?.[prop.repeat] || prop.default || 1;
-          for (let i = 0; i < repeatCount; i++) {
-            html += `<fieldset style="border: 1px solid #ccc; padding: 10px; margin-bottom: 10px;">
-                      <legend>${prop.label} #${i + 1}</legend>`;
-            for (const subProp of prop.template) {
-              const subPropClone = { ...subProp, name: `${prop.name}_${i}_${subProp.name}` };
-              html += this.generatePropertyHTML(subPropClone, elementId);
-            }
-            html += `</fieldset>`;
-          }
-        
-          html += `</div>`;
-          break;
-      }
     }
 
     return html;
@@ -372,31 +388,28 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
 
   private evaluateInitialConditionalVisibility(config: any, elementId: string): void {
     config.properties.forEach((prop: any) => {
-      if (prop.conditional) {
-        const dependsOn = prop.conditional.dependsOn;
-        const dependsValue = prop.conditional.value;
+      if (!prop.conditional) return;
   
-        // Detectar si estamos en un repeat-group por el nombre
-        const repeatMatch = prop.name.match(/^(.+?)_(\d+)_/);
-        let resolvedDependsOn = dependsOn;
+      const rowId = `${prop.name}-row-${elementId}`;
+      const dependentRow = document.getElementById(rowId);
+      if (!dependentRow) return;
   
-        if (repeatMatch) {
-          const prefix = repeatMatch[1];
-          const index = repeatMatch[2];
-          resolvedDependsOn = `${prefix}_${index}_${dependsOn}`;
-        }
+      const isInGroup = prop.groupName !== undefined && prop.repeatIndex !== undefined;
+      let controllingValue;
   
-        const controllingValue = this.elementParameters[elementId]?.[resolvedDependsOn];
-        const dependentRow = document.getElementById(`${prop.name}-row-${elementId}`);
-  
-        if (dependentRow) {
-          const shouldShow = controllingValue === dependsValue;
-          dependentRow.style.display = shouldShow ? 'grid' : 'none';
-        }
+      if (isInGroup) {
+        const originalName = prop.conditional.dependsOn;
+        controllingValue = this.elementParameters[elementId]?.[prop.groupName]?.[prop.repeatIndex]?.[originalName];
+      } else {
+        controllingValue = this.elementParameters[elementId]?.[prop.conditional.dependsOn];
       }
+  
+      const shouldShow = controllingValue === prop.conditional.value;
+      dependentRow.style.display = shouldShow ? 'grid' : 'none';
     });
   }
-
+  
+  
   private formatPropertyName(name: string): string {
     return name
       .replace(/([A-Z])/g, ' $1')
@@ -412,229 +425,351 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
   
   private setupDynamicInputs(node: ClassicPreset.Node, config: any): void {
     const elementId = node.id;
-
+  
     config.properties.forEach((prop: any) => {
       const paramKey = prop.name;
       const controlId = `${paramKey}-${elementId}`;
-      
+      const isInGroup = prop.groupName !== undefined && prop.repeatIndex !== undefined;
+  
+      const getCurrentValue = (): any => {
+        if (isInGroup) {
+          const originalName = paramKey.replace(`${prop.groupName}_${prop.repeatIndex}_`, '');
+          return this.elementParameters[elementId][prop.groupName]?.[prop.repeatIndex]?.[originalName];
+        } else {
+          return this.elementParameters[elementId][paramKey];
+        }
+      };
+  
+      const saveValue = (value: any) => {
+        if (isInGroup) {
+          const originalName = paramKey.replace(`${prop.groupName}_${prop.repeatIndex}_`, '');
+          this.elementParameters[elementId][prop.groupName][prop.repeatIndex][originalName] = value;
+        } else {
+          this.elementParameters[elementId][paramKey] = value;
+        }
+      };
+  
+      const deleteValue = () => {
+        if (isInGroup) {
+          const originalName = paramKey.replace(`${prop.groupName}_${prop.repeatIndex}_`, '');
+          delete this.elementParameters[elementId][prop.groupName][prop.repeatIndex][originalName];
+        } else {
+          delete this.elementParameters[elementId][paramKey];
+        }
+      };
+
+      const propKeyWithoutPrefix = (key: string, index: number) => key.replace(`conv_layers_${index}_`, '');
+
+  
       switch (prop.type) {
         case 'conditional-select': {
           const selectId = `${paramKey}-select-${elementId}`;
           const select = document.getElementById(selectId) as HTMLSelectElement;
         
           if (select) {
-            if (!(paramKey in this.elementParameters[elementId])) {
-              this.elementParameters[elementId][paramKey] = prop.default;
-            }
-        
-            select.value = this.elementParameters[elementId][paramKey];
+            select.value = getCurrentValue() ?? prop.default;
         
             select.addEventListener('change', () => {
               const newValue = select.value;
-              this.elementParameters[elementId][paramKey] = newValue;
+              this.saveCurrentConvLayerParams(elementId, config);
+              saveValue(newValue);
+              this.renderSelectedConvLayerConfig(elementId, config);
         
-              config.properties
-                .filter((p: any) => {
-                  const regex = /^(.+?)_(\d+)_/;
-                  const match = paramKey.match(regex);
-                  if (match) {
-                    // Estamos en un repeat-group
-                    const prefix = match[1];
-                    const index = match[2];
-                    const expectedControlName = `${prefix}_${index}_${p.conditional?.dependsOn}`;
-                    return p.conditional && expectedControlName === paramKey;
-                  } else {
-                    return p.conditional && p.conditional.dependsOn === paramKey;
-                  }
-                })
-                .forEach((dependentProp: any) => {
-                  const regex = /^(.+?)_(\d+)_/;
-                  const match = paramKey.match(regex);
-                  let dependentName = dependentProp.name;
+              if (isInGroup) {
+                const controllingKey = paramKey.replace(`${prop.groupName}_${prop.repeatIndex}_`, '');
         
-                  if (match) {
-                    const prefix = match[1];
-                    const index = match[2];
-                    dependentName = `${prefix}_${index}_${dependentProp.name}`;
-                  }
+                config.properties
+                  .filter((p: any) =>
+                    p.groupName === prop.groupName &&
+                    p.repeatIndex === prop.repeatIndex &&
+                    p.conditional?.dependsOn === controllingKey
+                  )
+                  .forEach((dependentProp: any) => {
+                    const rowId = `${dependentProp.name}-row-${elementId}`;
+                    const dependentRow = document.getElementById(rowId);
         
-                  const dependentRow = document.getElementById(`${dependentName}-row-${elementId}`);
+                    const shouldShow = newValue === dependentProp.conditional.value;
         
-                  if (dependentRow) {
-                    const isVisible = newValue === dependentProp.conditional.value;
-                    dependentRow.style.display = isVisible ? 'grid' : 'none';
+                    if (dependentRow) {
+                      dependentRow.style.display = shouldShow ? 'grid' : 'none';
+                    }
         
-                    if (isVisible) {
-                      if (!(dependentName in this.elementParameters[elementId])) {
-                        this.elementParameters[elementId][dependentName] = dependentProp.default;
-                      }
+                    const originalName = dependentProp.name.replace(`${prop.groupName}_${prop.repeatIndex}_`, '');
         
-                      // Forzar valor por defecto
-                      setTimeout(() => {
-                        const input = document.getElementById(`${dependentName}-${elementId}`) as HTMLInputElement;
-                        if (input && dependentProp.default !== undefined) {
-                          input.value = dependentProp.default.toString();
-                        }
-                      }, 0);
+                    if (shouldShow) {
+                      this.elementParameters[elementId][prop.groupName][prop.repeatIndex][originalName] = dependentProp.default;
+                      const inputEl = document.getElementById(`${dependentProp.name}-${elementId}`) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+                      if (inputEl) inputEl.value = dependentProp.default;
                     } else {
-                      delete this.elementParameters[elementId][dependentName];
+                      delete this.elementParameters[elementId][prop.groupName][prop.repeatIndex][originalName];
                     }
-                  }
-                });
-            });
-          }
-          break;
-        }
+                  });
         
-      
-        case 'number': {
-          const input = document.getElementById(controlId) as HTMLInputElement;
-          if (input) {
-            input.value = this.elementParameters[elementId][paramKey] || '';
-        
-            input.addEventListener('input', () => {
-              const newValue = parseInt(input.value, 10);
-              this.elementParameters[elementId][paramKey] = newValue;
-        
-              // Verifica si este número controla un repeat-group
-              const affectedRepeatGroups = config.properties.filter((p: any) => 
-                p.type === 'repeat-group' && p.repeat === paramKey
-              );
-        
-              affectedRepeatGroups.forEach((repeatProp: any) => {
-                const containerId = `${repeatProp.name}-container-${elementId}`;
-                const container = document.getElementById(containerId);
-                if (container) {
-                  container.innerHTML = '';
-        
-                  for (let i = 0; i < newValue; i++) {
-                    const fieldset = document.createElement('fieldset');
-                    fieldset.style.border = '1px solid #ccc';
-                    fieldset.style.padding = '10px';
-                    fieldset.style.marginBottom = '10px';
-        
-                    const legend = document.createElement('legend');
-                    legend.textContent = `${repeatProp.label} #${i + 1}`;
-                    fieldset.appendChild(legend);
-        
-                    for (const subProp of repeatProp.template) {
-                      const subPropClone = { ...subProp, name: `${repeatProp.name}_${i}_${subProp.name}` };
-                      const html = this.generatePropertyHTML(subPropClone, elementId);
-                      const tempDiv = document.createElement('div');
-                      tempDiv.innerHTML = html;
-                      Array.from(tempDiv.children).forEach(child => fieldset.appendChild(child));
-                    }
-        
-                    container.appendChild(fieldset);
-                  }
-        
-                  // Reaplicar listeners de inputs recién creados
-                  this.setupDynamicInputs({ id: elementId } as any, { properties: repeatProp.template.map((sp: any) => ({
-                    ...sp,
-                    name: `${repeatProp.name}_${0}_${sp.name}`
-                  })) });
-                }
-              });
-            });
-          }
-          break;
-        }
-        
-
-        case 'select': {
-          const selectEl = document.getElementById(controlId) as HTMLSelectElement;
-          if (selectEl) {
-            selectEl.value = this.elementParameters[elementId][paramKey] || '';
-
-            selectEl.addEventListener('change', () => {
-              if (selectEl.value === 'custom') {
-                this.elementParameters[elementId][paramKey] = 'custom';
               } else {
-                this.elementParameters[elementId][paramKey] = selectEl.value;
-                delete this.elementParameters[elementId][`${paramKey}_custom`];
+                config.properties
+                  .filter((p: any) => p.conditional?.dependsOn === paramKey)
+                  .forEach((dependentProp: any) => {
+                    const rowId = `${dependentProp.name}-row-${elementId}`;
+                    const dependentRow = document.getElementById(rowId);
+        
+                    const shouldShow = newValue === dependentProp.conditional.value;
+        
+                    if (dependentRow) {
+                      dependentRow.style.display = shouldShow ? 'grid' : 'none';
+                    }
+        
+                    if (shouldShow) {
+                      this.elementParameters[elementId][dependentProp.name] = dependentProp.default;
+                      const inputEl = document.getElementById(`${dependentProp.name}-${elementId}`) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+                      if (inputEl) inputEl.value = dependentProp.default;
+                    } else {
+                      delete this.elementParameters[elementId][dependentProp.name];
+                    }
+                  });
               }
             });
           }
           break;
         }
-
+  
+        case 'number': {
+          const input = document.getElementById(controlId) as HTMLInputElement;
+          if (input) {
+            input.value = getCurrentValue() ?? prop.default;
+        
+            input.addEventListener('input', () => {
+              const newValue = parseInt(input.value, 10);
+              if (!isNaN(newValue)) {
+                saveValue(newValue);
+        
+                const dependentDynamicSelect = config.properties.find((p: any) =>
+                  p.type === 'dynamic-select' && p.options_from === paramKey
+                );
+        
+                if (dependentDynamicSelect) {
+                  const selectId = `${dependentDynamicSelect.name}-${elementId}`;
+                  const select = document.getElementById(selectId) as HTMLSelectElement;
+        
+                  if (select) {
+                    select.innerHTML = '';
+                    for (let i = 0; i < newValue; i++) {
+                      const option = document.createElement('option');
+                      option.value = i.toString();
+                      option.text = dependentDynamicSelect.options_template.replace('@index', i.toString());
+                      select.appendChild(option);
+                    }
+        
+                    this.elementParameters[elementId][dependentDynamicSelect.name] = '0';
+                    select.value = '0';
+                  }
+        
+                  this.renderSelectedConvLayerConfig(elementId, config);
+                }
+        
+                const repeatGroup = config.properties.find((p: any) =>
+                  p.type === 'conditional-repeat-group-by-index' && p.repeat === paramKey
+                );
+        
+                if (repeatGroup) {
+                  const groupName = repeatGroup.name;
+                  const groupArray = this.elementParameters[elementId]?.[groupName];
+                  if (Array.isArray(groupArray) && groupArray.length > newValue) {
+                    this.elementParameters[elementId][groupName] = groupArray.slice(0, newValue);
+                  }
+        
+                  const selectedIndex = parseInt(this.elementParameters[elementId]?.[repeatGroup.index] || '0', 10);
+                  if (selectedIndex >= newValue) {
+                    this.elementParameters[elementId][repeatGroup.index] = '0';
+                  }
+        
+                  this.renderSelectedConvLayerConfig(elementId, config);
+                }
+              }
+            });
+          }
+          break;
+        }
+ 
+        case 'select': {
+          const selectEl = document.getElementById(controlId) as HTMLSelectElement;
+          if (selectEl) {
+            selectEl.value = getCurrentValue() ?? prop.default;
+  
+            selectEl.addEventListener('change', () => {
+              const selectedValue = selectEl.value;
+              saveValue(selectedValue);
+            });
+          }
+          break;
+        }
+  
         case 'textarea': {
           const textarea = document.getElementById(controlId) as HTMLTextAreaElement;
-        
           if (textarea) {
-            textarea.value = this.elementParameters[elementId][paramKey] || '';
-        
+            textarea.value = getCurrentValue() ?? prop.default;
+  
             textarea.addEventListener('input', () => {
-              this.elementParameters[elementId][paramKey] = textarea.value;
+              saveValue(textarea.value);
             });
-
+  
             textarea.addEventListener('wheel', (e) => {
               const scrollTop = textarea.scrollTop;
               const scrollHeight = textarea.scrollHeight;
               const clientHeight = textarea.clientHeight;
-            
-              const isScrollingDown = e.deltaY > 0;
-              const isScrollingUp = e.deltaY < 0;
-            
               const atTop = scrollTop === 0;
               const atBottom = scrollTop + clientHeight >= scrollHeight - 1;
-            
-              const shouldStop = 
-                (isScrollingUp && !atTop) ||
-                (isScrollingDown && !atBottom);
-            
-              if (shouldStop) {
-                e.stopPropagation();
-              }
+              const shouldStop = (e.deltaY < 0 && !atTop) || (e.deltaY > 0 && !atBottom);
+              if (shouldStop) e.stopPropagation();
             });
-            
+  
             const zoomIn = document.getElementById(`zoom-in-${elementId}-${paramKey}`);
             const zoomOut = document.getElementById(`zoom-out-${elementId}-${paramKey}`);
-        
-            const maxFontSize = 13;  
-            const minFontSize = 7; 
-
+            const maxFontSize = 13;
+            const minFontSize = 7;
+  
             const updateFontSize = (delta: number) => {
               const currentSize = parseFloat(window.getComputedStyle(textarea).fontSize);
               const newSize = Math.max(minFontSize, Math.min(maxFontSize, currentSize + delta));
               textarea.style.fontSize = `${newSize}px`;
             };
-        
+  
             zoomIn?.addEventListener('click', () => updateFontSize(1));
             zoomOut?.addEventListener('click', () => updateFontSize(-1));
           }
           break;
         }
-        case 'repeat-group': {
-          const repeatCount = this.elementParameters[elementId]?.[prop.repeat] || prop.default || 1;
-
-          for (let i = 0; i < repeatCount; i++) {
-            for (const subProp of prop.template) {
-              const subPropName = `${prop.name}_${i}_${subProp.name}`;
-              const subControlId = `${subPropName}-${elementId}`;
-              const input = document.getElementById(subControlId) as HTMLInputElement | HTMLSelectElement;
-
-              if (input) {
-                if (!(subPropName in this.elementParameters[elementId])) {
-                  this.elementParameters[elementId][subPropName] = subProp.default;
-                }
-
-                // Establecer el valor inicial
-                input.value = this.elementParameters[elementId][subPropName] || subProp.default;
-
-                // Escuchar cambios
-                input.addEventListener('input', () => {
-                  this.elementParameters[elementId][subPropName] = input.value;
-                });
-              }
+  
+        case 'dynamic-select': {
+          const select = document.getElementById(`${paramKey}-${elementId}`) as HTMLSelectElement;
+          const layerCount = this.elementParameters[elementId]?.[prop.options_from] || 0;
+  
+          if (select) {
+            select.innerHTML = '';
+            for (let i = 0; i < layerCount; i++) {
+              const option = document.createElement('option');
+              option.value = i.toString();
+              option.text = prop.options_template.replace('@index', i.toString());
+              if (i.toString() === getCurrentValue()) option.selected = true;
+              select.appendChild(option);
             }
+  
+            select.addEventListener('change', () => {
+              saveValue(select.value);
+              this.renderSelectedConvLayerConfig(elementId, config);
+            });
           }
           break;
-        }     
+        }
       }
     });
+  
     this.evaluateInitialConditionalVisibility(config, node.id);
+  
+    const repeatGroupProp = config.properties.find((p: any) => p.type === 'conditional-repeat-group-by-index');
+    if (repeatGroupProp) {
+      this.renderSelectedConvLayerConfig(elementId, config);
+    }
+  }
+  
 
+  private renderSelectedConvLayerConfig(elementId: string, config: any): void {
+    const repeatGroupProp = config.properties.find((p: any) => p.type === 'conditional-repeat-group-by-index');
+    if (!repeatGroupProp || !Array.isArray(repeatGroupProp.template)) return;
+  
+    const groupName = repeatGroupProp.name;
+    const indexKey = repeatGroupProp.index;
+  
+    const layerIndex = parseInt(this.elementParameters[elementId]?.[indexKey] || '0', 10);
+    const containerId = `${groupName}-container-${elementId}`;
+    const container = document.getElementById(containerId);
+    if (!container) return;
+  
+    container.innerHTML = '';
+  
+    if (!this.elementParameters[elementId][groupName]) {
+      this.elementParameters[elementId][groupName] = [];
+    }
+    if (!this.elementParameters[elementId][groupName][layerIndex]) {
+      this.elementParameters[elementId][groupName][layerIndex] = {};
+    }
+  
+    const layerParams = this.elementParameters[elementId][groupName][layerIndex];
+  
+    for (const subProp of repeatGroupProp.template) {
+      if (!subProp.conditional) {
+        if (!(subProp.name in layerParams)) {
+          layerParams[subProp.name] = subProp.default;
+        }
+      } else {
+        const parentVal = layerParams[subProp.conditional.dependsOn];
+        if (parentVal === subProp.conditional.value && !(subProp.name in layerParams)) {
+          layerParams[subProp.name] = subProp.default;
+        }
+      }
+    }
+  
+    const fieldset = document.createElement('fieldset');
+    fieldset.style.border = '1px solid #ccc';
+    fieldset.style.padding = '10px';
+    fieldset.style.marginBottom = '10px';
+  
+    const legend = document.createElement('legend');
+    legend.textContent = `Layer ${layerIndex} Configuration`;
+    fieldset.appendChild(legend);
+  
+    for (const subProp of repeatGroupProp.template) {
+      const subPropClone = {
+        ...subProp,
+        name: `${groupName}_${layerIndex}_${subProp.name}`,
+        groupName: groupName,
+        repeatIndex: layerIndex
+      };
+      const html = this.generatePropertyHTML(subPropClone, elementId);
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = html;
+      Array.from(tempDiv.children).forEach(child => fieldset.appendChild(child));
+    }
+  
+    container.appendChild(fieldset);
+  
+    const subPropsWithMeta = repeatGroupProp.template.map((sp: any) => ({
+      ...sp,
+      name: `${groupName}_${layerIndex}_${sp.name}`,
+      groupName,
+      repeatIndex: layerIndex
+    }));
+  
+    this.setupDynamicInputs({ id: elementId } as any, { properties: subPropsWithMeta });
+    this.evaluateInitialConditionalVisibility({ properties: subPropsWithMeta }, elementId);
+  }
+
+  private saveCurrentConvLayerParams(elementId: string, config: any): void {
+    const repeatGroupProp = config.properties.find((p: any) => p.type === 'conditional-repeat-group-by-index');
+    if (!repeatGroupProp) return;
+  
+    const groupName = repeatGroupProp.name;
+    const indexKey = repeatGroupProp.index;
+    const layerIndex = parseInt(this.elementParameters[elementId]?.[indexKey] || '0', 10);
+  
+    if (!this.elementParameters[elementId][groupName] || !this.elementParameters[elementId][groupName][layerIndex]) {
+      return;
+    }
+  
+    const layerParams = this.elementParameters[elementId][groupName][layerIndex];
+  
+    repeatGroupProp.template.forEach((subProp: any) => {
+      const fullName = `${groupName}_${layerIndex}_${subProp.name}`;
+      const input = document.getElementById(`${fullName}-${elementId}`) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+  
+      if (input) {
+        let value: any = input.value;
+  
+        if (input.type === 'number') value = parseFloat(value);
+        if (value === '' || value === undefined || value === null || isNaN(value)) value = subProp.default;
+  
+        layerParams[subProp.name] = value;
+      }
+    });
   }
 
   private handleCSVConfiguration(node: ClassicPreset.Node, configContent: HTMLElement): void {
@@ -701,7 +836,6 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
       if (file && file.name.endsWith('.csv')) {
         const file = input.files[0];
 
-        // Evita duplicados por nombre (opcional)
         const alreadyExists = this.selectedCSVFiles.some(f => f.name === file.name);
         if (!alreadyExists) {
           this.selectedCSVFiles.push(file);
@@ -784,7 +918,6 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
       if (file && file.name.endsWith('.pcap')) {
         const file = input.files[0];
 
-        // Evita duplicados por nombre (opcional)
         const alreadyExists = this.selectedNetworkFiles.some(f => f.name === file.name);
         if (!alreadyExists) {
           this.selectedNetworkFiles.push(file);
@@ -927,7 +1060,7 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
   }
 
   toggleSubSection(section: string): void {
-    if (section === 'classification' || section === 'regression' || section === 'anomalyDetection' || section === 'monitoring') {
+    if (section === 'classification' || section === 'regression' || section === 'anomalyDetection' || section === 'explainability' || section === 'monitoring') {
       this.activeSubSections[section] = !this.activeSubSections[section];
     }
   }
@@ -1147,7 +1280,7 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
           ? JSON.parse(this.scenario.design) 
           : this.scenario.design;
   
-        await this.editorRef.clearEditor(); // 💥 Limpieza previa
+        await this.editorRef.clearEditor();
         await this.loadElementsFromJSON(designData.elements);
         await this.loadConnectionsFromJSON(designData.connections || []);
       },
@@ -1177,6 +1310,12 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
           ...element.parameters,
           columns: element.parameters.columns 
         };
+      }
+      if ((element === 'CodeProcessing' || element === 'CodeSplitter') && element.parameters?.code) {
+          this.elementParameters[element.id] = {
+            ...element.parameters,
+            code: element.parameters.code
+          };
       }
       else {
         this.elementParameters[element.id] = element.parameters;

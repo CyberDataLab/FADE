@@ -14,15 +14,32 @@
         </tr>
       </thead>
       <tbody>
-        <tr *ngFor="let anomaly of productionAnomalies">
-          <td>{{ anomaly.anomalies?.anomaly_indices }}</td>
+        <tr *ngFor="let anomaly of productionAnomalies" class="anomaly-row">
+          <td class="anomaly-cell">
+            {{ anomaly.anomalies?.anomaly_indices }}
+
+            <div class="hover-images" *ngIf="anomaly.anomaly_image || anomaly.local_shap_image || anomaly.local_lime_image">
+              <img
+                *ngIf="anomaly.anomaly_image"
+                [src]="'http://localhost:8000' + anomaly.anomaly_image"
+                alt="Anomaly"
+                (click)="openModal('http://localhost:8000' + anomaly.anomaly_image)"
+              />
+              <img
+                *ngIf="anomaly.local_shap_image || anomaly.local_lime_image"
+                [src]="'http://localhost:8000' + (anomaly.local_shap_image || anomaly.local_lime_image)"
+                alt="Explanation"
+                (click)="openModal('http://localhost:8000' + (anomaly.local_shap_image || anomaly.local_lime_image))"
+              />
+
+            </div>
+          </td>
           <td>
             <div class="action-buttons">
-              
-              <!-- Puedes añadir más acciones aquí -->
             </div>
           </td>
         </tr>
+
         <tr *ngIf="productionAnomalies.length === 0">
           <td colspan="2" class="empty-row">No production anomalies yet</td>
         </tr>
@@ -30,3 +47,9 @@
     </table>
   </div>
 </div>
+
+<div class="image-modal" *ngIf="modalImage">
+  <button class="close-btn" (click)="closeModal()">✖</button>
+  <img [src]="modalImage" alt="Expanded image" />
+</div>
+

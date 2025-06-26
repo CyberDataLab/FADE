@@ -101,31 +101,15 @@ export class AnomalyDetectorComponent {
   
           const csvElements = design.elements.filter((el: any) => el.type === "CSV");
           const networkElements = design.elements.filter((el: any) => el.type === "Network");
-
-          alert(JSON.stringify(networkElements));
   
           const expectedCsvNames = csvElements.map((el: any) => el.parameters?.csvFileName).filter(Boolean);
           const expectedNetworkNames = networkElements.map((el: any) => el.parameters?.networkFileName).filter(Boolean);
-
-          alert(JSON.stringify(expectedNetworkNames));
   
           const missingCsv = expectedCsvNames.filter((name: string) => !csvFiles.some(file => file.name === name));
           const missingPcap = expectedNetworkNames.filter((name: string) => !networkFiles.some(file => file.name === name));
-
-  
-          if (missingCsv.length || missingPcap.length) {
-            const msg = [
-              missingCsv.length ? `Missing CSV files: ${missingCsv.join(', ')}` : '',
-              missingPcap.length ? `Missing PCAP files: ${missingPcap.join(', ')}` : ''
-            ].filter(Boolean).join('\n');
-            alert(msg);
-            return;
-          }
   
           const matchedCsvFiles = expectedCsvNames.map((name: string) => csvFiles.find(f => f.name === name)!);
           const matchedNetworkFiles = expectedNetworkNames.map((name: string) => networkFiles.find(f => f.name === name)!);
-
-          alert(JSON.stringify(matchedNetworkFiles));
   
           const scenarioName = jsonFile.name.substring(0, jsonFile.name.lastIndexOf('.'));
   

@@ -43,7 +43,8 @@ export class RegisterComponent implements OnInit {
   badConfirmPasswordError: boolean;
   badEmailError: boolean;
   
-  showPassword: boolean;
+  showAdminPassword: boolean;
+  showNewPassword: boolean;
   showConfirmPassword: boolean;
 
   usernamePattern = /^(?=.*[a-z])(?=.*\d)[A-Za-z\d]{6,}$/;
@@ -64,7 +65,8 @@ export class RegisterComponent implements OnInit {
     this.badConfirmPasswordError = false;
     this.badEmailError = false;
 
-    this.showPassword = false;
+    this.showAdminPassword = false;
+    this.showNewPassword = false;
     this.showConfirmPassword = false;
   }
 
@@ -80,12 +82,10 @@ export class RegisterComponent implements OnInit {
     }
   }
 
-  togglePasswordVisibility() {
-    this.showPassword = !this.showPassword;
-  }
-
-  toggleConfirmPasswordVisibility() {
-    this.showConfirmPassword = !this.showConfirmPassword;
+  toggleVisibility(field: 'admin' | 'new' | 'confirm'): void {
+    if (field === 'admin') this.showAdminPassword = !this.showAdminPassword;
+    if (field === 'new') this.showNewPassword = !this.showNewPassword;
+    if (field === 'confirm') this.showConfirmPassword = !this.showConfirmPassword;
   }
 
   registerUser() {

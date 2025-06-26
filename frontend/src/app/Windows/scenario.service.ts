@@ -104,26 +104,19 @@ export class ScenarioService {
       formData.append('name', name);
       formData.append('design', JSON.stringify(design));
   
-      let message = `📁 Files to upload:\n`;
   
       if (csvFiles && csvFiles.length > 0) {
-        message += `\n📄 CSV files:\n`;
         csvFiles.forEach(file => {
-          message += ` - ${file.name}\n`;
           formData.append('csv_files', file);
         });
       }
   
       if (networkFiles && networkFiles.length > 0) {
-        message += `\n📡 Network files:\n`;
         networkFiles.forEach(file => {
-          message += ` - ${file.name}\n`;
           formData.append('network_files', file);
         });
       }
-  
-      alert(message);  // <--- Mostrar todos los nombres antes de enviar
-  
+    
       return this.handleRequest(this.http.post(this.apiUrl + 'create/', formData, {
         headers: this.getAuthHeadersWithoutContentType(),
       }));
@@ -131,8 +124,6 @@ export class ScenarioService {
   
     return EMPTY;
   }
-  
-  
   
   editScenario(uuid: string, design: any, csvFiles?: File[], networkFiles?: File[]): Observable<any> {
     if (isPlatformBrowser(this.platformId)) {
@@ -155,7 +146,6 @@ export class ScenarioService {
     return EMPTY;
   }
   
-
   getScenarios(): Observable<any> {
     if (isPlatformBrowser(this.platformId)) {
       return this.handleRequest(this.http.get(this.apiUrl, { headers: this.getAuthHeaders() }));

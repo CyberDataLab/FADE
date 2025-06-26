@@ -16,9 +16,9 @@
         <!-- Admin password -->
         <div class="form-group">
           <div class="input-wrapper">
-            <input [type]="showPassword ? 'text' : 'password'" [(ngModel)]="userRegisterDTO.admin_password" name="admin_password" class="form-control register-input" placeholder="Admin password" />
-            <button type="button" (click)="togglePasswordVisibility()" class="password-toggle-btn">
-              <i [ngClass]="showPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
+            <input [type]="showAdminPassword ? 'text' : 'password'" [(ngModel)]="userRegisterDTO.admin_password" name="admin_password" class="form-control register-input" placeholder="Admin password" />
+            <button type="button" (click)="toggleVisibility('admin')" class="password-toggle-btn">
+              <i [ngClass]="showAdminPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
             </button>
           </div>
           <ng-container *ngIf="admin_passwordError">
@@ -40,9 +40,9 @@
         <!-- Password new user -->
         <div class="form-group">
           <div class="input-wrapper">
-            <input [type]="showPassword ? 'text' : 'password'" [(ngModel)]="userRegisterDTO.password" name="password" class="form-control register-input" placeholder="Password" />
-            <button type="button" (click)="togglePasswordVisibility()" class="password-toggle-btn">
-              <i [ngClass]="showPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
+            <input [type]="showNewPassword ? 'text' : 'password'" [(ngModel)]="userRegisterDTO.password" name="password" class="form-control register-input" placeholder="Password" />
+            <button type="button" (click)="toggleVisibility('new')" class="password-toggle-btn">
+              <i [ngClass]="showNewPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
             </button>
           </div>
           <ng-container *ngIf="passwordError; else passwordValid">
@@ -56,9 +56,9 @@
         <!-- Confirm password new user -->
         <div class="form-group">
           <div class="input-wrapper">
-            <input [type]="showPassword ? 'text' : 'password'" [(ngModel)]="userRegisterDTO.confirm_password" name="confirm_password" class="form-control register-input" placeholder="Confirm password" />
-            <button type="button" (click)="togglePasswordVisibility()" class="password-toggle-btn">
-              <i [ngClass]="showPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
+            <input [type]="showConfirmPassword ? 'text' : 'password'" [(ngModel)]="userRegisterDTO.confirm_password" name="confirm_password" class="form-control register-input" placeholder="Confirm password" />
+            <button type="button" (click)="toggleVisibility('confirm')" class="password-toggle-btn">
+              <i [ngClass]="showConfirmPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
             </button>
           </div>
           <ng-container *ngIf="confirm_passwordError; else confirm_passwordValid">

@@ -21,17 +21,37 @@ import logging
 import json
 import pandas as pd
 import numpy as np
+import copy
+import socket
+import struct
 import importlib
 import shap
+import matplotlib.pyplot as plt
 from celery import shared_task
 from collections import defaultdict
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import f1_score, precision_score, recall_score, accuracy_score, confusion_matrix, mean_squared_error, mean_absolute_error, r2_score
+from tensorflow.keras import Sequential
+from tensorflow.keras.layers import Dense, Flatten, Dropout, Conv1D, Conv2D, MaxPooling1D, MaxPooling2D, SimpleRNN, LSTM, GRU
+from tensorflow.keras.utils import to_categorical
 
 logger = logging.getLogger('backend')
 
 thread_controls = {}
 
+PROTOCOL_MAP = {
+    "1": "ICMP",
+    "2": "IGMP",
+    "6": "TCP",
+    "17": "UDP",
+    "41": "IPv6",
+    "47": "GRE",
+    "50": "ESP",
+    "51": "AH",
+    "58": "ICMPv6",
+    "89": "OSPF",
+    "132": "SCTP",
+}
 
 def load_config():
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -50,38 +70,84 @@ def load_config():
 def validate_design(config, design):
     elements = {e["id"]: e for e in design["elements"]}
     connections = design["connections"]
-    
+
     start_ids = [conn["startId"] for conn in connections]
     end_ids = [conn["endId"] for conn in connections]
-    
-    data_processing_types = [el["type"] for el in config.get("dataProcessing", {}).get("elements", [])]
+
+    processing_types = [el["type"] for el in config.get("sections", {}).get("dataProcessing", {}).get("elements", [])]
+    logger.info("Tipos de procesamiento: %s", processing_types)
     classification_types = [el["type"] for el in config.get("sections", {}).get("dataModel", {}).get("classification", [])]
+    logger.info("Tipos de clasificación: %s", classification_types)
     regression_types = [el["type"] for el in config.get("sections", {}).get("dataModel", {}).get("regression", [])]
-    
-    must_be_start_and_end = set(data_processing_types + classification_types + regression_types)
-    
+    logger.info("Tipos de regresión: %s", regression_types)
+    anomaly_types = [el["type"] for el in config.get("sections", {}).get("dataModel", {}).get("anomalyDetection", [])]
+    logger.info("Tipos de anomalía: %s", anomaly_types)
+    explainability_types = [el["type"] for el in config.get("sections", {}).get("dataModel", {}).get("explainability", [])]
+    logger.info("Tipos de explicabilidad: %s", explainability_types)
+    monitor_types = [el["type"] for el in config.get("sections", {}).get("dataModel", {}).get("monitoring", [])]
+    logger.info("Tipos de monitorización: %s", monitor_types)
+
+    must_be_start_and_end = set(processing_types + classification_types + regression_types)
+    splitter_types = {"DataSplitter", "CodeSplitter"}
+
+    forward_map = {}
+    backward_map = {}
+    for conn in connections:
+        forward_map.setdefault(conn["startId"], []).append(conn["endId"])
+        backward_map.setdefault(conn["endId"], []).append(conn["startId"])
+
     for element_id, element in elements.items():
         el_type = element["type"]
         appears_in_start = element_id in start_ids
         appears_in_end = element_id in end_ids
-        
+
         if el_type in ["CSV", "Network"]:
             if not appears_in_start:
                 raise ValueError(f"El {el_type} '{element_id}' no aparece como startId.")
             if appears_in_end:
                 raise ValueError(f"El {el_type} '{element_id}' no puede aparecer como endId.")
-        
-        if el_type in ["ClassificationMonitor", "RegressionMonitor"]:
+
+        elif el_type in ["ClassificationMonitor", "RegressionMonitor"]:
             if not appears_in_end:
-                raise ValueError(f"El {el_type} '{element_id}' debe ser endId")
+                raise ValueError(f"El {el_type} '{element_id}' debe ser endId.")
             if appears_in_start:
-                raise ValueError(f"El {el_type} '{element_id}' no puede ser startId")
-        
+                raise ValueError(f"El {el_type} '{element_id}' no puede ser startId.")
+
         elif el_type in must_be_start_and_end:
             if not appears_in_start:
                 raise ValueError(f"El elemento '{element_id}' ({el_type}) debería aparecer como startId y no lo hace.")
             if not appears_in_end:
                 raise ValueError(f"El elemento '{element_id}' ({el_type}) debería aparecer como endId y no lo hace.")
+
+        next_ids = forward_map.get(element_id, [])
+        next_types = [elements[nid]["type"] for nid in next_ids if nid in elements]
+
+        valid_next_types = set(processing_types + classification_types + regression_types + anomaly_types)
+        if el_type in ["CSV", "Network"]:
+            if not any(nt in valid_next_types for nt in next_types):
+                raise ValueError(
+                    f"Después de '{element_id}' ({el_type}) debe seguir un nodo de procesamiento o modelo "
+                    f"(clasificación/regresión/anomalía). Tipos siguientes encontrados: {next_types}"
+                )
+
+        if el_type in classification_types:
+            if not any(nt == "ClassificationMonitor" for nt in next_types):
+                raise ValueError(f"Después de '{element_id}' ({el_type}) debe seguir un ClassificationMonitor.")
+
+        if el_type in regression_types:
+            if not any(nt == "RegressionMonitor" for nt in next_types):
+                raise ValueError(f"Después de '{element_id}' ({el_type}) debe seguir un RegressionMonitor.")
+        '''
+        if el_type in anomaly_types:
+            if not any(nt in explainability_types for nt in next_types):
+                raise ValueError(f"Después de '{element_id}' ({el_type}) debe seguir un nodo de explainability.")
+        '''
+        prev_ids = backward_map.get(element_id, [])
+        prev_types = [elements[pid]["type"] for pid in prev_ids if pid in elements]
+
+        if el_type in (classification_types + regression_types):
+            if not any(pt in splitter_types for pt in prev_types):
+                raise ValueError(f"Antes de '{element_id}' ({el_type}) debe haber un DataSplitter o CodeSplitter.")
 
 def import_class(full_class_name):
     module_name, class_name = full_class_name.rsplit(".", 1)
@@ -89,6 +155,70 @@ def import_class(full_class_name):
     return getattr(module, class_name)
 
 import tempfile
+
+def build_neural_network(input_shape, model_type, parameters):
+    model = Sequential()
+    logger.info("Construyendo modelo de red neuronal: %s", model_type)
+    logger.info("Parámetros del modelo: %s", parameters)
+
+    if model_type == "CNNClassifier":
+        for i, layer in enumerate(parameters.get("conv_layers", [])):
+            conv_cls = Conv1D if parameters["conv_type"] == "Conv1D" else Conv2D
+            kwargs = {
+                "filters": layer["filters"],
+                "kernel_size": layer["kernel_size"],
+                "activation": layer["activation"]
+            }
+            if i == 0:
+                kwargs["input_shape"] = input_shape
+            model.add(conv_cls(**kwargs))
+            if layer.get("use_pooling") == "true":
+                pool_cls = MaxPooling1D if parameters["conv_type"] == "Conv1D" else MaxPooling2D
+                model.add(pool_cls(pool_size=layer["pool_size"]))
+            if layer.get("use_dropout") == "true":
+                model.add(Dropout(rate=layer["dropout_rate"]))
+
+        if parameters.get("use_flatten", "true") == "true":
+            model.add(Flatten())
+        model.add(Dense(parameters["dense_units"], activation=parameters["output_activation"]))
+
+    elif model_type == "RNNClassifier":
+        for i, layer in enumerate(parameters.get("rnn_layers", [])):
+            rnn_cls = {"SimpleRNN": SimpleRNN, "LSTM": LSTM, "GRU": GRU}[parameters["rnn_cell_type"]]
+            kwargs = {
+                "units": layer["units"],
+                "activation": layer["activation"],
+                "return_sequences": layer["return_sequences"] == "true",
+                "go_backwards": layer.get("go_backwards", "false") == "true"
+            }
+            if layer.get("use_dropout") == "true":
+                kwargs["dropout"] = layer["dropout_rate"]
+            if layer.get("use_recurrent_dropout") == "true":
+                kwargs["recurrent_dropout"] = layer["recurrent_dropout_rate"]
+            if i == 0:
+                kwargs["input_shape"] = input_shape
+            model.add(rnn_cls(**kwargs))
+
+        if parameters.get("use_dense", "true") == "true":
+            model.add(Dense(parameters["dense_units"], activation=parameters["output_activation"]))
+
+    elif model_type == "MLPClassifier":
+        model.add(Flatten(input_shape=input_shape))
+        for layer in parameters.get("hidden_layers", []):
+            model.add(Dense(layer["units"], activation=layer["activation"]))
+            if layer.get("use_dropout") == "true":
+                model.add(Dropout(rate=layer["dropout_rate"]))
+        model.add(Dense(parameters["dense_units"], activation=parameters["output_activation"]))
+
+    else:
+        raise ValueError(f"Unsupported model type: {model_type}")
+
+    model.compile(
+        optimizer=parameters["optimizer"],
+        loss=parameters["loss"],
+        metrics=["accuracy"]
+    )
+    return model
 
 def extract_features_from_pcap(file_obj):
     logger.info("Extrayendo características del archivo PCAP")
@@ -113,20 +243,28 @@ def extract_features_from_pcap(file_obj):
 
                 src = pkt.ip.src if hasattr(pkt, 'ip') else None
                 dst = pkt.ip.dst if hasattr(pkt, 'ip') else None
-                proto = pkt.transport_layer if hasattr(pkt, 'transport_layer') else pkt.highest_layer
 
-                src_port = pkt[pkt.transport_layer].srcport if proto and hasattr(pkt[pkt.transport_layer], 'srcport') else None
-                dst_port = pkt[pkt.transport_layer].dstport if proto and hasattr(pkt[pkt.transport_layer], 'dstport') else None
+                proto = pkt.transport_layer or getattr(pkt, 'highest_layer', None)
+                proto_name = PROTOCOL_MAP.get(str(proto), str(proto)) if proto else 'UNKNOWN'
+
+                src_port = dst_port = -1
+
+                if pkt.transport_layer:
+                    try:
+                        layer = pkt[pkt.transport_layer]
+                        src_port = int(getattr(layer, 'srcport', -1)) if hasattr(layer, 'srcport') else -1
+                        dst_port = int(getattr(layer, 'dstport', -1)) if hasattr(layer, 'dstport') else -1
+                    except Exception as e:
+                        logger.warning("Error obteniendo puertos del paquete %d: %s", i + 1, str(e))
 
                 flags = pkt.tcp.flags if hasattr(pkt, 'tcp') and hasattr(pkt.tcp, 'flags') else None
-                ttl = pkt.ip.ttl if hasattr(pkt.ip, 'ttl') else None
+                ttl = int(pkt.ip.ttl) if hasattr(pkt, 'ip') and hasattr(pkt.ip, 'ttl') else None
 
-                flow_key = tuple(sorted([(src, src_port), (dst, dst_port)])) + (proto,)
-
+                flow_key = (src, src_port, dst, dst_port, proto_name)
                 flow_dict[flow_key].append({
                     'time': time,
                     'length': length,
-                    'ttl': int(ttl) if ttl else None,
+                    'ttl': ttl,
                     'flags': flags
                 })
 
@@ -149,11 +287,11 @@ def extract_features_from_pcap(file_obj):
         ttls = [p['ttl'] for p in packets if p['ttl'] is not None]
 
         aggregated.append({
-            'src': flow[0][0],
-            'src_port': flow[0][1],
-            'dst': flow[1][0],
-            'dst_port': flow[1][1],
-            'protocol': flow[2],
+            'src': flow[0],
+            'src_port': flow[1],
+            'dst': flow[2],
+            'dst_port': flow[3],
+            'protocol': flow[4],
             'packet_count': len(packets),
             'total_bytes': sum(lengths),
             'avg_packet_size': sum(lengths) / len(lengths) if lengths else 0,
@@ -162,9 +300,14 @@ def extract_features_from_pcap(file_obj):
         })
 
     df = pd.DataFrame(aggregated)
+    df['src_port'] = df['src_port'].fillna(-1)
+    df['dst_port'] = df['dst_port'].fillna(-1)
+    df['protocol'] = df['protocol'].fillna('UNKNOWN').replace('', 'UNKNOWN')
+
     df.to_csv("features_por_flujo.csv", index=False)
     logger.info("DataFrame agregado: %s", df)
     return df
+
 
 import ipaddress
 
@@ -173,6 +316,9 @@ def ip_to_int(ip_str):
         return int(ipaddress.IPv4Address(ip_str))
     except:
         return 0
+    
+def int_to_ip(ip_int):
+    return socket.inet_ntoa(struct.pack("!I", int(ip_int)))
     
 def extract_parameters(properties, params):
     extracted = {}
@@ -293,31 +439,189 @@ def save_regression_metrics(detector, model_name, metrics, execution):
         msle=metrics.get("msle"),
     )
 
-def save_anomaly_metrics(detector, model_name, feature_name, feature_values, anomalies, execution, production):
-    if production:
-        AnomalyMetric.objects.create(
-            detector=detector,
-            model_name=model_name,
-            feature_name=feature_name,
-            anomalies={
-                'values': feature_values,
-                'anomaly_indices': anomalies
-            },
-            execution=execution,
-            production=production
-        )
-    else:
-        AnomalyMetric.objects.create(
-            detector=detector,
-            model_name=model_name,
-            feature_name=feature_name,
-            anomalies={
-                'values': feature_values.tolist(),
-                'anomaly_indices': anomalies
-            },
-            execution=execution,
-            production=production
-        )
+def save_anomaly_metrics(detector, model_name, feature_name, feature_values, anomalies, execution, production, anomaly_image=None, global_shap_image=None, local_shap_image=None, global_lime_image=None, local_lime_image=None):
+    anomaly_payload = {
+        'values': feature_values.tolist() if not production else feature_values,
+        'anomaly_indices': anomalies
+    }
+
+    AnomalyMetric.objects.create(
+        detector=detector,
+        model_name=model_name,
+        feature_name=feature_name,
+        anomalies=anomaly_payload,
+        execution=execution,
+        production=production,
+        anomaly_image=anomaly_image,
+        global_shap_image=global_shap_image,
+        local_shap_image=local_shap_image,
+        global_lime_image=global_lime_image,
+        local_lime_image=local_lime_image
+    )
+
+def find_explainer_class(module_name, explainer_name):
+    try:
+        mod = importlib.import_module(module_name)
+        if hasattr(mod, explainer_name):
+            return getattr(mod, explainer_name)
+    except Exception:
+        pass
+
+    shap_submodules = [
+        f"{module_name}.explainers", 
+        f"{module_name}.explainers.tree",
+        f"{module_name}.explainers.kernel",
+        f"{module_name}.explainers.deep",
+        f"{module_name}.explainers.linear"
+    ]
+    
+    lime_submodules = [
+        f"{module_name}.lime_tabular",
+        "lime.lime_tabular"
+    ]
+
+    submodules = shap_submodules + lime_submodules
+
+    for sub in submodules:
+        try:
+            mod = importlib.import_module(sub)
+            if hasattr(mod, explainer_name):
+                return getattr(mod, explainer_name)
+        except Exception:
+            continue
+
+    raise ImportError(f"No se pudo encontrar {explainer_name} dentro de {module_name} ni en submódulos comunes")
+
+
+def save_shap_bar_global(shap_values, scenario_uuid) -> str:
+    output_dir = os.path.join(settings.MEDIA_ROOT, "shap_global_images")
+    os.makedirs(output_dir, exist_ok=True)
+
+    try:
+        plt.figure()
+        shap.plots.bar(shap_values, show=False)
+        output_filename = f"global_shap_{scenario_uuid}.png"
+        output_path = os.path.join(output_dir, output_filename)
+        plt.tight_layout()
+        plt.savefig(output_path, bbox_inches='tight')
+        plt.close()
+        logger.info(f"[SHAP GLOBAL] Gráfica guardada en: {output_path}")
+        return f"shap_global_images/{output_filename}"
+    except Exception as e:
+        logger.warning(f"[SHAP GLOBAL] Error al guardar gráfica: {e}")
+        return ""
+    
+def save_lime_bar_global(mean_weights: dict, scenario_uuid: str) -> str:
+    output_dir = os.path.join(settings.MEDIA_ROOT, "lime_global_images")
+    os.makedirs(output_dir, exist_ok=True)
+
+    try:
+        features, values = zip(*sorted(mean_weights.items(), key=lambda x: x[1], reverse=True))
+
+        plt.figure(figsize=(10, 6))
+        plt.barh(features[::-1], values[::-1])
+        plt.xlabel("Mean absolute weight (LIME)")
+        plt.title("Global LIME Feature Importance")
+        plt.tight_layout()
+
+        output_filename = f"global_lime_{scenario_uuid}.png"
+        output_path = os.path.join(output_dir, output_filename)
+        plt.savefig(output_path, bbox_inches="tight")
+        plt.close()
+
+        logger.info(f"[LIME GLOBAL] Gráfica guardada en: {output_path}")
+        return f"lime_global_images/{output_filename}"
+
+    except Exception as e:
+        logger.warning(f"[LIME GLOBAL] Error al guardar gráfica: {e}")
+        return ""
+    
+def save_lime_bar_local(exp, scenario_uuid: str, anomaly_index: int) -> str:
+    output_dir = os.path.join(settings.MEDIA_ROOT, "lime_local_images")
+    os.makedirs(output_dir, exist_ok=True)
+
+    try:
+        contribs = sorted(exp.as_list(), key=lambda x: abs(x[1]), reverse=True)
+        features, values = zip(*contribs)
+
+        features = features[::-1]
+        values = values[::-1]
+
+        feature_labels = [f"{cond}" for cond in features]
+
+        plt.figure(figsize=(8, 6))
+        colors = ["#FF0051" if v > 0 else "#1E88E5" for v in values]
+        bars = plt.barh(range(len(values)), values, color=colors)
+        plt.yticks(range(len(features)), feature_labels)
+        plt.axvline(0, color="black", linewidth=0.5, linestyle="--")
+        plt.xlabel("LIME value")
+        plt.title("Local explanation (LIME)")
+
+        for i, (bar, value) in enumerate(zip(bars, values)):
+            offset = 0.001 * (1 if value > 0 else -1)
+            plt.text(
+                bar.get_width() + offset,
+                bar.get_y() + bar.get_height() / 2,
+                f"{value:+.2f}",
+                va="center",
+                ha="left" if value > 0 else "right",
+                fontsize=9,
+                color=colors[i]
+            )
+
+        plt.tight_layout()
+
+        output_filename = f"lime_local_{scenario_uuid}_{anomaly_index}.png"
+        output_path = os.path.join(output_dir, output_filename)
+        plt.savefig(output_path, bbox_inches="tight")
+        plt.close()
+        logger.info(f"[LIME LOCAL] Gráfica tipo SHAP guardada en: {output_path}")
+        return f"lime_local_images/{output_filename}"
+
+    except Exception as e:
+        logger.warning(f"[LIME LOCAL] Error al guardar gráfica estilo SHAP: {e}")
+        return ""
+
+
+    
+def save_shap_bar_local(shap_values, scenario_uuid, index) -> str:
+    output_dir = os.path.join(settings.MEDIA_ROOT, "shap_local_images")
+    os.makedirs(output_dir, exist_ok=True)
+
+    try:
+        plt.figure()
+        shap.plots.bar(shap_values, show=False)
+        output_filename = f"local_shap_{scenario_uuid}_{index}.png"
+        output_path = os.path.join(output_dir, output_filename)
+        plt.tight_layout()
+        plt.savefig(output_path, bbox_inches='tight')
+        plt.close()
+        logger.info(f"[SHAP GLOBAL] Gráfica guardada en: {output_path}")
+        return f"shap_local_images/{output_filename}"
+    except Exception as e:
+        logger.warning(f"[SHAP GLOBAL] Error al guardar gráfica: {e}")
+        return ""
+
+def save_anomaly_information(info: dict, uuid: str, index: int, protocol: str) -> str:
+    info["protocol"] = protocol
+    info["src_port"] = int(info["src_port"])
+    info["dst_port"] = int(info["dst_port"])
+
+    logger.info("[IMAGEN] Generando imagen de anomalía con la información: %s", info)
+
+    plt.figure(figsize=(6, 4))
+    plt.axis("off")
+    texto = "\n".join([f"{k}: {v}" for k, v in info.items()])
+    plt.text(0, 0.9, texto, fontsize=10, va='top')
+    path = os.path.join(settings.MEDIA_ROOT, "anomaly_images", f"anomaly_{uuid}_{index}.png")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    plt.savefig(path, bbox_inches="tight")
+    plt.close()
+    return f"anomaly_images/anomaly_{uuid}_{index}.png"
+
+
+def get_next_anomaly_index(detector):
+    return AnomalyMetric.objects.filter(detector=detector, production=True).count()
 
 def put_data_controller(request):
     controller = DataController(name='Example Controller')
@@ -482,6 +786,8 @@ def create_scenario(request):
 
     serializer = ScenarioSerializer(data=data)
     if serializer.is_valid():
+        user.number_designs_created += 1
+        user.save()
         scenario_instance = serializer.save(user=user)
         scenario_instance.files.set(saved_files)
         return JsonResponse(ScenarioSerializer(scenario_instance).data, status=status.HTTP_201_CREATED)
@@ -593,7 +899,9 @@ def get_scenario_anomaly_metrics_by_uuid(request, uuid):
                 "anomalies": anomalies,
                 "date": metric.date,
                 "execution": metric.execution,
-                "production": metric.production
+                "production": metric.production,
+                "global_shap_image": metric.global_shap_image.url if metric.global_shap_image else None,
+                "global_lime_image": metric.global_lime_image.url if metric.global_lime_image else None
             })
 
         return JsonResponse({"metrics": metrics_data}, safe=False)
@@ -622,7 +930,10 @@ def get_scenario_production_anomaly_metrics_by_uuid(request, uuid):
                     "anomalies": anomalies,
                     "date": metric.date,
                     "execution": metric.execution,
-                    "production": metric.production
+                    "production": metric.production,
+                    "anomaly_image": metric.anomaly_image.url if metric.anomaly_image else None,
+                    "local_shap_image": metric.local_shap_image.url if metric.local_shap_image else None,
+                    "local_lime_image": metric.local_lime_image.url if metric.local_lime_image else None
                 })
 
         return JsonResponse({"metrics": metrics_data}, safe=False)
@@ -652,12 +963,21 @@ def put_scenario_by_uuid(request, uuid):
 
         scenario.design = design
 
-        # Gestionar archivos actuales
-        current_files = list(scenario.files.all())
+        referenced_file_names = set()
+        for element in design.get("elements", []):
+            if element.get("type") == "CSV":
+                csv_name = element.get("parameters", {}).get("csvFileName")
+                if csv_name:
+                    referenced_file_names.add(csv_name)
+            elif element.get("type") == "Network":
+                net_name = element.get("parameters", {}).get("networkFileName")
+                if net_name:
+                    referenced_file_names.add(net_name)
+
+        referenced_files = list(File.objects.filter(name__in=referenced_file_names))
 
         updated_files = []
 
-        # Procesar archivos CSV nuevos
         for csv_file in csv_files:
             existing = File.objects.filter(name=csv_file.name).first()
             if existing:
@@ -678,7 +998,6 @@ def put_scenario_by_uuid(request, uuid):
                 )
                 updated_files.append(new_file)
 
-        # Procesar archivos PCAP nuevos
         for network_file in network_files:
             existing = File.objects.filter(name=network_file.name).first()
             if existing:
@@ -696,9 +1015,11 @@ def put_scenario_by_uuid(request, uuid):
                 )
                 updated_files.append(new_file)
 
-        # Eliminar referencias anteriores que ya no están en los nuevos archivos
+        all_files_to_keep = {f.name: f for f in referenced_files + updated_files}
+
+        current_files = list(scenario.files.all())
         for old_file in current_files:
-            if old_file not in updated_files:
+            if old_file.name not in all_files_to_keep:
                 old_file.references -= 1
                 if old_file.references <= 0:
                     file_path = os.path.join(settings.MEDIA_ROOT, old_file.content.name)
@@ -708,8 +1029,7 @@ def put_scenario_by_uuid(request, uuid):
                 else:
                     old_file.save()
 
-        # Asociar nuevos archivos al escenario
-        scenario.files.set(updated_files)
+        scenario.files.set(all_files_to_keep.values())
 
         serializer = ScenarioSerializer(instance=scenario, data={'design': design}, partial=True)
         if serializer.is_valid():
@@ -724,6 +1044,7 @@ def put_scenario_by_uuid(request, uuid):
 
 
 
+
 import fnmatch
 
 @api_view(['DELETE'])
@@ -734,11 +1055,9 @@ def delete_scenario_by_uuid(request, uuid):
     try:
         scenario = Scenario.objects.get(uuid=uuid, user=user.id)
 
-        # Procesar todos los archivos asociados (csv y pcap)
         for file_instance in scenario.files.all():
             file_instance.references -= 1
             if file_instance.references <= 0:
-                # Construir ruta del archivo
                 file_path = os.path.join(settings.MEDIA_ROOT, file_instance.content.name)
                 if os.path.exists(file_path):
                     os.remove(file_path)
@@ -746,13 +1065,11 @@ def delete_scenario_by_uuid(request, uuid):
             else:
                 file_instance.save()
 
-        # Eliminar métrica y detector si existe
         anomaly_detector = AnomalyDetector.objects.filter(scenario=scenario).first()
         if anomaly_detector:
             ClassificationMetric.objects.filter(detector=anomaly_detector).delete()
             anomaly_detector.delete()
 
-        # Eliminar modelos almacenados
         base_path = os.path.join(settings.BASE_DIR, 'models_storage')
         scenario_uuid = str(scenario.uuid)
 
@@ -766,7 +1083,6 @@ def delete_scenario_by_uuid(request, uuid):
                 except Exception as e:
                     logger.warning(f"No se pudo eliminar {model_path}: {str(e)}")
 
-        # Eliminar el escenario
         scenario.delete()
 
         return JsonResponse({'message': 'Scenario and related data deleted successfully'}, status=status.HTTP_200_OK)
@@ -802,6 +1118,8 @@ def run_scenario_by_uuid(request, uuid):
 
         scenario.status = 'Finished'
         scenario.save()
+        user.number_executed_scenarios += 1
+        user.save()
 
         return JsonResponse({
             'message': 'Scenario run successfully'
@@ -820,6 +1138,7 @@ def execute_scenario(anomaly_detector, scenario, design):
         splitter = False
         code_processing = False
         code_splitter = False
+        execution_mode_env = os.getenv("EXECUTION_MODE", "").strip().lower()
 
         validate_design(config, design)
         
@@ -833,6 +1152,9 @@ def execute_scenario(anomaly_detector, scenario, design):
                     element_types[model["type"]] = model
                 for model in section.get("anomalyDetection", []):
                     model["model_type"] = "anomalyDetection"
+                    element_types[model["type"]] = model
+                for model in section.get("explainability", []):
+                    model["model_type"] = "explainability"
                     element_types[model["type"]] = model
                 for model in section.get("monitoring", []):
                     element_types[model["type"]] = model
@@ -862,7 +1184,8 @@ def execute_scenario(anomaly_detector, scenario, design):
                 if in_degree[neighbor] == 0:
                     queue.append(neighbor)
 
-
+        logger.info("Orden topológico de los elementos: %s", sorted_order)
+        
         data_storage = {} 
         models = {}
 
@@ -870,7 +1193,7 @@ def execute_scenario(anomaly_detector, scenario, design):
             element = elements[element_id]
             el_type = element["type"]
             logger.info("Procesando elemento %s", el_type)
-            params = element.get("parameters", {})
+            params = copy.deepcopy(element.get("parameters", {}))
             
             input_data = None
             for conn in connections:
@@ -1015,7 +1338,6 @@ def execute_scenario(anomaly_detector, scenario, design):
                     user_function = list(user_functions.values())[0]
                     output_data = user_function(input_data)
 
-                    # Detección automática
                     if isinstance(output_data, pd.DataFrame):
                         logger.info("CustomCode detectado como preprocesador")
                         data_storage[element_id] = output_data
@@ -1040,43 +1362,70 @@ def execute_scenario(anomaly_detector, scenario, design):
                 logger.info("Definición del elemento: %s", element_def)
                 if not element_def:
                     return {"error": f"Tipo de elemento desconocido: {el_type}"}
-                cls = import_class(element_def["class"])
                 
                 category = element_def.get("category", "")
+
+                logger.info("Categoría del elemento: %s", category)
+
+                if category not in ["model", "explainability"]:
+                    logger.info("Importando clase: %s", element_def["class"])
+                    cls = import_class(element_def["class"])
                 
                 if category == "preprocessing":
                     applies_to = element_def.get("appliesTo", "all")
                     transformer = cls(**extract_parameters(element_def["properties"], params))
                     
                     if input_data is not None:
-                        if 'target' in input_data.columns:
-                            target_column = input_data['target']
-                            input_features = input_data.drop(columns=['target'])
+                        '''
+                        for col in input_data.columns:
+                            if input_data[col].dtype == 'object':
+                                try:
+                                    input_data[col] = input_data[col].astype(float)
+                                except ValueError:
+                                    pass
+                        '''
+
+                        if 'target' in input_data.columns or 'label' in input_data.columns:
+                            target_column = input_data.pop('target') if 'target' in input_data.columns else None
+                            label_column = input_data.pop('label') if 'label' in input_data.columns else None
+
+                            original_targets = {}
+                            if target_column is not None:
+                                original_targets['target'] = target_column
+                            if label_column is not None:
+                                original_targets['label'] = label_column
 
                             if applies_to == "numeric":
-                                numeric_cols = input_features.select_dtypes(include=['number']).columns
-                                transformed = transformer.fit_transform(input_features[numeric_cols])
+                                excluded_numeric = ['src_port', 'dst_port']
+                                numeric_cols = [col for col in input_data.select_dtypes(include=['number']).columns if col not in excluded_numeric]
+                                logger.info(f"[TRAINING] Columnas usadas para fit en {el_type}: {numeric_cols}")
                                 
+                                transformed = transformer.fit_transform(input_data[numeric_cols])
                                 output_data = input_data.copy()
                                 output_data[numeric_cols] = transformed
 
+
                             elif applies_to == "categorical":
-                                categorical_cols = input_features.select_dtypes(exclude=['number']).columns
+                                categorical_cols = input_data.select_dtypes(exclude=['number']).columns
                                 output_data = pd.get_dummies(input_data, columns=categorical_cols)
 
-                            else:
+                            else:  
                                 output_data = input_data.copy()
-                                output_data[input_features.columns] = transformer.fit_transform(input_features)
-                            
-                            output_data['target'] = target_column
+                                output_data[input_data.columns] = transformer.fit_transform(input_data)
+
+                            for col_name, col_data in original_targets.items():
+                                output_data[col_name] = col_data
                             
                         else:
                             if applies_to == "numeric":
-                                numeric_cols = input_data.select_dtypes(include=['number']).columns
-                                transformed = transformer.fit_transform(input_data[numeric_cols])
+                                excluded_numeric = ['src_port', 'dst_port']
+                                numeric_cols = [col for col in input_data.select_dtypes(include=['number']).columns if col not in excluded_numeric]
+                                logger.info(f"[TRAINING] Columnas usadas para fit en {el_type}: {numeric_cols}")
                                 
+                                transformed = transformer.fit_transform(input_data[numeric_cols])
                                 output_data = input_data.copy()
-                                output_data[numeric_cols] = transformed 
+                                output_data[numeric_cols] = transformed
+
 
                             elif applies_to == "categorical":
                                 categorical_cols = input_data.select_dtypes(exclude=['number']).columns
@@ -1101,52 +1450,109 @@ def execute_scenario(anomaly_detector, scenario, design):
 
                 elif category == "model" and input_data is not None:
                     logger.info("Entrenando modelo")
-                    model = cls(**extract_parameters(element_def["properties"], params))
-                    logger.info(model.get_params())
+                    execution_mode_model = params.pop("execution_mode", None)
+
+                    logger.info("Execución del modelo: %s", execution_mode_model)
+                    logger.info("Execución del entorno: %s", execution_mode_env)    
+
+                    if execution_mode_model and execution_mode_env and execution_mode_model.strip().lower() != execution_mode_env:
+                        error_msg = f"Incompatible execution mode: model='{execution_mode_model}', env='{execution_mode_env}'"
+                        logger.error(error_msg)
+                        return {"error": error_msg}
+                    
+                    if execution_mode_model.strip().lower() == "cpu":
+                        cls = import_class(element_def["class_cpu"])
+                    else:
+                        cls = import_class(element_def["class_gpu"])
+                    
+                    if el_type not in ["CNNClassifier", "RNNClassifier", "MLPClassifier"]:
+                        model = cls(**extract_parameters(element_def["properties"], params))
+                        logger.info(model.get_params())
 
                     if element_def.get("model_type") in ["classification", "regression"]:
                         logger.info(f"Entrenamiento modelo {element_def.get('model_type')}")
 
-                        if splitter or code_splitter:
-                            for conn in connections:
-                                if conn["endId"] == element_id:
-                                    source_id = conn["startId"]
-                                    output_type = conn.get("startOutput")
+                        
+                        X_train_all, y_train_all = [], []
+                        X_test_all, y_test_all = [], []
+                        has_train = has_test = False
 
-                                    if output_type == "train":
-                                        X_train, y_train = data_storage[source_id]["train"]
-                                        logger.info(X_train)
-                                        logger.info(y_train)
+                        for conn in connections:
+                            if conn["endId"] == element_id:
+                                source_id = conn["startId"]
+                                output_type = conn.get("startOutput")
 
-                                        model.fit(X_train, y_train)
-                                        data_storage[element_id] = model
+                                split_data = data_storage.get(source_id)
+                                if not isinstance(split_data, dict) or "train" not in split_data or "test" not in split_data:
+                                    return {"error": f"El nodo conectado ({source_id}) no tiene datos de train/test"}
 
-                                    elif output_type == "test":
-                                        X_test, y_test = data_storage[source_id]["test"]
-                                        logger.info(X_test)
-                                        logger.info(y_test)
-                                        trained_model = data_storage.get(element_id)
+                                if output_type == "train":
+                                    has_train = True
+                                    X_train, y_train = split_data["train"]
+                                    X_train_all.append(X_train)
+                                    y_train_all.append(y_train)
+                                elif output_type == "test":
+                                    has_test = True
+                                    X_test, y_test = split_data["test"]
+                                    X_test_all.append(X_test)
+                                    y_test_all.append(y_test)
 
-                                        if trained_model:
-                                            y_pred = trained_model.predict(X_test)
-                                            models[element_id] = {
-                                                "type": el_type,
-                                                "y_test": y_test,
-                                                "y_pred": y_pred
-                                            }
+                        if not has_train or not has_test:
+                            return {"error": f"El modelo {element_id} requiere al menos una conexión con salidas 'train' y 'test'"}
+                        
 
-                        else:
-                            logger.info("Entrenando modelo sin splitter - 80/20")
-                            X = input_data.iloc[:, :-1]
-                            y = input_data.iloc[:, -1]
-                            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+                        X_train_concat = pd.concat(X_train_all)
+                        y_train_concat = pd.concat(y_train_all)
+                        X_test_concat = pd.concat(X_test_all)
+                        y_test_concat = pd.concat(y_test_all)
 
-                            model.fit(X_train, y_train)
-                            y_pred = model.predict(X_test)
+                        if el_type in ["CNNClassifier", "RNNClassifier", "MLPClassifier"]:
+                            logger.info(f"Entrenando red neuronal: {el_type}")
+
+                            X_train_raw = X_train_concat.values
+                            X_test_raw = X_test_concat.values
+
+                            if el_type in ["CNNClassifier", "RNNClassifier"]:
+                                X_train_reshaped = X_train_raw.reshape((X_train_raw.shape[0], X_train_raw.shape[1], 1))
+                                X_test_reshaped = X_test_raw.reshape((X_test_raw.shape[0], X_test_raw.shape[1], 1))
+                                input_shape = (X_train_raw.shape[1], 1)
+                            elif el_type == "MLPClassifier":
+                                X_train_reshaped = X_train_raw
+                                X_test_reshaped = X_test_raw
+                                input_shape = (X_train_raw.shape[1],)
+
+                            y_train_encoded = to_categorical(y_train_concat)
+                            y_test_encoded = to_categorical(y_test_concat)
+
+                            model = build_neural_network(input_shape, el_type, params)
+                            model.fit(
+                                X_train_reshaped, y_train_encoded,
+                                epochs=params.get("epochs", 50),
+                                batch_size=params.get("batch_size", 32),
+                                verbose=0
+                            )
+
+                            y_pred_proba = model.predict(X_test_reshaped)
+                            y_pred = np.argmax(y_pred_proba, axis=1)
+                            y_test_labels = np.argmax(y_test_encoded, axis=1)
 
                             models[element_id] = {
                                 "type": el_type,
-                                "y_test": y_test,
+                                "y_test": y_test_labels,
+                                "y_pred": y_pred
+                            }
+                        else:
+                            logger.info(f"Entrenando modelo clásico: {el_type}")
+
+                            logger.info("Datos de entrenamiento concatenados: %s", X_train_concat)
+                            logger.info("Datos de prueba concatenados: %s", X_test_concat)
+
+                            model.fit(X_train_concat, y_train_concat)
+                            y_pred = model.predict(X_test_concat)
+
+                            models[element_id] = {
+                                "type": el_type,
+                                "y_test": y_test_concat,
                                 "y_pred": y_pred
                             }
 
@@ -1165,7 +1571,6 @@ def execute_scenario(anomaly_detector, scenario, design):
                         if 'protocol' in input_copy.columns:
                             input_copy['protocol'] = input_copy['protocol'].astype('category').cat.codes
 
-                        # Eliminar columnas claramente no numéricas
                         #input_copy = input_copy.drop(columns=[col for col in input_copy.columns if input_copy[col].dtype == 'object'])
 
                         if input_copy.empty:
@@ -1176,6 +1581,7 @@ def execute_scenario(anomaly_detector, scenario, design):
                         input_copy.to_csv("input_copy.csv", index=False)
 
                         model.fit(input_copy)
+                        logger.info(model.feature_names_in_)
                         step_id = f"{element_id}_{scenario.uuid}"
                         step_path = os.path.join(settings.BASE_DIR, 'models_storage', f"{step_id}.pkl")
 
@@ -1190,12 +1596,134 @@ def execute_scenario(anomaly_detector, scenario, design):
                             feature_values = input_copy[column].values
                             anomalies = [i for i, (val, pred) in enumerate(zip(feature_values, y_pred)) if pred == 1]
 
-                            save_anomaly_metrics(anomaly_detector, el_type, column, feature_values, anomalies, anomaly_detector.execution, production=False)
+                            save_anomaly_metrics(anomaly_detector, el_type, column, feature_values, anomalies, 
+                                                 anomaly_detector.execution, production=False, anomaly_image=None, 
+                                                 global_shap_image=None, local_shap_image=None, global_lime_image=None, 
+                                                 local_lime_image=None)
 
                         models[element_id] = {
                             "type": el_type,
-                            "y_pred": y_pred
+                            "y_pred": y_pred,
+                            "model_object": model
                         }
+                        data_storage[element_id] = input_copy
+
+                        logger.info("Modelo de detección de anomalías entrenado y guardado")
+
+                elif category == "explainability":
+                    logger.info(f"Procesando nodo de explicabilidad dinámico: {el_type}")
+
+                    if input_data is None:
+                        return {"error": f"No se encontraron datos de entrada para el nodo {el_type}"}
+                    
+                    logger.info("Datos de entrada para explicabilidad: %s", input_data)
+
+                    explainer_type = params.get("explainer_type", "").strip()
+                    explainer_module_path = element_def.get("class")
+
+                    if not explainer_module_path or not explainer_type:
+                        return {"error": f"Faltan datos de configuración en {el_type}"}
+
+                    model_id = next((c["startId"] for c in connections if c["endId"] == element_id), None)
+                    if not model_id or model_id not in models:
+                        return {"error": f"No se encontró un modelo conectado válido para {el_type}"}
+
+                    model_info = models[model_id]
+                    model_object = model_info.get("model_object")
+                    if not model_object:
+                        return {"error": f"No se encontró el objeto modelo en {model_id}"}
+
+                    try:
+                        explainer_class = find_explainer_class(explainer_module_path, explainer_type)
+
+                        if el_type == "SHAP":
+                            if explainer_type == "KernelExplainer":
+                                def anomaly_score(X):
+                                    if isinstance(X, np.ndarray):
+                                        X = pd.DataFrame(X, columns=input_data.columns)
+                                    return model_object.decision_function(X)
+
+                                background = shap.kmeans(input_data, 20)  # O usa shap.sample(input_data, 50)
+                                explainer = explainer_class(anomaly_score, background)
+
+                                explainer = explainer_class(anomaly_score, background)
+
+                            elif explainer_type in ["LinearExplainer", "TreeExplainer", "DeepExplainer"]:
+                                explainer = explainer_class(model_object, input_data)
+                            else:
+                                explainer = explainer_class(model_object)
+
+                            try:
+                                shap_values = explainer(input_data)
+
+                                shap_image_path = save_shap_bar_global(shap_values, scenario.uuid)
+
+                                if shap_image_path:
+                                    metrics = AnomalyMetric.objects.filter(
+                                        detector=anomaly_detector,
+                                        execution=anomaly_detector.execution,
+                                    )
+
+                                    for metric in metrics:
+                                        metric.global_shap_image = shap_image_path
+                                        metric.save()
+
+                                logger.info(f"SHAP values generados: tipo={type(shap_values)}, shape={getattr(shap_values, 'shape', 'N/A')}")
+
+                            except Exception as e:
+                                return {"error": f"Error generando SHAP values: {str(e)}"}
+
+                        elif el_type == "LIME":
+                            explainer = explainer_class(
+                                training_data=input_data.values,
+                                feature_names=input_data.columns.tolist(),
+                                mode="regression"
+                            )
+
+                            def anomaly_score(X):
+                                if isinstance(X, np.ndarray):
+                                    X = pd.DataFrame(X, columns=input_data.columns)
+                                return model_object.decision_function(X).reshape(-1, 1)
+
+                            scores = model_object.decision_function(input_data)
+                            top_k = 20
+                            top_indices = np.argsort(scores)[-top_k:]
+
+                            feature_weights = defaultdict(list)
+
+                            for i in top_indices:
+                                row = input_data.iloc[i]
+                                exp = explainer.explain_instance(
+                                    row.values,
+                                    anomaly_score,
+                                    num_features=len(input_data.columns)
+                                )
+
+                                for feature, weight in exp.as_list():
+                                    feature_weights[feature].append(abs(weight))
+
+                            mean_weights = {feature: np.mean(w) for feature, w in feature_weights.items()}
+
+                            sorted_items = sorted(mean_weights.items(), key=lambda x: x[1], reverse=True)
+                            features, values = zip(*sorted_items)
+
+                            lime_image_path = save_lime_bar_global(mean_weights, scenario.uuid)
+
+                            metrics = AnomalyMetric.objects.filter(
+                                detector=anomaly_detector,
+                                execution=anomaly_detector.execution,
+                            )
+
+                            for metric in metrics:
+                                metric.global_lime_image = lime_image_path
+                                metric.save()
+
+                        else:
+                            return {"error": f"Nodo explainability no soportado aún: {el_type}"}
+
+                    except Exception as e:
+                        return {"error": f"Fallo al aplicar explainer '{explainer_type}' en '{el_type}': {str(e)}"}
+
 
 
         return {"message": "Ejecución exitosa"}
@@ -1274,7 +1802,7 @@ def build_pipelines_from_design(design, scenario_uuid, config, base_path):
             model_path = os.path.join(base_path, f'{element_id}_{scenario_uuid}.pkl')
             if os.path.exists(model_path):
                 model_instance = joblib.load(model_path)
-                pipelines.append((model_instance, pipeline_steps))
+                pipelines.append((element_id, model_instance, pipeline_steps))
 
     return pipelines
 
@@ -1307,6 +1835,8 @@ def play_scenario_production_by_uuid(request, uuid):
                 flow_dict = defaultdict(list)
                 last_flush = time.time()
                 interval = 1
+                image_counter = get_next_anomaly_index(anomaly_detector)
+                logger.info(f"[INFO] Contador de anomalías: {image_counter}")
 
                 while thread_controls.get(uuid, True):
                     line = proc.stdout.readline()
@@ -1327,6 +1857,9 @@ def play_scenario_production_by_uuid(request, uuid):
                         frame_time = layers["frame"].get("frame_frame_time_epoch")
                         time_ = float(pd.to_datetime(frame_time).timestamp())
                         length = int(layers["frame"].get("frame_frame_len"))
+
+                        src = dst = ttl = proto = None
+
                         if "ipv6" in layers:
                             proto = layers["ipv6"].get("ipv6_ipv6_nxt", "UNKNOWN")
                             src = layers["ipv6"].get("ipv6_ipv6_src")
@@ -1338,13 +1871,33 @@ def play_scenario_production_by_uuid(request, uuid):
                             dst = layers["ip"].get("ip_ip_dst")
                             ttl = layers["ip"].get("ip_ip_ttl")
 
-                        src_port = layers.get("tcp", {}).get("tcp_tcp_srcport") or layers.get("udp", {}).get("udp_udp_srcport")
-                        dst_port = layers.get("tcp", {}).get("tcp_tcp_dstport") or layers.get("udp", {}).get("udp_udp_dstport")
+                        proto_name = PROTOCOL_MAP.get(str(proto), str(proto)) if proto else "UNKNOWN"
+                        logger.info(f"[INFO] Protocolo: {proto_name}, Tiempo: {time_}, Longitud: {length}, TTL: {ttl}")
+
+                        tcp_layer = layers.get("tcp", {})
+                        udp_layer = layers.get("udp", {})
+
+                        src_port = tcp_layer.get("tcp_tcp_srcport") or udp_layer.get("udp_udp_srcport") or -1
+                        dst_port = tcp_layer.get("tcp_tcp_dstport") or udp_layer.get("udp_udp_dstport") or -1
+
+                        try:
+                            src_port = int(src_port)
+                        except:
+                            src_port = -1
+
+                        try:
+                            dst_port = int(dst_port)
+                        except:
+                            dst_port = -1
 
                         if not src or not dst:
                             continue
 
-                        flow_key = tuple(sorted([(src, src_port), (dst, dst_port)])) + (proto,)
+                        if proto_name in ['TCP', 'UDP']:
+                            flow_key = tuple(sorted([(src, src_port), (dst, dst_port)])) + (proto_name,)
+                        else:
+                            flow_key = (src, dst, proto_name)
+
                         flow_dict[flow_key].append({
                             'time': time_,
                             'length': length,
@@ -1362,34 +1915,65 @@ def play_scenario_production_by_uuid(request, uuid):
                             lengths = [p['length'] for p in packets if p['length'] is not None]
                             ttls = [p['ttl'] for p in packets if p['ttl'] is not None]
 
-                            rows.append({
-                                'src': flow[0][0],
-                                'src_port': flow[0][1],
-                                'dst': flow[1][0],
-                                'dst_port': flow[1][1],
-                                'protocol': flow[2],
-                                'packet_count': len(packets),
-                                'total_bytes': sum(lengths),
-                                'avg_packet_size': sum(lengths) / len(lengths) if lengths else 0,
-                                'flow_duration': max(times) - min(times) if times else 0,
-                                'avg_ttl': sum(ttls) / len(ttls) if ttls else None,
-                            })
+                            try:
+                                if isinstance(flow[0], tuple) and isinstance(flow[1], tuple):
+                                    src, src_port = flow[0]
+                                    dst, dst_port = flow[1]
+                                    proto = flow[2]
+                                else:
+                                    src = flow[0]
+                                    dst = flow[1]
+                                    proto = flow[2]
+                                    src_port = -1
+                                    dst_port = -1
+
+                                rows.append({
+                                    'src': src,
+                                    'src_port': src_port,
+                                    'dst': dst,
+                                    'dst_port': dst_port,
+                                    'protocol': proto,
+                                    'packet_count': len(packets),
+                                    'total_bytes': sum(lengths),
+                                    'avg_packet_size': sum(lengths) / len(lengths) if lengths else 0,
+                                    'flow_duration': max(times) - min(times) if times else 0,
+                                    'avg_ttl': sum(ttls) / len(ttls) if ttls else None,
+                                })
+                            except Exception as row_err:
+                                logger.warning(f"[FLOW ERROR] Error procesando flow {flow}: {row_err}")
+                                continue
+
                         logger.info(f"[INFO] Flujos procesados: {len(rows)}")
                         flow_dict.clear()
                         last_flush = time.time()
 
                         df = pd.DataFrame(rows)
+                        #df['src_port'] = df['src_port'].fillna(-1)
+                        #df['dst_port'] = df['dst_port'].fillna(-1)
+                        #df['protocol'] = df['protocol'].fillna('UNKNOWN')
                         logger.info(f"[INFO] Paquetes procesados: {len(df)}")
+
+                        logger.info(f"[INFO] DataFrame antes del preprocesamiento: {df}")
 
                         if df.empty:
                             continue
 
-                        for model_instance, steps in pipelines:
+                        for element_id, model_instance, steps in pipelines:
                             df_proc = df.copy()
+                            
                             for step_type, transformer in steps:
                                 if step_type in ["StandardScaler", "MinMaxScaler", "Normalizer", "KNNImputer", "PCA"]:
-                                    numeric_cols = df_proc.select_dtypes(include=['number']).columns
-                                    df_proc[numeric_cols] = transformer.fit_transform(df_proc[numeric_cols])
+                                    expected_cols = transformer.feature_names_in_
+                                    logger.info(f"[INFO] Columnas esperadas por el transformador {step_type}: {expected_cols}")
+                                    
+                                    df_proc_transformable = df_proc.reindex(columns=expected_cols, fill_value=0)
+
+                                    df_proc_transformed = transformer.transform(df_proc_transformable)
+
+                                    df_proc_transformed = pd.DataFrame(df_proc_transformed, columns=expected_cols, index=df_proc.index)
+
+                                    df_proc[expected_cols] = df_proc_transformed
+
                                 elif step_type == "OneHotEncoding":
                                     df_proc = pd.get_dummies(df_proc)
 
@@ -1399,6 +1983,11 @@ def play_scenario_production_by_uuid(request, uuid):
 
                             if 'protocol' in df_proc.columns:
                                 df_proc['protocol'] = df_proc['protocol'].astype('category').cat.codes
+
+                            logger.info(f"[INFO] DataFrame antes del predict: {df_proc}")
+                            logger.info("Columnas al hacer predict: %s", df_proc.columns.tolist())
+
+
 
                             preds = model_instance.predict(df_proc)
                             preds = [1 if x == -1 else 0 for x in preds]
@@ -1410,50 +1999,235 @@ def play_scenario_production_by_uuid(request, uuid):
 
                             df_anomalous = df_proc[df_proc["anomaly"] == 1]
                             if not df_anomalous.empty:
-                                logger.info("[SHAP] Explicando anomalías con SHAP...")
+                                logger.info("[SHAP] Explicando anomalías con nodo de explicabilidad dinámico...")
 
                                 try:
-                                    explainer = shap.KernelExplainer(model_instance.decision_function, df_proc.drop(columns=["anomaly"]))
-                                    shap_values = explainer.shap_values(df_anomalous.drop(columns=["anomaly"]))
+                                    elements_map = {e["id"]: e for e in design["elements"]}
+                                    connections = design["connections"]
 
-                                    anomaly_indices = df_anomalous.index.tolist()
+                                    explainer_id = next((conn["endId"] for conn in connections if conn["startId"] == element_id and elements_map[conn["endId"]]["type"] in ["SHAP", "LIME"]), None)
 
-                                    for i, index in enumerate(anomaly_indices):
-                                        logger.info(f"[ANOMALY FLOW #{index}] src: {df.loc[index, 'src']}, dst: {df.loc[index, 'dst']}, ports: {df.loc[index, 'src_port']}->{df.loc[index, 'dst_port']}, proto: {df.loc[index, 'protocol']}")
-
-                                        row_data = df_anomalous.drop(columns=["anomaly"]).iloc[i]
-                                        contribs = shap_values[i]
-                                        shap_contribs = sorted(
-                                            zip(contribs, row_data.values, row_data.index),
-                                            key=lambda x: abs(x[0]),
-                                            reverse=True
-                                        )
-
-                                        top_feature = shap_contribs[0]
-                                        feature_name = top_feature[2]
-
-                                        anomaly_description = (
-                                            f"src: {df.loc[index, 'src']}, "
-                                            f"dst: {df.loc[index, 'dst']}, "
-                                            f"ports: {df.loc[index, 'src_port']}->{df.loc[index, 'dst_port']} "
-                                        )
-
-                                        feature_values = row_data.apply(lambda x: x.item() if hasattr(x, "item") else x).to_dict()
-                                        logger.info("PRUEBA")
-                                        logger.info(feature_values)
-
+                                    if not explainer_id:
+                                        logger.info("No se encontró nodo de explicabilidad conectado.")
+                                        anomalous_data = df_anomalous.drop(columns=["anomaly"])
+                                        for i, row in anomalous_data.iterrows():
+                                            anomaly_description = (
+                                                f"src: {df.loc[i, 'src']}, "
+                                                f"dst: {df.loc[i, 'dst']}, "
+                                                f"ports: {df.loc[i, 'src_port']}->{df.loc[i, 'dst_port']} "
+                                            )
+                                        logger.info(anomaly_description)
                                         save_anomaly_metrics(
                                             detector=anomaly_detector,
                                             model_name=model_instance.__class__.__name__,
-                                            feature_name=feature_name,
-                                            feature_values=feature_values,
+                                            feature_name="",
+                                            feature_values="",
                                             anomalies=anomaly_description,
                                             execution=execution,
-                                            production=True
+                                            production=True,
+                                            anomaly_image=None,
+                                            global_shap_image=None,
+                                            local_shap_image=None
                                         )
+                                    else:
+                                        logger.info(f"Encontrado nodo de explicabilidad: {explainer_id}")
+                                        explainer_element = elements_map[explainer_id]
+                                        el_type = explainer_element["type"]
+                                        params = explainer_element.get("parameters", {})
+                                        explainer_type = params.get("explainer_type", "").strip()
+                                        explainer_module_path = config["sections"]["dataModel"]["explainability"][0]["class"] if el_type == "SHAP" else "lime"
 
-                                except Exception as shap_err:
-                                    logger.warning(f"[SHAP ERROR] No se pudo interpretar: {shap_err}")
+                                        if not explainer_module_path or not explainer_type:
+                                            logger.warning(f"Faltan datos de configuración en el nodo de explicabilidad {el_type}")
+                                        else:
+                                            explainer_class = find_explainer_class(explainer_module_path, explainer_type)
+
+                                            input_data = df_proc.drop(columns=["anomaly"])
+                                            anomalous_data = df_anomalous.drop(columns=["anomaly"])
+
+                                            def clean_for_json(obj):
+                                                if isinstance(obj, dict):
+                                                    return {k: clean_for_json(v) for k, v in obj.items()}
+                                                elif isinstance(obj, float):
+                                                    if np.isnan(obj) or np.isinf(obj):
+                                                        return 0.0
+                                                elif obj is None:
+                                                    return 0.0 
+                                                return obj
+
+                                            for i, row in anomalous_data.iterrows():
+                                                row_df = row.to_frame().T 
+
+                                                if el_type == "SHAP":
+                                                    if explainer_type == "KernelExplainer":
+                                                        def anomaly_score(X):
+                                                            if isinstance(X, np.ndarray):
+                                                                X = pd.DataFrame(X, columns=input_data.columns)
+                                                            scores = model_instance.decision_function(X)
+                                                            return scores
+
+                                                        explainer = explainer_class(anomaly_score, input_data)
+
+                                                    elif explainer_type in ["LinearExplainer", "TreeExplainer", "DeepExplainer"]:
+                                                        explainer = explainer_class(model_instance, input_data)
+
+                                                    else:
+                                                        explainer = explainer_class(model_instance)
+
+                                                    shap_values = explainer(row_df)
+
+                                                    logger.info(f"[DEBUG] row_df.columns: {row_df.columns}")
+                                                    logger.info(f"[DEBUG] input_data.columns: {input_data.columns}")
+
+                                                    contribs = shap_values[0].values 
+                                                    shap_contribs = sorted(
+                                                        zip(contribs, row.values, row.index),
+                                                        key=lambda x: abs(x[0]),
+                                                        reverse=True
+                                                    )
+                                                    top_feature = shap_contribs[0]
+                                                    feature_name = top_feature[2]
+
+                                                    src_port_str = str(df.loc[i, 'src_port']) if pd.notna(df.loc[i, 'src_port']) else "N/A"
+                                                    dst_port_str = str(df.loc[i, 'dst_port']) if pd.notna(df.loc[i, 'dst_port']) else "N/A"
+
+                                                    anomaly_description = (
+                                                        f"src: {df.loc[i, 'src']}, "
+                                                        f"dst: {df.loc[i, 'dst']}, "
+                                                        f"ports: {src_port_str}->{dst_port_str}, "
+                                                        f"protocol: {df.loc[i, 'protocol']}"
+                                                    )
+
+                                                    for col in ['src_port', 'dst_port']:
+                                                        if col in row and not pd.isnull(row[col]):
+                                                            try:
+                                                                row[col] = int(row[col])
+                                                            except:
+                                                                row[col] = -1
+
+                                                    feature_values = row.apply(lambda x: x.item() if hasattr(x, "item") else x).to_dict()
+
+                                                    for ip_key in ['src', 'dst']:
+                                                        if ip_key in feature_values:
+                                                            val = feature_values[ip_key]
+                                                            if isinstance(val, str):
+                                                                feature_values[ip_key] = val 
+                                                            else:
+                                                                try:
+                                                                    feature_values[ip_key] = int_to_ip(int(val)) 
+                                                                except:
+                                                                    feature_values[ip_key] = "UNDEFINED"
+
+                                                    '''
+                                                    safe_payload = {
+                                                        "values": clean_for_json(feature_values),
+                                                        "anomaly_indices": anomaly_description
+                                                    }
+                                                    '''
+                                                    safe_payload = {
+                                                        "anomaly_indices": anomaly_description
+                                                    }
+                                                    anomalies_json = json.dumps(safe_payload)
+
+                                                    logger.info(f"[EXPLANATION] Flujo anómalo #{i}, feature destacada: {feature_name}")
+
+                                                    logger.info(f"[EXPLANATION] Generando anomalía con índice: {image_counter}")
+
+                                                    anomaly_path = save_anomaly_information(feature_values, scenario.uuid, image_counter, df.loc[i, 'protocol'])
+                                                    shap_path = save_shap_bar_local(shap_values[0], scenario.uuid, image_counter)
+
+                                                    logger.info(f"[EXPLANATION] Generada anomalía con índice: {image_counter}")
+
+                                                    save_anomaly_metrics(
+                                                        detector=anomaly_detector,
+                                                        model_name=model_instance.__class__.__name__,
+                                                        feature_name=feature_name,
+                                                        feature_values=clean_for_json(feature_values),
+                                                        anomalies=anomaly_description,
+                                                        execution=execution,
+                                                        production=True,
+                                                        anomaly_image=anomaly_path,
+                                                        global_shap_image=None,
+                                                        local_shap_image=shap_path,
+                                                        global_lime_image=None,
+                                                        local_lime_image=None
+                                                    )
+
+                                                    image_counter += 1
+
+                                                elif el_type == "LIME":
+                                                    logger.info(f"[LIME] Explicando fila {i} con LIME...")
+                                                    explainer = explainer_class(
+                                                        training_data=input_data.values,
+                                                        feature_names=input_data.columns.tolist(),
+                                                        mode="regression"
+                                                    )
+
+                                                    def anomaly_score(X):
+                                                        if isinstance(X, np.ndarray):
+                                                            X = pd.DataFrame(X, columns=input_data.columns)
+                                                        return model_instance.decision_function(X).reshape(-1, 1)
+
+                                                    exp = explainer.explain_instance(
+                                                        row.values,
+                                                        anomaly_score,
+                                                        num_features=10
+                                                    )
+
+                                                    sorted_contribs = sorted(exp.as_list(), key=lambda x: abs(x[1]), reverse=True)
+                                                    feature_name = sorted_contribs[0][0] 
+
+                                                    for col in ['src_port', 'dst_port']:
+                                                        if col in row and not pd.isnull(row[col]):
+                                                            try:
+                                                                row[col] = int(row[col])
+                                                            except:
+                                                                row[col] = -1
+
+                                                    feature_values = row.apply(lambda x: x.item() if hasattr(x, "item") else x).to_dict()
+                                                    for ip_key in ['src', 'dst']:
+                                                        if ip_key in feature_values:
+                                                            val = feature_values[ip_key]
+                                                            try:
+                                                                feature_values[ip_key] = int_to_ip(int(val))
+                                                            except:
+                                                                feature_values[ip_key] = "UNDEFINED"
+
+                                                    src_port_str = str(df.loc[i, 'src_port']) if pd.notna(df.loc[i, 'src_port']) else "N/A"
+                                                    dst_port_str = str(df.loc[i, 'dst_port']) if pd.notna(df.loc[i, 'dst_port']) else "N/A"
+
+                                                    anomaly_description = (
+                                                        f"src: {df.loc[i, 'src']}, "
+                                                        f"dst: {df.loc[i, 'dst']}, "
+                                                        f"ports: {src_port_str}->{dst_port_str}, "
+                                                        f"protocol: {df.loc[i, 'protocol']}"
+                                                    )
+
+                                                    anomaly_path = save_anomaly_information(feature_values, scenario.uuid, image_counter, df.loc[i, 'protocol'])
+
+                                                    lime_path = save_lime_bar_local(exp, scenario.uuid, image_counter)
+
+                                                    save_anomaly_metrics(
+                                                        detector=anomaly_detector,
+                                                        model_name=model_instance.__class__.__name__,
+                                                        feature_name=feature_name,
+                                                        feature_values=clean_for_json(feature_values),
+                                                        anomalies=anomaly_description,
+                                                        execution=execution,
+                                                        production=True,
+                                                        anomaly_image=anomaly_path,
+                                                        global_shap_image=None,
+                                                        local_shap_image=None,
+                                                        global_lime_image=None,
+                                                        local_lime_image=lime_path
+                                                    )
+
+                                                    image_counter += 1
+
+                                                else:
+                                                    logger.warning(f"Nodo explainability no soportado aún: {el_type}")
+                                except Exception as e:
+                                    logger.warning(f"[SHAP ERROR] No se pudo interpretar con explainer dinámico: {e}")
 
             except Exception as e:
                 logger.error(f"[FATAL ERROR] {e}")

@@ -22,6 +22,8 @@ export class TimelineADComponent implements OnInit {
   modalMetric: any = null;
   modalExecutionNumber: number = 0;
   modalFeatureName: string = '';
+  modalImageUrl: string | null = null;
+  modalImageType: string | null = null;
 
   constructor(
     private route: ActivatedRoute,
@@ -65,47 +67,45 @@ export class TimelineADComponent implements OnInit {
     const executions: any = {};
     
     this.metrics.forEach(metric => {
-      if (!metric.model_name || !metric.execution || !metric.feature_name) {
-        console.warn('Invalid metric:', metric);
-        return;
-      }
-
+      if (!metric.model_name || !metric.execution || !metric.feature_name) return;
+  
       const safeModelName = metric.model_name.replace(/[^a-zA-Z0-9]/g, '-');
       const safeFeatureName = metric.feature_name.replace(/[^a-zA-Z0-9]/g, '-');
-
+  
       if (!executions[metric.execution]) {
         executions[metric.execution] = { 
           executionNumber: metric.execution, 
-          models: [] 
+          models: [],
+          globalShapImage: metric.global_shap_image,
+          globalLimeImage: metric.global_lime_image
         };
       }
-
-      let model = executions[metric.execution].models.find(
-        (m: any) => m.modelName === metric.model_name
-      );
-      
-      if (!model) {
-        model = {
-          modelName: metric.model_name,
-          safeModelName: safeModelName,
-          features: []
-        };
-        executions[metric.execution].models.push(model);
+  
+      const exec = executions[metric.execution];
+  
+      const model = exec.models.find((m: any) => m.modelName === metric.model_name) || {
+        modelName: metric.model_name,
+        safeModelName,
+        features: []
+      };
+  
+      if (!exec.models.includes(model)) {
+        exec.models.push(model);
       }
-
+  
       model.features.push({
         featureName: metric.feature_name,
-        safeFeatureName: safeFeatureName,
+        safeFeatureName,
         anomalies: metric.anomalies || { values: [], anomaly_indices: [] }
       });
-
+  
       model.features.sort((a: any, b: any) => 
         a.featureName.localeCompare(b.featureName)
       );
     });
-
+  
     this.groupedMetrics = Object.values(executions);
-  }
+  }  
 
   private createLineChart(metric: any, chartId: string) {
     try {
@@ -191,7 +191,16 @@ export class TimelineADComponent implements OnInit {
     }, 100);
   }
 
+  showGlobalImageInModal(imageUrl: string, type: 'SHAP' | 'LIME') {
+    alert(JSON.stringify(imageUrl));
+    this.modalImageUrl = 'http://localhost:8000/' + imageUrl;
+    this.modalImageType = type;
+    this.showModal = true;
+  }
+
   closeModal() {
     this.showModal = false;
+    this.modalImageUrl = null;
   }
+  
 }

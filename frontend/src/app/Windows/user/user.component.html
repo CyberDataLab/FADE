@@ -1,1 +1,155 @@
-<p>user works!</p>
+<div class="options-container" *ngIf="!isEditing && !isChangingPassword">
+  <button class="edit-button" (click)="enableEdit()">
+    <i class="fas fa-pen"></i>
+    <span class="tooltip-text">Click to edit user information</span>
+  </button>
+  <button class="password-button" (click)="enableChangePassword()">
+    <i class="fas fa-key"></i>
+    <span class="tooltip-text">Click to change the password</span>
+  </button>
+</div>
+
+<div *ngIf="isEditing" class="edit-modal">
+  <div class="modal-dialog align-middle edit-modal" role="document">
+    <div class="modal-content">
+      <form [formGroup]="userForm" (ngSubmit)="saveChanges()">
+        <div class="modal-header">
+          <h1 class="modal-title edit-title"><b>Edit User Information</b></h1>
+        </div>
+
+        <div class="modal-body">
+          <div class="form-group">
+            <input formControlName="first_name" class="form-control edit-input" placeholder="First name" />
+          </div>
+          <div class="form-group">
+            <input formControlName="last_name" class="form-control edit-input" placeholder="Last name" />
+          </div>
+          <div class="form-group">
+            <input formControlName="username" class="form-control edit-input" placeholder="Username" />
+          </div>
+          <div class="form-group">
+            <input formControlName="email" class="form-control edit-input" placeholder="Email" />
+          </div>
+        </div>
+
+        <div class="modal-footer button-row">
+          <button type="submit" class="btn edit-btn">Save</button>
+          <button type="button" class="btn cancel-edit-btn" (click)="cancelEdit()">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div *ngIf="!isEditing && !isChangingPassword">
+  <h2 class="section-title">User Information</h2>
+  <table class="scenario-table">
+    <thead>
+      <tr>
+        <th>Field</th>
+        <th>Value</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Name</td>
+        <td>{{ user?.first_name }}</td>
+      </tr>
+      <tr>
+        <td>Surname</td>
+        <td>{{ user?.last_name }}</td>
+      </tr>
+      <tr>
+        <td>Username</td>
+        <td>{{ user?.username }}</td>
+      </tr>
+      <tr>
+        <td>Email</td>
+        <td>{{ user?.email }}</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div *ngIf="!isEditing && !isChangingPassword" class="statistics-section">
+  <h2 class="section-title">User Statistics</h2>
+  <table class="scenario-table">
+    <thead>
+      <tr>
+        <th>Login Count</th>
+        <th>Password Changes</th>
+        <th>Designs Created</th>
+        <th>Scenarios Executed</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>{{ user?.numberTimesConnected }}</td>
+        <td>{{ user?.numberTimesModifiedPassword }}</td>
+        <td>{{ user?.numberDesignsCreated }}</td>
+        <td>{{ user?.numberExecutedScenarios }}</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div *ngIf="isChangingPassword" class="change-password-modal">
+  <div class="modal-dialog align-middle change-password-modal" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h1 class="modal-title change-password-title"><b>Change Password</b></h1>
+      </div>
+
+      <div class="modal-body">
+        <div class="form-group">
+          <div class="input-wrapper">
+            <input [type]="showCurrentPassword ? 'text' : 'password'" [(ngModel)]="passwordDTO.current_password" name="current_password" class="form-control change-password-input" placeholder="Current password" />
+            <button type="button" (click)="toggleVisibility('current')" class="password-toggle-btn">
+              <i [ngClass]="showCurrentPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
+            </button>
+          </div>
+          <ng-container *ngIf="current_passwordError">
+            <p class="error-message"><small>*Insert current password</small></p>
+          </ng-container>
+        </div>
+
+        <div class="form-group">
+          <div class="input-wrapper">
+            <input [type]="showNewPassword ? 'text' : 'password'" [(ngModel)]="passwordDTO.new_password" name="new_password"
+              class="form-control change-password-input" placeholder="New password" />
+            <button type="button" (click)="toggleVisibility('new')" class="password-toggle-btn">
+              <i [ngClass]="showNewPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
+            </button>
+          </div>
+          <ng-container *ngIf="passwordError; else passwordValid">
+            <p class="error-message"><small>*Insert password</small></p>
+          </ng-container>
+          <ng-template #passwordValid>
+            <p *ngIf="badPasswordError" class="error-message"><small>*Password format is incorrect. At least 8 characters long and include at least one uppercase letter, one lowercase letter, and one number.</small></p>
+          </ng-template>
+        </div>
+
+        <div class="form-group">
+          <div class="input-wrapper">
+            <input [type]="showConfirmPassword ? 'text' : 'password'" [(ngModel)]="passwordDTO.confirm_password" name="confirm_password"
+              class="form-control change-password-input" placeholder="Confirm password" />
+            <button type="button" (click)="toggleVisibility('confirm')" class="password-toggle-btn">
+              <i [ngClass]="showConfirmPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
+            </button>
+          </div>
+          <ng-container *ngIf="confirm_passwordError; else confirm_passwordValid">
+            <p class="error-message"><small>*Insert password</small></p>
+          </ng-container>
+          <ng-template #confirm_passwordValid>
+            <p *ngIf="badConfirmPasswordError" class="error-message"><small>*Password format is incorrect. At least 8 characters long and include at least one uppercase letter, one lowercase letter, and one number.</small></p>
+          </ng-template>
+        </div>
+      </div>
+
+      <div class="modal-footer button-row">
+        <button (click)="changePassword()" type="button" class="btn change-password-btn">Change Password</button>
+        <button (click)="cancelChangePassword()" type="button" class="btn cancel-change-password-btn">Cancel</button>
+      </div>      
+    </div>
+  </div>
+</div>

@@ -1,0 +1,26 @@
+# Python image
+FROM nvidia/cuda:12.1.0-base-ubuntu22.04
+
+# Set the workdir
+WORKDIR /app
+
+# Install system dependencies required for mysqlclient 
+RUN apt-get update && apt-get install -y \
+    default-libmysqlclient-dev build-essential pkg-config \
+    tshark openssh-client netcat-openbsd bsdmainutils \
+ && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements file
+COPY requirements-gpu.txt /app/
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements-gpu.txt
+
+# Copy the rest of the code
+COPY . /app/
+
+# Expose the Django port
+EXPOSE 8000
+
+# Default command to run the application
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]

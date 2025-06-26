@@ -266,9 +266,16 @@
           "type": "KNN",
           "displayName": "KNN",
           "icon": "fa fa-sitemap",
-          "class": "sklearn.neighbors.KNeighborsClassifier",
+          "class_cpu": "sklearn.neighbors.KNeighborsClassifier",
           "category": "model",
           "properties": [
+            {
+              "name": "execution_mode",
+              "label": "Mode of execution",
+              "type": "select",
+              "default": "cpu",
+              "options": ["cpu", "gpu"]
+            },
             {
               "name": "n_neighbors",
               "label": "Number of neighbors",
@@ -304,9 +311,17 @@
           "type": "RandomForest",
           "displayName": "Random Forest",
           "icon": "fa fa-tree",
-          "class": "sklearn.ensemble.RandomForestClassifier",
+          "class_cpu": "sklearn.ensemble.RandomForestClassifier",
+          "class_gpu": "cuml.ensemble.RandomForestClassifier",
           "category": "model",
           "properties": [
+            {
+              "name": "execution_mode",
+              "label": "Mode of execution",
+              "type": "select",
+              "default": "cpu",
+              "options": ["cpu", "gpu"]
+            },
             {
               "name": "n_estimators",
               "label": "Number of estimators",
@@ -378,9 +393,16 @@
           "type": "SVM",
           "displayName": "SVM",
           "icon": "fa fa-project-diagram",
-          "class": "sklearn.svm.SVC",
+          "class_cpu": "sklearn.svm.SVC",
           "category": "model",
           "properties": [
+            {
+              "name": "execution_mode",
+              "label": "Mode of execution",
+              "type": "select",
+              "default": "cpu",
+              "options": ["cpu", "gpu"]
+            },
             {
               "name": "kernel",
               "label": "Kernel",
@@ -421,9 +443,16 @@
           "type": "GradientBoosting",
           "displayName": "Gradient Boosting",
           "icon": "fa fa-rocket",
-          "class": "sklearn.ensemble.GradientBoostingClassifier",
+          "class_cpu": "sklearn.ensemble.GradientBoostingClassifier",
           "category": "model",
           "properties": [
+            {
+              "name": "execution_mode",
+              "label": "Mode of execution",
+              "type": "select",
+              "default": "cpu",
+              "options": ["cpu", "gpu"]
+            },
             {
               "name": "n_estimators",
               "label": "Number of estimators",
@@ -485,9 +514,16 @@
           "type": "DecisionTree",
           "displayName": "Decision Tree",
           "icon": "fa fa-tree",
-          "class": "sklearn.tree.DecisionTreeClassifier",
+          "class_cpu": "sklearn.tree.DecisionTreeClassifier",
           "category": "model",
           "properties": [
+            {
+              "name": "execution_mode",
+              "label": "Mode of execution",
+              "type": "select",
+              "default": "cpu",
+              "options": ["cpu", "gpu"]
+            },
             {
               "name": "criterion",
               "label": "Criterion",
@@ -564,9 +600,16 @@
           "type": "LogisticRegression",
           "displayName": "Logistic Regression",
           "icon": "fa fa-chart-line",
-          "class": "sklearn.linear_model.LogisticRegression",
+          "class_cpu": "sklearn.linear_model.LogisticRegression",
           "category": "model",
           "properties": [
+            {
+              "name": "execution_mode",
+              "label": "Mode of execution",
+              "type": "select",
+              "default": "cpu",
+              "options": ["cpu", "gpu"]
+            },
             {
               "name": "C",
               "label": "Regularization",
@@ -608,6 +651,13 @@
           "category": "model",
           "properties": [
             {
+              "name": "execution_mode",
+              "label": "Mode of execution",
+              "type": "select",
+              "default": "cpu",
+              "options": ["cpu", "gpu"]
+            },
+            {
               "name": "conv_type",
               "label": "Convolution Type",
               "type": "select",
@@ -623,10 +673,72 @@
               "max": 10
             },
             {
+              "name": "use_flatten",
+              "label": "Add Flatten Layer",
+              "type": "conditional-select",
+              "default": "true",
+              "options": ["true", "false"]
+            },
+            {
+              "name": "dense_units",
+              "label": "Dense Layer Units (after Flatten)",
+              "type": "number",
+              "default": 128,
+              "min": 1,
+              "conditional": {
+                "dependsOn": "use_flatten",
+                "value": "true"
+              }
+            },
+            {
+              "name": "output_activation",
+              "label": "Output Activation",
+              "type": "select",
+              "default": "softmax",
+              "options": ["softmax", "sigmoid"]
+            },
+            {
+              "name": "epochs",
+              "label": "Epochs",
+              "type": "number",
+              "default": 50,
+              "min": 1
+            },
+            {
+              "name": "batch_size",
+              "label": "Batch Size",
+              "type": "number",
+              "default": 32,
+              "min": 1
+            },
+            {
+              "name": "optimizer",
+              "label": "Optimizer",
+              "type": "select",
+              "default": "adam",
+              "options": ["adam", "sgd", "rmsprop"]
+            },
+            {
+              "name": "loss",
+              "label": "Loss Function",
+              "type": "select",
+              "default": "categorical_crossentropy",
+              "options": ["categorical_crossentropy", "binary_crossentropy", "mse"]
+            },
+            {
+              "name": "selected_layer_index",
+              "label": "Select Conv Layer to Configure",
+              "type": "dynamic-select",
+              "default": "0",
+              "options_from": "num_conv_layers",
+              "options_template": "Layer @index"
+            },
+            {
               "name": "conv_layers",
-              "label": "Convolutional Layers",
-              "type": "repeat-group",
+              "label": "Convolutional Layers Configuration",
+              "type": "conditional-repeat-group-by-index",
               "repeat": "num_conv_layers",
+              "index": "selected_layer_index",
               "template": [
                 {
                   "name": "filters",
@@ -699,22 +811,53 @@
                   }
                 }
               ]
+            }
+          ]
+        },
+        {
+          "type": "RNNClassifier",
+          "displayName": "RNN Classifier",
+          "icon": "fa fa-brain",
+          "class_cpu": "tensorflow.keras.models.Sequential",
+          "category": "model",
+          "properties": [
+            {
+              "name": "execution_mode",
+              "label": "Mode of execution",
+              "type": "select",
+              "default": "cpu",
+              "options": ["cpu", "gpu"]
             },
             {
-              "name": "use_flatten",
-              "label": "Add Flatten Layer",
+              "name": "rnn_cell_type",
+              "label": "RNN Cell Type",
+              "type": "select",
+              "default": "LSTM",
+              "options": ["SimpleRNN", "LSTM", "GRU"]
+            },
+            {
+              "name": "num_rnn_layers",
+              "label": "Number of RNN Layers",
+              "type": "number",
+              "default": 1,
+              "min": 1,
+              "max": 5
+            },
+            {
+              "name": "use_dense",
+              "label": "Add Dense Layer After RNN",
               "type": "conditional-select",
               "default": "true",
               "options": ["true", "false"]
             },
             {
               "name": "dense_units",
-              "label": "Dense Layer Units (after Flatten)",
+              "label": "Dense Layer Units",
               "type": "number",
               "default": 128,
               "min": 1,
               "conditional": {
-                "dependsOn": "use_flatten",
+                "dependsOn": "use_dense",
                 "value": "true"
               }
             },
@@ -752,18 +895,220 @@
               "type": "select",
               "default": "categorical_crossentropy",
               "options": ["categorical_crossentropy", "binary_crossentropy", "mse"]
+            },
+            {
+              "name": "selected_layer_index",
+              "label": "Select RNN Layer to Configure",
+              "type": "dynamic-select",
+              "default": "0",
+              "options_from": "num_rnn_layers",
+              "options_template": "Layer @index"
+            },
+            {
+              "name": "rnn_layers",
+              "label": "RNN Layers Configuration",
+              "type": "conditional-repeat-group-by-index",
+              "repeat": "num_rnn_layers",
+              "index": "selected_layer_index",
+              "template": [
+                {
+                  "name": "units",
+                  "label": "Units",
+                  "type": "number",
+                  "default": 64,
+                  "min": 1
+                },
+                {
+                  "name": "activation",
+                  "label": "Activation",
+                  "type": "select",
+                  "default": "tanh",
+                  "options": ["tanh", "relu", "sigmoid", "linear"]
+                },
+                {
+                  "name": "return_sequences",
+                  "label": "Return Sequences",
+                  "type": "select",
+                  "default": "false",
+                  "options": ["true", "false"]
+                },
+                {
+                  "name": "use_dropout",
+                  "label": "Use Dropout",
+                  "type": "conditional-select",
+                  "default": "false",
+                  "options": ["true", "false"]
+                },
+                {
+                  "name": "dropout_rate",
+                  "label": "Dropout Rate",
+                  "type": "number",
+                  "default": 0.2,
+                  "min": 0.0,
+                  "max": 1.0,
+                  "step": 0.05,
+                  "conditional": {
+                    "dependsOn": "use_dropout",
+                    "value": "true"
+                  }
+                },
+                {
+                  "name": "use_recurrent_dropout",
+                  "label": "Use Recurrent Dropout",
+                  "type": "conditional-select",
+                  "default": "false",
+                  "options": ["true", "false"]
+                },
+                {
+                  "name": "recurrent_dropout_rate",
+                  "label": "Recurrent Dropout Rate",
+                  "type": "number",
+                  "default": 0.2,
+                  "min": 0.0,
+                  "max": 1.0,
+                  "step": 0.05,
+                  "conditional": {
+                    "dependsOn": "use_recurrent_dropout",
+                    "value": "true"
+                  }
+                },
+                {
+                  "name": "go_backwards",
+                  "label": "Process Sequence Backwards",
+                  "type": "select",
+                  "default": "false",
+                  "options": ["true", "false"]
+                }
+              ]
             }
           ]
-        }        
+        },
+        {
+          "type": "MLPClassifier",
+          "displayName": "MLP Classifier",
+          "icon": "fa fa-project-diagram",
+          "class_cpu": "tensorflow.keras.models.Sequential",
+          "category": "model",
+          "properties": [
+            {
+              "name": "execution_mode",
+              "label": "Mode of execution",
+              "type": "select",
+              "default": "cpu",
+              "options": ["cpu", "gpu"]
+            },
+            {
+              "name": "num_hidden_layers",
+              "label": "Number of Hidden Layers",
+              "type": "number",
+              "default": 2,
+              "min": 1,
+              "max": 10
+            },
+            {
+              "name": "output_activation",
+              "label": "Output Activation",
+              "type": "select",
+              "default": "softmax",
+              "options": ["softmax", "sigmoid"]
+            },
+            {
+              "name": "epochs",
+              "label": "Epochs",
+              "type": "number",
+              "default": 50,
+              "min": 1
+            },
+            {
+              "name": "batch_size",
+              "label": "Batch Size",
+              "type": "number",
+              "default": 32,
+              "min": 1
+            },
+            {
+              "name": "optimizer",
+              "label": "Optimizer",
+              "type": "select",
+              "default": "adam",
+              "options": ["adam", "sgd", "rmsprop"]
+            },
+            {
+              "name": "loss",
+              "label": "Loss Function",
+              "type": "select",
+              "default": "categorical_crossentropy",
+              "options": ["categorical_crossentropy", "binary_crossentropy", "mse"]
+            },
+            {
+              "name": "selected_layer_index",
+              "label": "Select Hidden Layer to Configure",
+              "type": "dynamic-select",
+              "default": "0",
+              "options_from": "num_hidden_layers",
+              "options_template": "Layer @index"
+            },
+            {
+              "name": "hidden_layers",
+              "label": "Hidden Layers Configuration",
+              "type": "conditional-repeat-group-by-index",
+              "repeat": "num_hidden_layers",
+              "index": "selected_layer_index",
+              "template": [
+                {
+                  "name": "units",
+                  "label": "Units",
+                  "type": "number",
+                  "default": 64,
+                  "min": 1
+                },
+                {
+                  "name": "activation",
+                  "label": "Activation",
+                  "type": "select",
+                  "default": "relu",
+                  "options": ["relu", "sigmoid", "tanh", "linear"]
+                },
+                {
+                  "name": "use_dropout",
+                  "label": "Use Dropout",
+                  "type": "conditional-select",
+                  "default": "false",
+                  "options": ["true", "false"]
+                },
+                {
+                  "name": "dropout_rate",
+                  "label": "Dropout Rate",
+                  "type": "number",
+                  "default": 0.5,
+                  "min": 0.0,
+                  "max": 1.0,
+                  "step": 0.05,
+                  "conditional": {
+                    "dependsOn": "use_dropout",
+                    "value": "true"
+                  }
+                }
+              ]
+            }
+          ]
+        }            
       ],
       "regression": [
         {
           "type": "LinearRegression",
           "displayName": "Linear Regression",
           "icon": "fa fa-chart-line",
-          "class": "sklearn.linear_model.LinearRegression",
+          "class_cpu": "sklearn.linear_model.LinearRegression",
           "category": "model",
           "properties": [
+            {
+              "name": "execution_mode",
+              "label": "Mode of execution",
+              "type": "select",
+              "default": "cpu",
+              "options": ["cpu", "gpu"]
+            },
             {
               "name": "fit_intercept",
               "label": "Fit Intercept",
@@ -813,9 +1158,16 @@
           "type": "IsolationForest",
           "displayName": "Isolation Forest",
           "icon": "fa fa-tree",
-          "class": "sklearn.ensemble.IsolationForest",
+          "class_cpu": "sklearn.ensemble.IsolationForest",
           "category": "model",
           "properties": [
+            {
+              "name": "execution_mode",
+              "label": "Mode of execution",
+              "type": "select",
+              "default": "cpu",
+              "options": ["cpu", "gpu"]
+            },
             {
               "name": "n_estimators",
               "label": "Number of estimators",
@@ -898,9 +1250,16 @@
           "type": "AutoEncoders",
           "displayName": "Auto-encoders",
           "icon": "fa fa-brain",
-          "class": "tensorflow.keras.models.Sequential",
+          "class_cpu": "tensorflow.keras.models.Sequential",
           "category": "model",
           "properties": [
+            {
+              "name": "execution_mode",
+              "label": "Mode of execution",
+              "type": "select",
+              "default": "cpu",
+              "options": ["cpu", "gpu"]
+            },
             {
               "name": "encoding_dim",
               "type": "number",
@@ -919,9 +1278,16 @@
           "type": "OneClassSVM",
           "displayName": "OCSVM",
           "icon": "fa fa-shield-alt",
-          "class": "sklearn.svm.OneClassSVM",
+          "class_cpu": "sklearn.svm.OneClassSVM",
           "category": "model",
           "properties": [
+            {
+              "name": "execution_mode",
+              "label": "Mode of execution",
+              "type": "select",
+              "default": "cpu",
+              "options": ["cpu", "gpu"]
+            },
             {
               "name": "kernel",
               "label": "Kernel",
@@ -956,9 +1322,16 @@
           "type": "KMeans",
           "displayName": "K-Means",
           "icon": "fa fa-clone",
-          "class": "sklearn.cluster.KMeans",
+          "class_cpu": "sklearn.cluster.KMeans",
           "category": "model",
           "properties": [
+            {
+              "name": "execution_mode",
+              "label": "Mode of execution",
+              "type": "select",
+              "default": "cpu",
+              "options": ["cpu", "gpu"]
+            },
             {
               "name": "n_clusters",
               "label": "Number of clusters",
@@ -999,9 +1372,16 @@
           "type": "LOF",
           "displayName": "LOF",
           "icon": "fa fa-exclamation-triangle",
-          "class": "sklearn.neighbors.LocalOutlierFactor",
+          "class_cpu": "sklearn.neighbors.LocalOutlierFactor",
           "category": "model",
           "properties": [
+            {
+              "name": "execution_mode",
+              "label": "Mode of execution",
+              "type": "select",
+              "default": "cpu",
+              "options": ["cpu", "gpu"]
+            },
             {
               "name": "n_neighbors",
               "label": "Number of neighbors",
@@ -1041,9 +1421,16 @@
           "type": "DBSCAN",
           "displayName": "DBSCAN",
           "icon": "fa fa-dot-circle",
-          "class": "sklearn.cluster.DBSCAN",
+          "class_cpu": "sklearn.cluster.DBSCAN",
           "category": "model",
           "properties": [
+            {
+              "name": "execution_mode",
+              "label": "Mode of execution",
+              "type": "select",
+              "default": "cpu",
+              "options": ["cpu", "gpu"]
+            },
             {
               "name": "eps",
               "label": "Epsilon",
@@ -1082,9 +1469,16 @@
           "type": "GMM",
           "displayName": "GMM",
           "icon": "fa fa-chart-pie",
-          "class": "sklearn.mixture.GaussianMixture",
+          "class_cpu": "sklearn.mixture.GaussianMixture",
           "category": "model",
           "properties": [
+            {
+              "name": "execution_mode",
+              "label": "Mode of execution",
+              "type": "select",
+              "default": "cpu",
+              "options": ["cpu", "gpu"]
+            },
             {
               "name": "n_components",
               "label": "Number of components",
@@ -1125,6 +1519,40 @@
               "type": "select",
               "default": "kmeans",
               "options": ["kmeans", "k-means++", "random", "random_from_data"]
+            }
+          ]
+        }
+      ],
+      "explainability": [
+        {
+          "type": "SHAP",
+          "displayName": "SHAP",
+          "icon": "fa fa-lightbulb",
+          "class": "shap",
+          "category": "explainability",
+          "properties": [
+            {
+              "name": "explainer_type",
+              "label": "Explainer Type",
+              "type": "select",
+              "default": "KernelExplainer",
+              "options": ["KernelExplainer", "TreeExplainer", "DeepExplainer", "LinearExplainer"]
+            }
+          ]
+        },
+        {
+          "type": "LIME",
+          "displayName": "LIME",
+          "icon": "fa fa-lightbulb",
+          "class": "lime.lime_tabular",
+          "category": "explainability",
+          "properties": [
+            {
+              "name": "explainer_type",
+              "label": "Explainer Type",
+              "type": "select",
+              "default": "LimeTabularExplainer",
+              "options": ["LimeTabularExplainer", "LimeTextExplainer", "LimeImageExplainer"]
             }
           ]
         }

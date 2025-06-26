@@ -105,3 +105,40 @@ h5 {
   font-size: 24px;
   cursor: pointer;
 }
+
+.charts-wrapper-with-global {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.global-shap-container, .global-lime-container {
+  flex: 0 0 370px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.global-shap-container img, .global-lime-container img {
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  transition: transform 0.2s ease;
+}
+
+.charts-wrapper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.chart-container {
+  flex: 0 0 calc(50% - 16px);
+  padding: 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background-color: #fafafa;
+}

@@ -16,6 +16,7 @@ export class ProductionComponent implements OnInit{
   isPlaying = false;
   productionAnomalies: any[] = [];
   refreshSubscription!: Subscription;
+  modalImage: string | null = null;
 
   constructor(private route: ActivatedRoute, private router: Router, private scenarioService: ScenarioService, @Inject(PLATFORM_ID) private platformId: Object) {}
 
@@ -51,9 +52,7 @@ export class ProductionComponent implements OnInit{
         this.isPlaying = true;
         console.log('Playback started');
   
-        this.loadProductionAnomalies(); // carga inicial inmediata
-  
-        // activa el refresco continuo
+        this.loadProductionAnomalies();
         this.refreshSubscription = interval(1000).subscribe(() => {
           if (this.isPlaying) {
             this.loadProductionAnomalies();
@@ -83,7 +82,6 @@ export class ProductionComponent implements OnInit{
   
     this.scenarioService.getScenarioProductionAnomalyMetrics(this.uuid).subscribe({
       next: (data) => {
-        // Ordenar por fecha descendente
         this.productionAnomalies = (data.metrics || []).sort(
           (a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime()
         );
@@ -92,6 +90,14 @@ export class ProductionComponent implements OnInit{
         console.error("Error loading production anomalies:", err);
       }
     });
+  }
+
+  openModal(imageUrl: string) {
+    this.modalImage = imageUrl;
+  }
+  
+  closeModal() {
+    this.modalImage = null;
   }
   
 
