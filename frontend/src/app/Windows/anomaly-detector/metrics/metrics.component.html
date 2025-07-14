@@ -1,10 +1,12 @@
 <div class="metrics-container">
   <h2>Scenario Metrics</h2>
+
   <div *ngFor="let execution of groupedMetrics">
     <h3>Execution: {{ execution.executionNumber }}</h3>
 
     <div *ngFor="let model of execution.models">
       <h4>Model: {{ model.modelName }}</h4>
+
       <div class="charts-wrapper">
         <div *ngIf="model.modelType === 'classification'" class="classification-charts">
           <div class="chart-container">
@@ -18,7 +20,7 @@
             </canvas>
           </div>
         </div>
-      
+
         <div *ngIf="model.modelType === 'regression'" class="regression-chart">
           <div class="chart-container">
             <canvas id="regression-{{execution.executionNumber}}-{{model.safeModelName}}"
@@ -27,14 +29,25 @@
           </div>
         </div>
       </div>
+
+      <div class="explanation-images" *ngIf="model.global_shap_images?.length || model.global_lime_images?.length">
+        <div *ngFor="let img of model.global_shap_images || []" class="image-wrapper" (click)="openModal('http://localhost:8000/media/' + img)">
+          <h5>SHAP for {{ extractClassLabel(img) }}</h5>
+          <img [src]="'http://localhost:8000/media/' + img" alt="SHAP" />
+        </div>
+        <div *ngFor="let img of model.global_lime_images || []" class="image-wrapper" (click)="openModal('http://localhost:8000/media/' + img)">
+          <h5>LIME for {{ extractClassLabel(img) }}</h5>
+          <img [src]="'http://localhost:8000/media/' + img" alt="LIME" />
+        </div>
+      </div>
     </div>
   </div>
 </div>
 
-<div class="modal-overlay" *ngIf="showModal" (click)="closeModal()">
+<div class="modal-overlay" *ngIf="modalImageUrl" (click)="closeModal()">
   <div class="modal-content" (click)="$event.stopPropagation()">
     <button class="close-btn" (click)="closeModal()">✖</button>
-    <canvas id="modal-{{modalChartType}}-chart"></canvas>
+    <h4>Explanation: {{ modalImageLabel }}</h4>
+    <img [src]="modalImageUrl" alt="Explanation Image" />
   </div>
 </div>
-

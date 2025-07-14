@@ -14,3 +14,27 @@ body {
   color: #2d3436;
   background-attachment: fixed;
 }
+
+.csv-columns-container {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 15px;
+  padding: 10px;
+  border-radius: 4px;
+  margin-top: 10px;
+}
+
+.csv-columns-container .column-item {
+  padding: 8px 12px;
+  background: #f5f5f5;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.2s;
+  border: 1px solid #ddd;
+}
+
+.csv-columns-container .column-item.selected {
+  background-color: #7690ad97;
+  box-shadow: 0 2px 4px rgba(33, 150, 243, 0.2);
+}

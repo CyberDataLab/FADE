@@ -30,8 +30,15 @@
             {
               "name": "networkFileName",
               "type": "file",
-              "default": {},
+              "label": "PCAP File",
               "accept": ".pcap"
+            },
+            {
+              "name": "analysisMode",
+              "label": "Traffic analysis",
+              "type": "select",
+              "default": "packet",
+              "options": ["packet", "flow"]
             }
           ]
         }
@@ -1537,6 +1544,13 @@
               "type": "select",
               "default": "KernelExplainer",
               "options": ["KernelExplainer", "TreeExplainer", "DeepExplainer", "LinearExplainer"]
+            },
+            {
+              "name": "selectedClasses",
+              "label": "Classes to Explain",
+              "type": "multi-select",
+              "default": [],
+              "options_from": "classes"
             }
           ]
         },

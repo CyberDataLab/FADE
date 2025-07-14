@@ -1,47 +1,66 @@
-<div class="button-container" *ngIf="isProductionRoute()">
-  <button class="button" (click)="toggle()">
-    <i class="fas" [ngClass]="isPlaying ? 'fa-stop' : 'fa-play'"></i>
-  </button>
-</div>
-
 <div class="content">
   <div class="table-container">
     <table class="scenario-table">
       <thead>
         <tr>
+          <th>Index</th>
           <th>Anomaly</th>
           <th>Actions</th>
         </tr>
       </thead>
       <tbody>
-        <tr *ngFor="let anomaly of productionAnomalies" class="anomaly-row">
-          <td class="anomaly-cell">
+        <tr *ngFor="let anomaly of productionAnomalies; let i = index">
+          <td>{{ productionAnomalies.length - i }}</td>
+
+          <td class="anomaly-cell"
+              (mouseenter)="showHoverImages($event, i)"
+              (mouseleave)="hideHoverImages()"
+              [ngClass]="{'hover-up': hoverDirection[i] === 'up'}">
+
             {{ anomaly.anomalies?.anomaly_indices }}
 
-            <div class="hover-images" *ngIf="anomaly.anomaly_image || anomaly.local_shap_image || anomaly.local_lime_image">
-              <img
-                *ngIf="anomaly.anomaly_image"
-                [src]="'http://localhost:8000' + anomaly.anomaly_image"
-                alt="Anomaly"
-                (click)="openModal('http://localhost:8000' + anomaly.anomaly_image)"
-              />
-              <img
-                *ngIf="anomaly.local_shap_image || anomaly.local_lime_image"
-                [src]="'http://localhost:8000' + (anomaly.local_shap_image || anomaly.local_lime_image)"
-                alt="Explanation"
-                (click)="openModal('http://localhost:8000' + (anomaly.local_shap_image || anomaly.local_lime_image))"
-              />
+            <div class="hover-images"
+                 *ngIf="anomaly.local_shap_images?.length || anomaly.local_lime_images?.length">
 
+              <pre class="anomaly-details" *ngIf="anomaly.anomaly_details">
+                {{ anomaly.anomaly_details }}
+              </pre>
+
+              <ng-container *ngIf="anomaly.local_shap_images?.length">
+                <img *ngFor="let img of anomaly.local_shap_images"
+                     [src]="'http://localhost:8000/media/' + img"
+                     alt="SHAP"
+                     (click)="openModal('http://localhost:8000/media/' + img)" />
+              </ng-container>
+
+              <ng-container *ngIf="anomaly.local_lime_images?.length">
+                <img *ngFor="let img of anomaly.local_lime_images"
+                     [src]="'http://localhost:8000/media/' + img"
+                     alt="LIME"
+                     (click)="openModal('http://localhost:8000/media/' + img)" />
+              </ng-container>
             </div>
           </td>
+
           <td>
             <div class="action-buttons">
+              <button class="default-button"
+                      (click)="downloadAnomalyAsZip(anomaly, productionAnomalies.length - i)"
+                      title="Download anomaly as ZIP">
+                <i class="fas fa-download"></i>
+              </button>
+
+              <button class="default-button delete-button"
+                      (click)="deleteAnomaly(anomaly.id)"
+                      title="Delete anomaly">
+                <i class="fas fa-trash-alt"></i>
+              </button>
             </div>
           </td>
         </tr>
 
         <tr *ngIf="productionAnomalies.length === 0">
-          <td colspan="2" class="empty-row">No production anomalies yet</td>
+          <td colspan="3" class="empty-row">No production anomalies yet</td>
         </tr>
       </tbody>
     </table>
@@ -52,4 +71,3 @@
   <button class="close-btn" (click)="closeModal()">✖</button>
   <img [src]="modalImage" alt="Expanded image" />
 </div>
-

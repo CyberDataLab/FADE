@@ -382,8 +382,8 @@ svg {
 }
 
 .csv-columns-container .column-item.selected {
-  background-color: #7690ad97;
-  box-shadow: 0 2px 4px rgba(33, 150, 243, 0.2);
+  background-color: #7690ad97 !important; 
+  box-shadow: 0 2px 4px rgba(33, 150, 243, 0.2) !important;
 }
 
 .metrics-container {

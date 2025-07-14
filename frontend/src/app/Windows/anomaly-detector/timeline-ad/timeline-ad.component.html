@@ -4,16 +4,17 @@
     <h3>Execution: {{ execution.executionNumber }}</h3>
     <div *ngFor="let model of execution.models">
       <h4>Model: {{ model.modelName }}</h4>
+
       <div class="charts-wrapper-with-global">
-        
-        <div class="global-shap-container" *ngIf="execution.globalShapImage" (click)="showGlobalImageInModal(execution.globalShapImage, 'SHAP')">
-          <h5>Global SHAP</h5>
-          <img [src]="'http://localhost:8000/' + execution.globalShapImage" alt="Global SHAP" />
+
+        <div class="global-shap-container" *ngFor="let img of execution.globalShapImages" (click)="showGlobalImageInModal(img, 'SHAP')">
+          <h5>{{ getGlobalTitle(img, 'SHAP') }}</h5>
+          <img [src]="getImageUrl(img)" alt="Global SHAP" />
         </div>
 
-        <div class="global-lime-container" *ngIf="execution.globalLimeImage" (click)="showGlobalImageInModal(execution.globalLimeImage, 'LIME')">
-          <h5>Global LIME</h5>
-          <img [src]="'http://localhost:8000/' + execution.globalLimeImage" alt="Global LIME" />
+        <div class="global-lime-container" *ngFor="let img of execution.globalLimeImages" (click)="showGlobalImageInModal(img, 'LIME')">
+          <h5>{{ getGlobalTitle(img, 'LIME') }}</h5>
+          <img [src]="getImageUrl(img)" alt="Global LIME" />
         </div>
 
         <div class="charts-wrapper">
@@ -24,7 +25,7 @@
             </canvas>
           </div>
         </div>
-        
+
       </div>
     </div>
   </div>

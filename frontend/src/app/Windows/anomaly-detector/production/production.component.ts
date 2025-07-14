@@ -3,7 +3,8 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { ScenarioService } from '../../scenario.service';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { interval,Subscription } from 'rxjs';
-
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 
 @Component({
   selector: 'app-production',
@@ -17,6 +18,8 @@ export class ProductionComponent implements OnInit{
   productionAnomalies: any[] = [];
   refreshSubscription!: Subscription;
   modalImage: string | null = null;
+  hoverDirection: { [index: number]: 'up' | 'down' } = {};
+  hoverPanelRef: HTMLElement | null = null;
 
   constructor(private route: ActivatedRoute, private router: Router, private scenarioService: ScenarioService, @Inject(PLATFORM_ID) private platformId: Object) {}
 
@@ -98,6 +101,106 @@ export class ProductionComponent implements OnInit{
   
   closeModal() {
     this.modalImage = null;
+  }
+
+  checkPosition(event: MouseEvent, index: number): void {
+    const element = event.target as HTMLElement;
+    const rect = element.getBoundingClientRect();
+  
+    const container = document.querySelector('.table-container') as HTMLElement;
+    const containerRect = container.getBoundingClientRect();
+  
+    const spaceBelow = containerRect.bottom - rect.bottom;
+    const threshold = 300;
+  
+    this.hoverDirection[index] = spaceBelow < threshold ? 'up' : 'down';
+  }
+
+  showHoverImages(event: MouseEvent, index: number): void {
+    this.checkPosition(event, index);
+    const target = event.currentTarget as HTMLElement;
+
+    const panel = target.querySelector('.hover-images') as HTMLElement;
+    if (panel) {
+      const rect = target.getBoundingClientRect();
+      panel.style.display = 'flex';
+      panel.style.left = `${rect.left}px`;
+  
+      if (this.hoverDirection[index] === 'up') {
+        panel.style.bottom = `${window.innerHeight - rect.top}px`;
+        panel.style.top = 'auto';
+      } else {
+        panel.style.top = `${rect.bottom}px`;
+        panel.style.bottom = 'auto';
+      }
+  
+      this.hoverPanelRef = panel;
+    }
+  }
+  
+  hideHoverImages(): void {
+    if (this.hoverPanelRef) {
+      this.hoverPanelRef.style.display = 'none';
+      this.hoverPanelRef = null;
+    }
+  }
+
+  async downloadAnomalyAsZip(anomaly: any, positionFromBottom: number): Promise<void> {
+    const zip = new JSZip();
+  
+    const details = typeof anomaly.anomaly_details === 'string'
+      ? JSON.parse(anomaly.anomaly_details)
+      : anomaly.anomaly_details;
+  
+    const indexedDetails = Object.entries(details).map(([key, value], index) => ({
+      index,
+      field: key,
+      value
+    }));
+  
+    const jsonContent = JSON.stringify(indexedDetails, null, 2);
+    zip.file(`${this.uuid}_anomaly_details_${positionFromBottom}.json`, jsonContent);
+  
+    const fetchAndAddImage = async (url: string, filename: string) => {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      zip.file(filename, blob);
+    };
+  
+    if (anomaly.local_shap_images?.length) {
+      for (let i = 0; i < anomaly.local_shap_images.length; i++) {
+        const imageUrl = `http://localhost:8000/media/${anomaly.local_shap_images[i]}`;
+        const imageName = `shap/${this.uuid}_shap_local_${positionFromBottom}.png`;
+        await fetchAndAddImage(imageUrl, imageName);
+      }
+    }
+  
+    if (anomaly.local_lime_images?.length) {
+      for (let i = 0; i < anomaly.local_lime_images.length; i++) {
+        const imageUrl = `http://localhost:8000/media/${anomaly.local_lime_images[i]}`;
+        const imageName = `lime/${this.uuid}_lime_local_${positionFromBottom}.png`;
+        await fetchAndAddImage(imageUrl, imageName);
+      }
+    }
+  
+    zip.generateAsync({ type: 'blob' }).then((content: any) => {
+      saveAs(content, `scenario_${this.uuid}_anomaly_${positionFromBottom}.zip`);
+    });
+  }
+  
+  deleteAnomaly(anomalyId: number): void {
+    if (confirm(`Are you sure you want to delete this anomaly? This action cannot be undone.`)) {
+      this.scenarioService.deleteAnomaly(this.uuid, anomalyId).subscribe({
+        next: () => {
+          alert('Anomaly deleted successfully');
+          this.loadProductionAnomalies();
+        },
+        error: (error: any) => {
+          console.error('Error deleting anomaly:', error);
+          alert('Error deleting anomaly');
+        }
+      });
+    }
   }
   
 

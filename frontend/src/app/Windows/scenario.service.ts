@@ -47,7 +47,7 @@ export class ScenarioService {
     }
   }
 
-  private getAuthHeaders(): HttpHeaders {
+  getAuthHeaders(): HttpHeaders {
     const token = this.getToken();
     return new HttpHeaders({
       'Content-Type': 'application/json',
@@ -81,7 +81,7 @@ export class ScenarioService {
     );
   }
 
-  private handleRequest<T>(request: Observable<T>): Observable<T> {
+  handleRequest<T>(request: Observable<T>): Observable<T> {
     return request.pipe(
       catchError((error:any) => {
         if (error.status === 401) {
@@ -223,6 +223,17 @@ export class ScenarioService {
     if (isPlatformBrowser(this.platformId)) {
       return this.handleRequest(
         this.http.post(`${this.apiUrl}${uuid}/stop-production/`, {}, { headers: this.getAuthHeaders() })
+      );
+    }
+    return EMPTY;
+  }
+
+  deleteAnomaly(uuid: string, anomalyId: number): Observable<any> {
+    if (isPlatformBrowser(this.platformId)) {
+      return this.handleRequest(
+        this.http.delete(`${this.apiUrl}${uuid}/delete-anomaly/${anomalyId}/`, {
+          headers: this.getAuthHeaders()
+        })
       );
     }
     return EMPTY;

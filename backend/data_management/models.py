@@ -1,5 +1,6 @@
 from django.db import models
 import uuid
+from django.db.models import JSONField
 
 
 # Create your models here.
@@ -121,6 +122,11 @@ class ClassificationMetric(models.Model):
     confusion_matrix = models.TextField(null=True, blank=True)
     date = models.DateTimeField(auto_now_add=True)
 
+    global_shap_images = JSONField(null=True, blank=True)
+    local_shap_images = JSONField(null=True, blank=True)
+    global_lime_images = JSONField(null=True, blank=True)
+    local_lime_images = JSONField(null=True, blank=True)
+
     class Meta:
         db_table = "ClassificationMetric"
 
@@ -135,6 +141,11 @@ class RegressionMetric(models.Model):
     msle = models.DecimalField(max_digits=10, decimal_places=5, null=True, blank=True)
     date = models.DateTimeField(auto_now_add=True)
 
+    global_shap_images = JSONField(null=True, blank=True)
+    local_shap_images = JSONField(null=True, blank=True)
+    global_lime_images = JSONField(null=True, blank=True)
+    local_lime_images = JSONField(null=True, blank=True)
+
     class Meta:
         db_table = "RegressionMetric"
 
@@ -147,11 +158,11 @@ class AnomalyMetric(models.Model):
     date = models.DateTimeField(auto_now_add=True)
     production = models.BooleanField(default=False)
 
-    anomaly_image = models.ImageField(upload_to='anomaly_images/', null=True, blank=True)
-    global_shap_image = models.ImageField(upload_to='shap_global_images/', null=True, blank=True)
-    local_shap_image = models.ImageField(upload_to='shap_local_images/', null=True, blank=True)
-    global_lime_image = models.ImageField(upload_to='lime_global_images/', null=True, blank=True)
-    local_lime_image = models.ImageField(upload_to='lime_local_images/', null=True, blank=True)
+    anomaly_details = models.TextField(null=True, blank=True)
+    global_shap_images = JSONField(null=True, blank=True)
+    local_shap_images = JSONField(null=True, blank=True)
+    global_lime_images = JSONField(null=True, blank=True)
+    local_lime_images = JSONField(null=True, blank=True)
 
     class Meta:
         db_table = "AnomalyMetric"

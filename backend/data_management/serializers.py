@@ -24,17 +24,17 @@ class AnomalyDetectorSerializer(serializers.ModelSerializer):
 class ClassificationMetricSerializer(serializers.ModelSerializer):
     class Meta:
         model = ClassificationMetric
-        fields = ['id', 'detector', 'execution', 'model_name', 'accuracy', 'precision', 'recall', 'f1_score', 'confusion_matrix', 'date']
+        fields = ['id', 'detector', 'execution', 'model_name', 'accuracy', 'precision', 'recall', 'f1_score', 'confusion_matrix', 'date', 'global_shap_images', 'local_shap_images', 'global_lime_images', 'local_lime_images']
         extra_kwargs = {'user': {'read_only': True}}
 
 class RegressionMetricSerializer(serializers.ModelSerializer):
     class Meta:
         model = RegressionMetric
-        fields = ['id', 'detector', 'execution', 'model_name', 'mse', 'rmse', 'mae', 'r2', 'msle', 'date']
+        fields = ['id', 'detector', 'execution', 'model_name', 'mse', 'rmse', 'mae', 'r2', 'msle', 'date', 'global_shap_images', 'local_shap_images', 'global_lime_images', 'local_lime_images']
         extra_kwargs = {'detector': {'read_only': True}}
 
 class AnomalyMetricSerializer(serializers.ModelSerializer):
     class Meta:
         model = AnomalyMetric
-        fields = ['id', 'detector', 'execution', 'model_name', 'feature_name', 'anomalies', 'date', 'production', 'anomaly_image', 'global_shap_image', 'local_shap_image', 'global_lime_image', 'local_lime_image']
+        fields = ['id', 'detector', 'execution', 'model_name', 'feature_name', 'anomalies', 'date', 'production', 'packet_image', 'global_shap_images', 'local_shap_images', 'global_lime_images', 'local_lime_images']
         extra_kwargs = {'user': {'read_only': True}}

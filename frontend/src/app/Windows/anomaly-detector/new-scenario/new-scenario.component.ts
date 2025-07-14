@@ -36,7 +36,7 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
   editorRef!: {
     editor: NodeEditor<Schemes>;
     area: AreaPlugin<Schemes, AreaExtra>;
-    addElement: (type: string, position: [number, number], displayName?: string, icon?: string, id?: string) => Promise<void>;
+    addElement: (type: string, position: [number, number], displayName?: string, icon?: string, id?: string) => Promise<ClassicPreset.Node>;
     getNodeType: (nodeId: string) => Promise<string | undefined>;
     connectNodesById: (connections: { startId: string; startOutput: string; endId: string; endInput: string }[]) => Promise<void>;
     clearEditor: () => void;
@@ -151,27 +151,73 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
   
     const elementType = (node as any).data.type;
     if (!elementType) return;
-      
+  
     if (elementType === 'CSV') {
       this.handleCSVConfiguration(node, configContent);
       return;
     }
-
-    if (elementType === 'Network') {
-      this.handleNetworkConfiguration(node, configContent);
-      return;
-    }
-
+  
     if (elementType === 'ClassificationMonitor') {
       this.handleClassificationMonitorConfiguration(node, configContent);
       return;
     }
-
+  
     if (elementType === 'RegressionMonitor') {
       this.handleRegressionMonitorConfiguration(node, configContent);
       return;
     }
+  
+    if (elementType === 'SHAP') {
+      const shapId = node.id;
     
+      const findClassesFromUpstream = (nodeId: string): string[] | null => {
+        const connections = Array.from(this.editorRef.editor.getConnections()) as Array<ClassicPreset.Connection<ClassicPreset.Node, ClassicPreset.Node>>;
+        const incoming = connections.filter(c => c.target === nodeId);
+    
+        for (const conn of incoming) {
+          const sourceId = conn.source;
+          const sourceParams = this.elementParameters[sourceId];
+          const sourceType = (this.editorRef.editor.getNode(sourceId) as any)?.data?.type;
+    
+          const isAnomalyModel = this.config?.sections?.dataModel?.anomalyDetection?.some(
+            (e: any) => e.type === sourceType
+          );
+    
+          if (isAnomalyModel) {
+            return ['normal', 'anomaly'];
+          }
+    
+          if (sourceParams?.classes?.length) {
+            const originalClasses = sourceParams.classes;
+            if (typeof originalClasses[0] === 'string') {
+              return originalClasses.map((cls: string) => ({ name: cls, selected: true }));
+            }
+            return originalClasses;
+          }
+    
+          const fromParent = findClassesFromUpstream(sourceId);
+          if (fromParent) return fromParent;
+        }
+        return null;
+      };
+    
+      const foundClasses = findClassesFromUpstream(shapId);
+      if (foundClasses?.length) {
+        this.elementParameters[shapId] = {
+          ...this.elementParameters[shapId],
+          classes: foundClasses
+        };
+      }
+    
+      const elementConfig = this.getElementConfig(elementType);
+      if (!elementConfig) return;
+    
+      configContent.innerHTML = this.generateConfigHTML(elementConfig, node.id);
+      this.setupDynamicInputs(node, elementConfig);
+      this.hideContextMenu();
+      return;
+    }
+  
     const elementConfig = this.getElementConfig(elementType);
     if (!elementConfig) return;
   
@@ -180,6 +226,7 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
   
     this.hideContextMenu();
   }
+  
   
 
   private getElementConfig(elementType: string): any {
@@ -207,6 +254,11 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
         if (found) return found;
       }
 
+      if (obj.monitoring) {
+        const found = obj.monitoring.find((e: any) => e.type === elementType);
+        if (found) return found;
+      }
+
       if (config.properties) {
         return config.properties.find((prop: any) => prop.type === 'csv-columns-array');
       }
@@ -224,17 +276,19 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
   
     if (!this.elementParameters[elementId]) {
       this.elementParameters[elementId] = {};
-      config.properties.forEach((prop: any) => {
-        if (!prop.conditional) {
-          this.elementParameters[elementId][prop.name] = prop.default;
-        } else {
-          const parentValue = this.elementParameters[elementId][prop.conditional.dependsOn];
-          if (parentValue === prop.conditional.value) {
-            this.elementParameters[elementId][prop.name] = prop.default;
-          }
-        }
-      });
     }
+    
+    config.properties.forEach((prop: any) => {
+      if (prop.conditional) {
+        const parentValue = this.elementParameters[elementId][prop.conditional.dependsOn];
+        if (parentValue === prop.conditional.value && !(prop.name in this.elementParameters[elementId])) {
+          this.elementParameters[elementId][prop.name] = prop.default;
+        }
+      } else if (!(prop.name in this.elementParameters[elementId])) {
+        this.elementParameters[elementId][prop.name] = prop.default;
+      }
+    });
+    
   
     if (!config.properties || !Array.isArray(config.properties)) {
       console.error(`Configuración inválida para ${config.type}`);
@@ -275,6 +329,14 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
     const formattedValue = currentValue !== undefined ? currentValue.toString() : prop.default;
 
     switch (prop.type) {
+      case 'file':
+        html += `
+          <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center;">
+            <label for="${prop.name}-${elementId}">${this.formatPropertyName(prop.label || prop.name)}:</label>
+            <input type="file" id="${prop.name}-${elementId}" accept="${prop.accept || '*'}" />
+          </div>`;
+        break;
+
       case 'conditional-select':
         html += `
           <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: flex-start;">
@@ -381,6 +443,16 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
               >${formattedValue}</textarea>
             </div>`;
           break;
+
+        case 'multi-select': 
+          html += `
+            <div id="${prop.name}-row-${elementId}" style="margin-bottom: 60px;">
+              <label style="text-align: left; display: block; margin-bottom: 10px;">
+                ${this.formatPropertyName(prop.label)}:
+              </label>
+              <div id="${prop.name}-container-${elementId}" class="csv-columns-container"></div>
+            </div>`;
+          break;   
     }
 
     return html;
@@ -462,6 +534,24 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
 
   
       switch (prop.type) {
+        case 'file': {
+          const fileInput = document.getElementById(controlId) as HTMLInputElement;
+          if (fileInput) {
+            fileInput.addEventListener('change', (event: Event) => {
+              const input = event.target as HTMLInputElement;
+              if (input.files?.length) {
+                const file = input.files[0];
+                if (prop.name === 'networkFileName') {
+                  this.onNetworkFileSelected(event);
+                }
+                saveValue(file.name);
+              }
+            });
+          }
+          this.currentNetworkElementId = node.id;
+          break;
+        }
+        
         case 'conditional-select': {
           const selectId = `${paramKey}-select-${elementId}`;
           const select = document.getElementById(selectId) as HTMLSelectElement;
@@ -660,6 +750,69 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
           }
           break;
         }
+
+        case 'multi-select': {
+          const containerId = `${paramKey}-container-${elementId}`;
+          const container = document.getElementById(containerId);
+          if (!container) break;
+        
+          container.className = 'csv-columns-container';
+        
+          const optionsSource = prop.options || [];
+        
+          const dynamicOptions = prop.options_from
+            ? this.elementParameters[elementId]?.[prop.options_from] || []
+            : optionsSource;
+        
+          if (!Array.isArray(this.elementParameters[elementId][paramKey])) {
+            this.elementParameters[elementId][paramKey] = dynamicOptions.map((opt: any) => {
+              const name = typeof opt === 'string' ? opt : opt.name;
+              return { name, selected: true };
+            });
+          } else {
+            const currentValues = this.elementParameters[elementId][paramKey];
+            dynamicOptions.forEach((opt: any) => {
+              const name = typeof opt === 'string' ? opt : opt.name;
+              const exists = currentValues.find((v: any) => v.name === name);
+              if (!exists) {
+                currentValues.push({ name, selected: true });
+              }
+            });
+          }
+          
+        
+          const values = this.elementParameters[elementId][paramKey];
+        
+          dynamicOptions.forEach((opt: any) => {
+            const cleanOpt = typeof opt === 'string' ? opt : opt.name;
+        
+            const currentItem = values.find((v: any) => v.name === cleanOpt);
+            const isSelected = currentItem?.selected ?? true;
+        
+            const optionEl = document.createElement('div');
+            optionEl.textContent = cleanOpt;
+            optionEl.className = 'column-item';
+            if (isSelected) {
+              optionEl.classList.add('selected');
+            }
+        
+            this.renderer.listen(optionEl, 'click', () => {
+              const item = values.find((v: any) => v.name === cleanOpt);
+              if (item) {
+                item.selected = !item.selected;
+                optionEl.classList.toggle('selected');
+        
+                this.elementParameters[elementId][paramKey] = [...values];
+              }
+            });
+        
+            container.appendChild(optionEl);
+          });
+        
+          break;
+        }
+        
+        
       }
     });
   
@@ -789,18 +942,6 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
       );
     }
   }
-
-  private handleNetworkConfiguration(node: ClassicPreset.Node, configContent: HTMLElement): void {
-    configContent.innerHTML = `<h3>Network file configuration</h3><p>Please select a PCAP file:</p>`;
-    
-    const input = this.createFileInput('network-upload', '.pcap', (e) => this.onNetworkFileSelected(e));
-    const fileNameElement = this.createFileNameElement();
-    
-    configContent.appendChild(input);
-    configContent.appendChild(fileNameElement);
-    
-    this.currentNetworkElementId = node.id;
-  }
   
   private handleClassificationMonitorConfiguration(node: ClassicPreset.Node, configContent: HTMLElement): void {
     configContent.innerHTML = `<h3>Classification Monitor Configuration</h3><p>Select metrics to monitor:</p><div id="metrics-selection"></div>`;
@@ -834,39 +975,57 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
     if (input && input.files) {
       const file = input.files[0];
       if (file && file.name.endsWith('.csv')) {
-        const file = input.files[0];
-
         const alreadyExists = this.selectedCSVFiles.some(f => f.name === file.name);
         if (!alreadyExists) {
           this.selectedCSVFiles.push(file);
         }
-        
+  
         const reader = new FileReader();
         reader.onload = (e: any) => {
           const text = e.target.result;
-          const rows = text.split('\n');
+          const rows = text.split('\n').filter((r :any) => r.trim() !== '');
           if (rows.length < 1) return;
-          
+  
           const columns = rows[0].split(',').map((col: string) => col.trim().replace(/^"|"$/g, ''));
+          const dataRows = rows.slice(1).map((r :any) => r.split(',').map((col: string) => col.trim()));
   
           const elementId = this.currentCSVElementId;
           if (!elementId) return;
-          
+  
           this.elementParameters[elementId] = {
             csvFileName: file.name,
-            columns: columns.map((col:any) => ({
-              name: col.trim(),
-              selected: true
-            }))
+            columns: columns.map((col :any) => ({ name: col, selected: true }))
           };
-          
+  
+          const targetCandidates = ['target', 'label', 'class'];
+          let targetColumn = columns.find((col :any) => targetCandidates.includes(col.toLowerCase()));
+          let targetIndex = columns.indexOf(targetColumn || '');
+
+          if (!targetColumn || targetIndex === -1) {
+            targetIndex = columns.length - 1;
+            targetColumn = columns[targetIndex];
+          }
+  
+          if (targetIndex !== -1) {
+            const classSet = new Set<string>();
+            for (const row of dataRows) {
+              const value = row[targetIndex];
+              if (value) classSet.add(value);
+            }
+            this.elementParameters[elementId].classes = Array.from(classSet).map(cls => ({
+              name: cls.trim().replace(/^"|"$/g, ''),
+              selected: true
+            }));
+          }
+             
           this.updateCSVColumnSelectionUI(columns, elementId);
         };
+  
         reader.readAsText(file);
       }
     }
   }
-
+  
   updateCSVColumnSelectionUI(columns: string[], elementId: string): void {
     const configContent = this.configContainer?.nativeElement.querySelector('.config-content');
     if (!configContent) return;
@@ -935,7 +1094,9 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
           if (!elementId) return;
           
           this.elementParameters[elementId] = {
-            networkFileName: file.name
+            ...this.elementParameters[elementId],
+            networkFileName: file.name,
+            classes: ['normal', 'anomaly']
           };
         };
         reader.readAsText(file);
@@ -1026,6 +1187,7 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
   
     this.renderer.appendChild(configContent, metricsDiv);
   }
+  
   
   closeConfig(): void {
     if (this.configContainer) {
@@ -1137,8 +1299,80 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
 
     const { displayName, icon } = nodeInfo;
   
-    this.editorRef.addElement(this.draggedNodeType!, [dropX, dropY], displayName, icon, );
+    const node = await this.editorRef.addElement(this.draggedNodeType!, [dropX, dropY], displayName, icon, );
+    const elementId = (node as any).id;
+
+    if (elementId) {
+      this.initializeDefaultParameters(this.draggedNodeType!, elementId);
+    }
+
+    this.updateUnsavedState();
   }
+
+  private initializeDefaultParameters(type: string, elementId: string): void {
+    const elementConfig = this.getElementConfig(type);
+    if (!elementConfig || !Array.isArray(elementConfig.properties)) return;
+  
+    this.elementParameters[elementId] = {};
+  
+    elementConfig.properties.forEach((prop: any) => {
+      if (prop.type === 'conditional-repeat-group-by-index') {
+        const numLayers = elementConfig.properties.find((p: any) => p.name === prop.repeat)?.default || 1;
+        this.elementParameters[elementId][prop.name] = [];
+  
+        for (let i = 0; i < numLayers; i++) {
+          const layerParams: any = {};
+          prop.template.forEach((subProp: any) => {
+            if (!subProp.conditional) {
+              layerParams[subProp.name] = subProp.default;
+            } else if (subProp.conditional.value === layerParams[subProp.conditional.dependsOn]) {
+              layerParams[subProp.name] = subProp.default;
+            }
+          });
+          this.elementParameters[elementId][prop.name].push(layerParams);
+        }
+  
+        this.elementParameters[elementId][prop.index] = '0';
+      } else {
+        const setMultiSelectDefault = () => {
+          const options = prop.options || [];
+  
+          if (prop.name === 'metrics' && 
+              (type === 'ClassificationMonitor' || type === 'RegressionMonitor')) {
+            const metricsDict: { [key: string]: boolean } = {};
+            options.forEach((opt: string) => {
+              metricsDict[opt] = true;
+            });
+            return metricsDict;
+          }
+  
+          return options.map((opt: string) => ({
+            name: opt,
+            selected: true
+          }));
+        };
+  
+        if (!prop.conditional) {
+          if (prop.type === 'multi-select') {
+            this.elementParameters[elementId][prop.name] = setMultiSelectDefault();
+          } else {
+            this.elementParameters[elementId][prop.name] = prop.default;
+          }
+        } else {
+          const dependsValue = this.elementParameters[elementId][prop.conditional.dependsOn];
+          if (dependsValue === prop.conditional.value) {
+            if (prop.type === 'multi-select') {
+              this.elementParameters[elementId][prop.name] = setMultiSelectDefault();
+            } else {
+              this.elementParameters[elementId][prop.name] = prop.default;
+            }
+          }
+        }
+      }
+    });
+  }
+  
+  
 
   getDropCoordinates(event: DragEvent): [number, number] {
     const rect = this.reteContainer.nativeElement.getBoundingClientRect();
@@ -1177,7 +1411,7 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
   async getCurrentDesign(): Promise<any> {
     const nodes = this.editorRef.editor.getNodes();
   
-    const savedElements = await Promise.all(nodes.map(async (node) => {
+    const savedElements = await Promise.all(nodes.map(async (node :any) => {
       const elementParams = this.elementParameters[node.id] || {};
       const type = await this.editorRef.getNodeType(node.id);
   
@@ -1187,6 +1421,20 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
           selected: col.selected
         }));
       }
+
+      if (type === 'SHAP') {
+        if (elementParams.selectedClasses) {
+          elementParams.selectedClasses = elementParams.selectedClasses.map((classe: any) => ({
+            name: classe.name,
+            selected: classe.selected
+          }));
+        }
+      
+        delete elementParams.classes;
+      }
+
+
+      
   
       const nodeView = this.editorRef.area.nodeViews.get(node.id);
       const position = nodeView?.position;
@@ -1303,7 +1551,7 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
     
       const { displayName, icon } = nodeInfo;
     
-      await this.editorRef.addElement(element.type, [element.position.left, element.position.top], displayName, icon, element.id);
+      const node = await this.editorRef.addElement(element.type, [element.position.left, element.position.top], displayName, icon, element.id);
       
       if (element.type === 'CSV' && element.parameters?.columns) {
         this.elementParameters[element.id] = {
@@ -1311,6 +1559,19 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
           columns: element.parameters.columns 
         };
       }
+
+      if (element.type === 'SHAP' && element.parameters?.selectedClasses) {
+        this.elementParameters[element.id] = {
+          ...element.parameters,
+          classes: element.parameters.selectedClasses.map((cls: any) => ({
+            name: cls.name,
+            selected: true
+          }))
+        };
+      }
+      
+      
+      
       if ((element === 'CodeProcessing' || element === 'CodeSplitter') && element.parameters?.code) {
           this.elementParameters[element.id] = {
             ...element.parameters,

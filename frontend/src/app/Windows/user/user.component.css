@@ -1,4 +1,4 @@
-.scenario-table {
+.information-table {
   width: 100%;
   border-collapse: collapse;
   margin: 1rem 0;
@@ -6,33 +6,33 @@
   font-size: 18px;
 }
 
-.scenario-table thead, .scenario-table tbody tr {
+.information-table thead, .information-table tbody tr {
   display: table;
   width: 100%;
   table-layout: fixed;
 }
 
-.scenario-table tbody {
+.information-table tbody {
   display: block;
   width: 100%;
   max-height: 70vh;
   overflow-y: auto;
 }
 
-.scenario-table th, .scenario-table td {
+.information-table th, .information-table td {
   padding: 12px;
   text-align: left;
   color: rgba(98, 96, 96);
 }
 
-.scenario-table th {
+.information-table th {
   background-color: #0097a6;
   color: white;
   padding: 12px;
   text-align: left;
 }
 
-.scenario-table tbody tr:not(:last-child) td {
+.information-table tbody tr:not(:last-child) td {
   border-bottom: 1px solid #0097a6;
   padding-bottom: 8px;
 }

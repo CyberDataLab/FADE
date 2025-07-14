@@ -1,1 +1,27 @@
-<p>options works!</p>
+<div class="options-section" *ngIf="system">
+    <h2 class="section-title">System Information</h2>
+    <table class="information-table">
+      <thead>
+        <tr>
+          <th>Property</th>
+          <th>Value</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Hostname</td><td>{{ system.hostname }}</td></tr>
+        <tr><td>CPU Model</td><td>{{ system.cpu_model }}</td></tr>
+        <tr><td>Logical CPUs</td><td>{{ system.cpu_count_logical }}</td></tr>
+        <tr><td>Physical CPUs</td><td>{{ system.cpu_count_physical }}</td></tr>
+        <tr><td>CPU Frequency (current)</td><td>{{ system.cpu_freq.current }} MHz</td></tr>
+        <tr><td>CPU Frequency (min)</td><td>{{ system.cpu_freq.min }} MHz</td></tr>
+        <tr><td>CPU Frequency (max)</td><td>{{ system.cpu_freq.max }} MHz</td></tr>
+        <tr><td>GPU Count</td><td>{{ system.gpu_count }}</td></tr>
+        <tr><td>GPU Models</td><td><span *ngFor="let gpu of system.gpu_models; let i = index">{{ gpu }}<br *ngIf="i < system.gpu_models.length - 1"/></span></td></tr>
+        <tr><td>RAM Total</td><td>{{ system.memory.total / 1073741824 | number:'1.1-2' }} GB</td></tr>
+        <tr><td>RAM Used</td><td>{{ system.memory.used / 1073741824 | number:'1.1-2' }} GB</td></tr>
+        <tr><td>RAM Available</td><td>{{ system.memory.available / 1073741824 | number:'1.1-2' }} GB</td></tr>
+        <tr><td>RAM Usage (%)</td><td>{{ system.memory.percent }}%</td></tr>
+      </tbody>
+    </table>
+  </div>
+  

@@ -22,6 +22,8 @@ export class MetricsComponent implements OnInit {
   modalChartType = '';
   modalMetric: any = null;
   modalExecutionNumber: number = 0;
+  modalImageUrl: string | null = null;
+  modalImageLabel: string | null = null;  
 
   private modelTypes: {
     classification: string[],
@@ -122,11 +124,14 @@ export class MetricsComponent implements OnInit {
         rmse: metric.rmse,
         mae: metric.mae,
         r2: metric.r2,
-        msle: metric.msle
+        msle: metric.msle,
+        global_shap_images: metric.global_shap_images || [],
+        global_lime_images: metric.global_lime_images || []
       });
     });
   
-    this.groupedMetrics = Object.values(executions);
+    this.groupedMetrics = [Object.values(executions).sort((a: any, b: any) => b.executionNumber - a.executionNumber)[0]];
+
   }
 
   private createRegressionChart(metric: any, chartId: string) {
@@ -330,7 +335,22 @@ export class MetricsComponent implements OnInit {
     }, 100);
   }
 
-  closeModal() {
-    this.showModal = false;
-  }
+  openModal(imageUrl: string) {
+  this.modalImageUrl = imageUrl;
+  this.modalImageLabel = this.extractClassLabel(imageUrl);
+  this.showModal = true;
+}
+
+extractClassLabel(filePath: string): string {
+  const filename = filePath.split('/').pop() || '';
+  const parts = filename.replace('.png', '').split('_');
+  return parts[parts.length - 1] || 'unknown';
+}
+
+
+closeModal() {
+  this.showModal = false;
+  this.modalImageUrl = null;
+  this.modalImageLabel = null;
+}
 }

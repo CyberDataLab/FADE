@@ -147,6 +147,8 @@ export async function createEditor(
     
       await editor.addNode(node);
       await area.translate(node.id, { x: position[0], y: position[1] });
+
+      return node;
     },
 
     async connectNodesById(connections: { startId: string; startOutput: string; endId: string; endInput: string }[]) {

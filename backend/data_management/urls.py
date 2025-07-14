@@ -44,4 +44,6 @@ urlpatterns = [
     path('scenarios/<uuid:uuid>/regression-metrics/', views.get_scenario_regression_metrics_by_uuid, name='get_scenario_regression_metrics_by_uuid'),
     path('scenarios/<uuid:uuid>/anomaly-metrics/', views.get_scenario_anomaly_metrics_by_uuid, name='get_scenario_anomaly_metrics_by_uuid'),
     path('scenarios/<uuid:uuid>/anomaly-production-metrics/', views.get_scenario_production_anomaly_metrics_by_uuid, name='get_scenario_production_anomaly_metrics_by_uuid'),
+    path('scenarios/<uuid:uuid>/delete-anomaly/<int:anomaly_id>/', views.delete_anomaly, name='delete_anomaly'),
+
 ]

@@ -60,7 +60,8 @@ INSTALLED_APPS = [
     'corsheaders',
     'data_management',
     'action_execution',
-    'accounts'
+    'accounts',
+    'system_monitor',
 ]
 
 MIDDLEWARE = [

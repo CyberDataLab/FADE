@@ -4,7 +4,6 @@ import { LoginComponent } from './Authentication/login/login.component';
 import { RegisterComponent } from './Authentication/register/register.component';
 import { DashboardComponent } from './Windows/dashboard/dashboard.component';
 import { AnomalyDetectorComponent } from './Windows/anomaly-detector/anomaly-detector.component';
-import { XaiComponent } from './Windows/xai/xai.component';
 import { PoliciesComponent } from './Windows/policies/policies.component';
 import { OptionsComponent } from './Windows/options/options.component';
 import { UserComponent } from './Windows/user/user.component';
@@ -28,7 +27,6 @@ export const routes: Routes = [
             { path: 'edit-scenario/:id', component: NewScenarioComponent }
 
         ]},
-        { path: 'xai', component: XaiComponent },
         { path: 'policies', component: PoliciesComponent },
         { path: 'options', component: OptionsComponent },
         { path: 'user', component: UserComponent }

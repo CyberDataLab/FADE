@@ -65,7 +65,7 @@ export class TimelineADComponent implements OnInit {
 
   private groupMetricsByExecution() {
     const executions: any = {};
-    
+  
     this.metrics.forEach(metric => {
       if (!metric.model_name || !metric.execution || !metric.feature_name) return;
   
@@ -76,8 +76,8 @@ export class TimelineADComponent implements OnInit {
         executions[metric.execution] = { 
           executionNumber: metric.execution, 
           models: [],
-          globalShapImage: metric.global_shap_image,
-          globalLimeImage: metric.global_lime_image
+          globalShapImages: metric.global_shap_images || [],
+          globalLimeImages: metric.global_lime_images || []
         };
       }
   
@@ -104,8 +104,12 @@ export class TimelineADComponent implements OnInit {
       );
     });
   
-    this.groupedMetrics = Object.values(executions);
-  }  
+    const allExecutions = Object.values(executions) as any[];
+    const mostRecent = allExecutions.sort((a, b) => b.executionNumber - a.executionNumber)[0];
+  
+    this.groupedMetrics = mostRecent ? [mostRecent] : [];
+  }
+  
 
   private createLineChart(metric: any, chartId: string) {
     try {
@@ -172,6 +176,16 @@ export class TimelineADComponent implements OnInit {
     }
   }
 
+  getGlobalTitle(img: string, type: 'SHAP' | 'LIME'): string {
+    if (img.includes('normal')) {
+      return `Global ${type} for normal data`;
+    } else if (img.includes('anomaly')) {
+      return `Global ${type} for anomaly data`;
+    }
+    return `Global ${type}`;
+  }
+  
+
   showChartInModal(type: string, executionNumber: number, model: any, feature: any) {
     this.showModal = true;
     this.modalChartType = type;
@@ -192,8 +206,7 @@ export class TimelineADComponent implements OnInit {
   }
 
   showGlobalImageInModal(imageUrl: string, type: 'SHAP' | 'LIME') {
-    alert(JSON.stringify(imageUrl));
-    this.modalImageUrl = 'http://localhost:8000/' + imageUrl;
+    this.modalImageUrl = 'http://localhost:8000/media/' + imageUrl;
     this.modalImageType = type;
     this.showModal = true;
   }
@@ -201,6 +214,10 @@ export class TimelineADComponent implements OnInit {
   closeModal() {
     this.showModal = false;
     this.modalImageUrl = null;
+  }
+
+  getImageUrl(path: string): string {
+    return `http://localhost:8000/media/${path}`;
   }
   
 }
