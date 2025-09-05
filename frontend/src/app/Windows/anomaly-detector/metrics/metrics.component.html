@@ -1,19 +1,29 @@
+<!-- Container for all metrics -->
 <div class="metrics-container">
   <h2>Scenario Metrics</h2>
 
+  <!-- Loop through each execution group -->
   <div *ngFor="let execution of groupedMetrics">
     <h3>Execution: {{ execution.executionNumber }}</h3>
 
+    <!-- Loop through each model inside the execution -->
     <div *ngFor="let model of execution.models">
       <h4>Model: {{ model.modelName }}</h4>
 
+      <!-- Wrapper for charts based on model type -->
       <div class="charts-wrapper">
+
+        <!-- Classification charts: bar + confusion matrix -->
         <div *ngIf="model.modelType === 'classification'" class="classification-charts">
+
+          <!-- Bar chart canvas -->
           <div class="chart-container">
             <canvas id="bar-{{execution.executionNumber}}-{{model.safeModelName}}"
                     (click)="showChartInModal('bar', execution.executionNumber, model)">
             </canvas>
           </div>
+
+          <!-- Confusion matrix canvas -->
           <div class="matrix-container">
             <canvas id="matrix-{{execution.executionNumber}}-{{model.safeModelName}}"
                     (click)="showChartInModal('matrix', execution.executionNumber, model)">
@@ -21,6 +31,7 @@
           </div>
         </div>
 
+        <!-- Regression chart -->
         <div *ngIf="model.modelType === 'regression'" class="regression-chart">
           <div class="chart-container">
             <canvas id="regression-{{execution.executionNumber}}-{{model.safeModelName}}"
@@ -30,11 +41,16 @@
         </div>
       </div>
 
+      <!-- SHAP and LIME explanation images -->
       <div class="explanation-images" *ngIf="model.global_shap_images?.length || model.global_lime_images?.length">
+        
+        <!-- SHAP image gallery -->
         <div *ngFor="let img of model.global_shap_images || []" class="image-wrapper" (click)="openModal('http://localhost:8000/media/' + img)">
           <h5>SHAP for {{ extractClassLabel(img) }}</h5>
           <img [src]="'http://localhost:8000/media/' + img" alt="SHAP" />
         </div>
+
+        <!-- LIME image gallery -->
         <div *ngFor="let img of model.global_lime_images || []" class="image-wrapper" (click)="openModal('http://localhost:8000/media/' + img)">
           <h5>LIME for {{ extractClassLabel(img) }}</h5>
           <img [src]="'http://localhost:8000/media/' + img" alt="LIME" />
@@ -44,10 +60,17 @@
   </div>
 </div>
 
+<!-- Modal to show full-size SHAP/LIME explanation image -->
 <div class="modal-overlay" *ngIf="modalImageUrl" (click)="closeModal()">
   <div class="modal-content" (click)="$event.stopPropagation()">
+
+    <!-- Close button -->
     <button class="close-btn" (click)="closeModal()">✖</button>
+
+    <!-- Image label extracted from file name -->
     <h4>Explanation: {{ modalImageLabel }}</h4>
+
+    <!-- Full-size image preview -->
     <img [src]="modalImageUrl" alt="Explanation Image" />
   </div>
 </div>

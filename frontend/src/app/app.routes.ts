@@ -15,25 +15,33 @@ import { NewScenarioComponent } from './Windows/anomaly-detector/new-scenario/ne
 import { ProductionComponent } from './Windows/anomaly-detector/production/production.component';
 
 export const routes: Routes = [
-    { path: '', redirectTo: '/login', pathMatch: 'full'},
+    { path: '', redirectTo: '/login', pathMatch: 'full' },
     { path: 'login', component: LoginComponent },
     { path: 'register', component: RegisterComponent },
-    { path: 'dashboard', component: DashboardComponent, children: [
-        { path: 'anomaly-detector', component: AnomalyDetectorComponent, children: [
+    {
+      path: 'dashboard',
+      component: DashboardComponent,
+      children: [
+        { path: '', redirectTo: 'anomaly-detector', pathMatch: 'full' },
+        {
+          path: 'anomaly-detector',
+          component: AnomalyDetectorComponent,
+          children: [
             { path: ':id/timeline-ad', component: TimelineADComponent },
             { path: ':id/production', component: ProductionComponent },
             { path: ':id/metrics', component: MetricsComponent },
             { path: 'new-scenario', component: NewScenarioComponent },
-            { path: 'edit-scenario/:id', component: NewScenarioComponent }
-
-        ]},
+            { path: 'edit-scenario/:id', component: NewScenarioComponent },
+          ],
+        },
         { path: 'policies', component: PoliciesComponent },
         { path: 'options', component: OptionsComponent },
-        { path: 'user', component: UserComponent }
-    ]},
+        { path: 'user', component: UserComponent },
+      ],
+    },
     { path: 'reset-password', component: ResetPasswordComponent },
-    { path: 'send-email', component: SendEmailComponent }
-];
+    { path: 'send-email', component: SendEmailComponent },
+  ];
 
 
 @NgModule({

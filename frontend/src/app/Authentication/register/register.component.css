@@ -1,23 +1,26 @@
+/* Ensure the body and html fill the entire viewport and center content */
 html, body {
     min-height: 100vh;
     min-width: 100vw;
-    margin: 0; 
-    padding: 0; 
+    margin: 0;
+    padding: 0;
     display: flex;
     justify-content: center;
     align-items: center;
     font-family: 'Arial', sans-serif;
-    background: linear-gradient(135deg, #f0f4ff, #d9e4ff);
+    background: linear-gradient(135deg, #f0f4ff, #d9e4ff); /* Soft gradient background */
 }
 
-@media (max-width: 480px) { 
+/* Responsive layout for small screens (phones) */
+@media (max-width: 480px) {
     .register-options {
-      flex-direction: column;
-      gap: 12px;
-      align-items: center;
+        flex-direction: column;
+        gap: 12px;
+        align-items: center;
     }
 }
 
+/* Adjust modal for tablets and smaller laptops */
 @media (max-width: 768px) {
     .modal-content {
         width: 90%;
@@ -25,6 +28,7 @@ html, body {
     }
 }
 
+/* Modal animation and alignment */
 .modal-dialog {
     display: flex;
     justify-content: center;
@@ -32,27 +36,31 @@ html, body {
     animation: slideIn 0.5s ease-out;
 }
 
+/* Smooth slide-in animation for the modal */
 @keyframes slideIn {
     from { transform: translateY(-20px); opacity: 0; }
     to { transform: translateY(0); opacity: 1; }
 }
 
+/* Modal appearance with frosted glass effect */
 .register-modal .modal-content {
     background: rgba(172, 172, 172, 0.6);
-    backdrop-filter: blur(15px); 
+    backdrop-filter: blur(15px);
     border-radius: 12px;
     padding: 40px;
     width: 100vw;
     box-shadow: 0 8px 32px rgba(31, 38, 135, 0.15);
     border: 1px solid rgba(255, 255, 255, 0.3);
-    color: #dfe6ff; 
+    color: #dfe6ff;
 }
 
+/* Scrollable content area inside the modal */
 .modal-body {
-    max-height: 450px; 
-    overflow-y: auto; 
+    max-height: 450px;
+    overflow-y: auto;
 }
 
+/* General styling for input container groups */
 .form-group {
     margin-bottom: 15px;
     display: flex;
@@ -62,6 +70,7 @@ html, body {
     position: relative;
 }
 
+/* Title styling for the register modal */
 .register-title {
     color: #2d3436;
     font-size: 1.8rem;
@@ -72,6 +81,7 @@ html, body {
     position: relative;
 }
 
+/* Underline accent for the title */
 .register-title::after {
     content: '';
     position: absolute;
@@ -84,6 +94,7 @@ html, body {
     border-radius: 2px;
 }
 
+/* Input fields styling */
 .register-input {
     background: rgba(245, 246, 250, 0.9);
     border: none;
@@ -94,22 +105,27 @@ html, body {
     height: 100%;
     width: 100%;
     transition: border-color 0.3s ease;
-    box-shadow: inset 4px 4px 6px rgba(0, 0, 0, 0.1), inset -4px -4px 6px rgba(255, 255, 255, 0.3);
+    box-shadow: inset 4px 4px 6px rgba(0, 0, 0, 0.1),
+                inset -4px -4px 6px rgba(255, 255, 255, 0.3);
     margin-bottom: 20px;
-    padding-right: 50px; 
+    padding-right: 50px; /* Space for toggle button */
 }
 
+/* Input focus styles */
 .register-input:focus {
     outline: none;
     border-color: #2470bc;
-    box-shadow: inset 4px 4px 6px rgba(0, 0, 0, 0.2), inset -4px -4px 6px rgba(255, 255, 255, 0.5);
+    box-shadow: inset 4px 4px 6px rgba(0, 0, 0, 0.2),
+                inset -4px -4px 6px rgba(255, 255, 255, 0.5);
 }
 
+/* Placeholder appearance */
 .register-input::placeholder {
     color: #77787b;
     font-weight: 400;
 }
 
+/* Error message style */
 .error-message {
     color: #ff4757;
     font-size: 14px;
@@ -117,6 +133,7 @@ html, body {
     margin-bottom: 15px;
 }
 
+/* Register button styling */
 .register-btn {
     background: #2470bc;
     border: none;
@@ -132,14 +149,16 @@ html, body {
     text-transform: uppercase;
 }
 
+/* Hover effect for button */
 .register-btn:hover {
     background: #1b5e9e;
     box-shadow: 0 8px 20px rgba(98, 87, 229, 0.3);
 }
 
+/* Section with navigation links below the form */
 .register-options {
     display: flex;
-    justify-content: space-between; 
+    justify-content: space-between;
     margin-top: 25px;
     font-size: 14px;
     flex-wrap: nowrap;
@@ -147,6 +166,7 @@ html, body {
     padding: 0 5px;
 }
 
+/* Styling for the register links */
 .register-link {
     color: #2470bc;
     text-decoration: none;
@@ -159,16 +179,19 @@ html, body {
     margin-right: 15px;
 }
 
+/* Hover effect for links */
 .register-link:hover {
     color: #5256a3;
     text-decoration: underline;
     transform: translateX(3px);
 }
 
+/* Remove margin from the last link */
 .register-link:last-child {
     margin-right: 0;
 }
 
+/* Toggle password visibility button inside input */
 .password-toggle-btn {
     position: absolute;
     right: 15px;
@@ -189,11 +212,13 @@ html, body {
     color: #2470bc;
 }
 
+/* Wrapper for inputs with toggle functionality */
 .register-group {
     position: relative;
     margin-bottom: 60px;
 }
 
+/* Custom scrollbar styles for modal content */
 .modal-body::-webkit-scrollbar {
     width: 6px;
 }
@@ -207,6 +232,7 @@ html, body {
     background-color: rgba(245, 246, 250, 0.4);
 }
 
+/* Adjust modal width on very small devices */
 @media (max-width: 400px) {
     .modal-dialog {
         width: 95%;

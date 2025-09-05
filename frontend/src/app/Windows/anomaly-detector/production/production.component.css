@@ -1,3 +1,4 @@
+/* Generic button style */
 .button {
   background-color: #f4f4f4;
   color: rgba(98, 96, 96);  
@@ -9,6 +10,7 @@
   transition: background-color 0.3s ease;
 }
 
+/* Button hover effect */
 .button:hover {
   background-color: #e0e0e0;
 }
@@ -17,6 +19,7 @@
   font-size: 16px;
 }
 
+/* Main content wrapper */
 .content {
   display: flex;
   flex-direction: column;
@@ -27,6 +30,7 @@
   overflow: hidden;
 }
 
+/* Fixed-positioned container for control buttons */
 .button-container {
   display: inline-block;
   position: fixed; 
@@ -35,6 +39,7 @@
   z-index: 10;
 }
 
+/* Table wrapper for scenario list */
 .table-container {
   position: absolute;
   width: 60%;
@@ -45,52 +50,62 @@
   flex-direction: column;
 }
 
+/* Table styling */
 .scenario-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 18px;
 }
 
+/* Table cell styles */
 .scenario-table th, .scenario-table td {
   padding: 12px;
   text-align: left;
   color: rgba(98, 96, 96); 
 }
 
+/* Table header row */
 .scenario-table th {
   background-color: #0097a6;
   color: white;
 }
 
+/* Container for action buttons in a row */
 .action-buttons {
   display: flex;
   gap: 4px;
 }
 
+/* Add separator line between rows */
 .scenario-table tbody tr:not(:last-child) td {
   border-bottom: 1px solid #0097a6;
   padding-bottom: 8px;
 }
 
+/* Style for empty data rows */
 .empty-row {
   text-align: center;
   font-style: italic;
   color: #666;
 }
 
+/* Custom scrollbar width */
 ::-webkit-scrollbar {
   width: 8px;
 }
 
+/* Scrollbar thumb style */
 ::-webkit-scrollbar-thumb {
   background-color: #2676798f;
   border-radius: 10px;
 }
 
+/* Scrollbar track style */
 ::-webkit-scrollbar-track {
   background-color: rgba(245, 246, 250, 0.4);
 }
 
+/* Cell containing anomaly with hoverable image preview */
 .anomaly-cell {
   position: relative;
   max-width: 100%;
@@ -98,6 +113,7 @@
   cursor: pointer;
 }
 
+/* Image tooltip shown on hover */
 .hover-images {
   position: fixed;
   z-index: 999;
@@ -115,6 +131,7 @@
   display: none;
 }
 
+/* Show image preview on hover */
 .anomaly-cell:hover .hover-images {
   display: flex;
   flex-direction: row;
@@ -122,11 +139,13 @@
   bottom: auto;
 }
 
+/* If cell is near bottom, show tooltip upward */
 .anomaly-cell.hover-up .hover-images {
   bottom: 100%;
   top: auto;
 }
 
+/* Style for preview images */
 .hover-images img {
   width: 500px;
   height: 400px;
@@ -136,11 +155,13 @@
   border: 1px solid #ddd;
 }
 
+/* Redundant definition ensures hover visibility */
 .anomaly-cell:hover .hover-images {
   display: flex;
   flex-direction: row;
 }
 
+/* Fullscreen modal for enlarged anomaly image */
 .image-modal {
   position: fixed;
   top: 0;
@@ -154,6 +175,7 @@
   z-index: 2000;
 }
 
+/* Modal image styling */
 .image-modal img {
   max-width: 90%;
   max-height: 90%;
@@ -165,6 +187,7 @@
   object-fit: contain;
 }
 
+/* Close button for image modal */
 .close-btn {
   position: fixed;
   top: 20px;
@@ -177,6 +200,7 @@
   z-index: 2100;
 }
 
+/* Textual details for anomalies (like raw packet data) */
 .anomaly-details {
   background: #f5f5f5;
   padding: 8px;
@@ -192,7 +216,7 @@
   border: 1px solid #ccc;
 }
 
-
+/* Button styles used for row actions (edit, delete, etc.) */
 .action-buttons {
   display: flex;
   gap: 4px; 
@@ -212,6 +236,7 @@
   margin: 0 !important;
 }
 
+/* Default button for UI actions with consistent styling */
 .default-button {
   background-color: #2676798f;
   color: white;
@@ -234,6 +259,51 @@
   margin: 0; 
 }
 
+/* Hover effect for default buttons */
 .default-button:hover {
   background-color: #0097a6;
+}
+
+.dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.dropdown.drop-up .menu {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
+
+.more-button {
+  padding: 6px 8px !important;
+  min-width: 36px !important;
+}
+
+/* Menú del dropdown */
+.menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  list-style: none;
+  margin: 0;
+  padding: 6px 0;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  min-width: 160px;
+  z-index: 2000;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  color: rgba(98,96,96);
+}
+
+.menu-item:hover {
+  background: #f5f8f8;
 }

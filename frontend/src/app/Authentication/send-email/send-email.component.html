@@ -1,16 +1,24 @@
+<!-- Send email modal dialog container -->
 <div class="modal-dialog align-middle send-email-modal" role="document">
   <div class="modal-content">
+
+    <!-- Modal header with title -->
     <div class="modal-header">
       <h1 class="modal-title send-email-title" id="exampleModalLabel"><b>Email to change password</b></h1>
     </div>
-    <!-- Email -->
+    
+    <!-- Email input field -->
     <div class="form-group">
       <input type="text" [(ngModel)]="userPatchDTO.email" name="email" class="form-control send-email-input" #email="ngModel" placeholder="Email" id="recipient-name" />
+      
+      <!-- Error message: field is empty -->
       <ng-container *ngIf="emailError; else emailValid">
         <p class="error-message">
           <small>*Insert email</small>
         </p>
       </ng-container>
+
+      <!-- Error message: invalid email format -->
       <ng-template #emailValid>
         <p *ngIf="badEmailError" class="error-message">
           <small>*Email format is incorrect</small>
@@ -18,9 +26,9 @@
       </ng-template>
     </div>
 
+    <!-- Modal footer with send button -->
     <div class="modal-footer">
       <button (click)="sendEmail()" type="button" class="btn send-email-btn btn-lg btn-block">Send email</button>
     </div>
   </div>
 </div>
-  

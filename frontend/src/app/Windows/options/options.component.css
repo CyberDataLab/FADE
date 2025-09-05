@@ -1,52 +1,101 @@
+/* Table container for displaying system or user information */
 .information-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 1rem 0;
-    flex-grow: 1;
-    font-size: 18px;
-  }
-  
-  .information-table thead, .information-table tbody tr {
-    display: table;
-    width: 100%;
-    table-layout: fixed;
-  }
-  
-  .information-table tbody {
-    display: block;
-    width: 100%;
-    max-height: 70vh;
-    overflow-y: auto;
-  }
-  
-  .information-table th, .information-table td {
-    padding: 12px;
-    text-align: left;
-    color: rgba(98, 96, 96);
-  }
-  
-  .information-table th {
-    background-color: #0097a6;
-    color: white;
-    padding: 12px;
-    text-align: left;
-  }
-  
-  .information-table tbody tr:not(:last-child) td {
-    border-bottom: 1px solid #0097a6;
-    padding-bottom: 8px;
-  }
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+  flex-grow: 1;
+  font-size: 18px;
+}
 
-  ::-webkit-scrollbar {
-    width: 8px; 
-  }
-  
-  ::-webkit-scrollbar-thumb {
-    background-color: #2676798f;
-    border-radius: 10px; 
-  }
-  
-  ::-webkit-scrollbar-track {
-    background-color: rgba(245, 246, 250, 0.4); 
-  }
-  
+/* Make table head and each row behave like a fixed-width table */
+.information-table thead, .information-table tbody tr {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+}
+
+/* Make tbody scrollable while header stays fixed */
+.information-table tbody {
+  display: block;
+  width: 100%;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+/* Base style for table header and cell content */
+.information-table th, .information-table td {
+  padding: 12px;
+  text-align: left;
+  color: rgba(98, 96, 96);
+}
+
+/* Header row background and text color */
+.information-table th {
+  background-color: #0097a6;
+  color: white;
+  padding: 12px;
+  text-align: left;
+}
+
+/* Add separator between rows except the last one */
+.information-table tbody tr:not(:last-child) td {
+  border-bottom: 1px solid #0097a6;
+  padding-bottom: 8px;
+}
+
+/* Custom scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px; 
+}
+
+/* Style for scrollbar thumb */
+::-webkit-scrollbar-thumb {
+  background-color: #2676798f;
+  border-radius: 10px; 
+}
+
+/* Style for scrollbar track */
+::-webkit-scrollbar-track {
+  background-color: rgba(245, 246, 250, 0.4); 
+}
+
+/* Container for user input filters or fields */
+.user-inputs {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+  align-items: center;
+}
+
+/* Label style with vertical input alignment */
+.user-inputs label {
+  display: flex;
+  flex-direction: column;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+/* Style for input fields inside the filter area */
+.user-inputs input {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  min-width: 200px;
+  margin-top: 4px;
+}
+
+/* Style for the filter or search button */
+.user-inputs button {
+  padding: 8px 16px;
+  background-color: #0097a6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+/* Hover effect for the button */
+.user-inputs button:hover {
+  background-color: #007b8f;
+}

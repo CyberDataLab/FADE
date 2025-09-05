@@ -4,79 +4,19 @@ from django.db.models import JSONField
 
 
 # Create your models here.
-class DataController(models.Model):
-    name = models.CharField(max_length=100, default='DataController')
-
-    def put_data(self):
-        pass
-
-    def sync_data(self):
-        pass
-
-    def set_aggregation_technique(self, technique):
-        pass
-
-    def set_filtering_strategy(self, strategy):
-        pass
-
-
-class DataReceiver(models.Model):
-    name = models.CharField(max_length=100, default='DataReceiver')
-
-    def put_data(self, data):
-        pass
-
-    def validate_data(self, data):
-        pass
-
-class DataFilter(models.Model):
-    name = models.CharField(max_length=100, default='DataFilter')
-
-    def set_filtering_strategy(self, strategy):
-        pass
-
-    def filter_data(self, data):
-        pass
-
-
-class DataStorage(models.Model):
-    name = models.CharField(max_length=100, default='DataStorage')
-
-    def serialize_data(self, data):
-        pass
-
-    def store_data(self, data):
-        pass
-
-    def get_available_space(self):
-        pass
-
-
-class DataMixer(models.Model):
-    name = models.CharField(max_length=100, default='DataMixer')
-
-    def set_aggregation_technique(self, technique):
-        pass
-
-    def check_for_data_to_aggregate(self):
-        pass
-
-    def aggregate_data(self, data_list):
-        pass
-
-class DataSync(models.Model):
-    name = models.CharField(max_length=100, default='DataSync')
-
-    def check_sync_status(self):
-        pass
-
-    def sync(self):
-        pass
-
-    def verify_sync_data(self):
-        pass
-
 class File(models.Model):
+    """
+    Represents an uploaded file used in the system, such as a CSV dataset or network capture.
+
+    Fields:
+    - id: Auto-incremented unique identifier for the file.
+    - name: Human-readable name assigned to the file.
+    - file_type: Type of the file (either 'csv' or 'red').
+    - entry_count: Number of rows or records contained in the file.
+    - content: Actual file uploaded and stored under MEDIA_ROOT/files/.
+    - references: Number of times the file is referenced across designs or scenarios.
+    """
+    
     FILE_TYPES = [
         ('csv', 'CSV'),
         ('red', 'Network'),
@@ -93,6 +33,18 @@ class File(models.Model):
         db_table = "File"
         
 class Scenario(models.Model):
+    """
+    Represents a user-defined scenario consisting of a visual design and associated metadata.
+
+    Fields:
+    - name: Name assigned to the scenario. Defaults to "Scenario name".
+    - user: Reference to the CustomUser who created the scenario.
+    - design: JSON representation of the visual node structure or configuration.
+    - uuid: Unique identifier for the scenario, auto-generated and immutable.
+    - status: Current state of the scenario (e.g., 'Draft', 'Running', 'Completed').
+    - date: Timestamp when the scenario was created.
+    - files: Files associated with this scenario (e.g., CSVs, network data).
+    """
     name = models.CharField(max_length=255, null=False, blank=True, default="Scenario name")
     user = models.ForeignKey('accounts.CustomUser', on_delete=models.CASCADE)
     design = models.JSONField()
@@ -105,6 +57,13 @@ class Scenario(models.Model):
         db_table = "Scenario"
 
 class AnomalyDetector(models.Model):
+    """
+    Represents an anomaly detection model associated with a scenario.
+
+    Fields:
+    - scenario: Foreign key to the Scenario this detector belongs to.
+    - execution: Execution number to track multiple runs of the detector.
+    """
     scenario = models.ForeignKey(Scenario, on_delete=models.CASCADE, null=True, blank=True)
     execution = models.IntegerField(default=0)
     
@@ -112,6 +71,18 @@ class AnomalyDetector(models.Model):
         db_table = "AnomalyDetector"
 
 class ClassificationMetric(models.Model):
+    """
+    Represents metrics for classification models used in anomaly detection.
+
+    Fields:
+    - detector: Foreign key to the AnomalyDetector this metric belongs to.
+    - execution: Execution number to track multiple runs of the detector.
+    - model_name: Name of the classification model used.
+    - accuracy, precision, recall, f1_score: Performance metrics of the classification model.
+    - confusion_matrix: Text representation of the confusion matrix.
+    - date: Timestamp when the metrics were recorded.
+    - global_shap_images, local_shap_images, global_lime_images, local_lime_images: JSON fields to store images related to SHAP and LIME explanations.
+    """
     detector = models.ForeignKey(AnomalyDetector, on_delete=models.CASCADE, null=True, blank=True)
     execution = models.IntegerField(default=0)
     model_name = models.CharField(max_length=255, default='model_name')
@@ -131,6 +102,17 @@ class ClassificationMetric(models.Model):
         db_table = "ClassificationMetric"
 
 class RegressionMetric(models.Model):
+    """
+    Represents metrics for regression models used in anomaly detection.
+
+    Fields:
+    - detector: Foreign key to the AnomalyDetector this metric belongs to.
+    - execution: Execution number to track multiple runs of the detector.
+    - model_name: Name of the regression model used.
+    - mse, rmse, mae, r2, msle: Performance metrics of the regression model.
+    - date: Timestamp when the metrics were recorded.
+    - global_shap_images, local_shap_images, global_lime_images, local_lime_images: JSON fields to store images related to SHAP and LIME explanations.
+    """
     detector = models.ForeignKey(AnomalyDetector, on_delete=models.CASCADE, null=True, blank=True)
     execution = models.IntegerField(default=0)
     model_name = models.CharField(max_length=255, default='model_name')
@@ -150,6 +132,19 @@ class RegressionMetric(models.Model):
         db_table = "RegressionMetric"
 
 class AnomalyMetric(models.Model):
+    """
+    Represents metrics for anomaly detection models, including detected anomalies and associated metadata.
+    
+    Fields:
+    - detector: Foreign key to the AnomalyDetector this metric belongs to.
+    - execution: Execution number to track multiple runs of the detector.
+    - model_name: Name of the anomaly detection model used.
+    - feature_name: Name of the feature being analyzed for anomalies.
+    - anomalies: JSON field containing details about detected anomalies.
+    - date: Timestamp when the metrics were recorded.
+    - anomaly_details: Text field for additional details about the anomalies.
+    - global_shap_images, local_shap_images, global_lime_images, local_lime_images: JSON fields to store images related to SHAP and LIME explanations.
+    """
     detector = models.ForeignKey(AnomalyDetector, on_delete=models.CASCADE)
     execution = models.IntegerField()
     model_name = models.CharField(max_length=255, default='model_name')

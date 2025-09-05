@@ -1,22 +1,30 @@
+<!-- Modal dialog wrapper for registration -->
 <div class="modal-dialog align-middle register-modal" role="document">
   <div class="modal-content">
+
+    <!-- Modal header with title -->
     <div class="modal-header">
       <h1 class="modal-title register-title" id="exampleModalLabel"><b>Register</b></h1>
     </div>
+
+    <!-- Modal body with form inputs -->
     <div class="modal-body">
       <form (keydown)="keyDownFunction($event)">
-        <!-- Admin username -->
+
+        <!-- Admin username field -->
         <div class="form-group">
-          <input type="text" [(ngModel)]="userRegisterDTO.admin_username" name="admin_username" class="form-control register-input" placeholder="Admin username" />
+          <input type="text" [(ngModel)]="userRegisterDTO.admin_username" name="admin_username"
+                 class="form-control register-input" placeholder="Admin username" />
           <ng-container *ngIf="admin_usernameError">
             <p class="error-message"><small>*Insert admin username</small></p>
           </ng-container>
         </div>
 
-        <!-- Admin password -->
+        <!-- Admin password field with toggle visibility -->
         <div class="form-group">
           <div class="input-wrapper">
-            <input [type]="showAdminPassword ? 'text' : 'password'" [(ngModel)]="userRegisterDTO.admin_password" name="admin_password" class="form-control register-input" placeholder="Admin password" />
+            <input [type]="showAdminPassword ? 'text' : 'password'" [(ngModel)]="userRegisterDTO.admin_password"
+                   name="admin_password" class="form-control register-input" placeholder="Admin password" />
             <button type="button" (click)="toggleVisibility('admin')" class="password-toggle-btn">
               <i [ngClass]="showAdminPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
             </button>
@@ -26,9 +34,10 @@
           </ng-container>
         </div>
 
-        <!-- Username new user -->
+        <!-- New user: username -->
         <div class="form-group">
-          <input type="text" [(ngModel)]="userRegisterDTO.username" name="username" class="form-control register-input" placeholder="Username" />
+          <input type="text" [(ngModel)]="userRegisterDTO.username" name="username"
+                 class="form-control register-input" placeholder="Username" />
           <ng-container *ngIf="usernameError; else usernameValid">
             <p class="error-message"><small>*Insert username</small></p>
           </ng-container>
@@ -37,10 +46,11 @@
           </ng-template>
         </div>
 
-        <!-- Password new user -->
+        <!-- New user: password -->
         <div class="form-group">
           <div class="input-wrapper">
-            <input [type]="showNewPassword ? 'text' : 'password'" [(ngModel)]="userRegisterDTO.password" name="password" class="form-control register-input" placeholder="Password" />
+            <input [type]="showNewPassword ? 'text' : 'password'" [(ngModel)]="userRegisterDTO.password"
+                   name="password" class="form-control register-input" placeholder="Password" />
             <button type="button" (click)="toggleVisibility('new')" class="password-toggle-btn">
               <i [ngClass]="showNewPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
             </button>
@@ -53,10 +63,11 @@
           </ng-template>
         </div>
 
-        <!-- Confirm password new user -->
+        <!-- New user: confirm password -->
         <div class="form-group">
           <div class="input-wrapper">
-            <input [type]="showConfirmPassword ? 'text' : 'password'" [(ngModel)]="userRegisterDTO.confirm_password" name="confirm_password" class="form-control register-input" placeholder="Confirm password" />
+            <input [type]="showConfirmPassword ? 'text' : 'password'" [(ngModel)]="userRegisterDTO.confirm_password"
+                   name="confirm_password" class="form-control register-input" placeholder="Confirm password" />
             <button type="button" (click)="toggleVisibility('confirm')" class="password-toggle-btn">
               <i [ngClass]="showConfirmPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
             </button>
@@ -69,25 +80,28 @@
           </ng-template>
         </div>
 
-        <!-- First name new user -->
+        <!-- New user: first name -->
         <div class="form-group">
-          <input type="text" [(ngModel)]="userRegisterDTO.first_name" name="first_name" class="form-control register-input" placeholder="First name" />
+          <input type="text" [(ngModel)]="userRegisterDTO.first_name" name="first_name"
+                 class="form-control register-input" placeholder="First name" />
           <ng-container *ngIf="first_nameError">
             <p class="error-message"><small>*Insert first name</small></p>
           </ng-container>
         </div>
 
-        <!-- Last name new user -->
+        <!-- New user: last name -->
         <div class="form-group">
-          <input type="text" [(ngModel)]="userRegisterDTO.last_name" name="last_name" class="form-control register-input" placeholder="Last name" />
+          <input type="text" [(ngModel)]="userRegisterDTO.last_name" name="last_name"
+                 class="form-control register-input" placeholder="Last name" />
           <ng-container *ngIf="last_nameError">
             <p class="error-message"><small>*Insert last name</small></p>
           </ng-container>
         </div>
 
-        <!-- Email new user -->
+        <!-- New user: email -->
         <div class="form-group">
-          <input type="text" [(ngModel)]="userRegisterDTO.email" name="email" class="form-control register-input" placeholder="Email" />
+          <input type="text" [(ngModel)]="userRegisterDTO.email" name="email"
+                 class="form-control register-input" placeholder="Email" />
           <ng-container *ngIf="emailError; else emailValid">
             <p class="error-message"><small>*Insert email</small></p>
           </ng-container>
@@ -97,11 +111,17 @@
         </div>
       </form>
     </div>
+
+    <!-- Submit registration button -->
     <div class="modal-footer">
       <button (click)="registerUser()" type="button" class="btn register-btn btn-lg btn-block">Register</button>
     </div>
+
+    <!-- Link to login if already registered -->
     <div class="register-options">
-      <p type="button" class="btn btn-link register-link" [routerLink]="['/login']" data-dismiss="modal">Already have an account? Sign in to your account</p>
+      <p type="button" class="btn btn-link register-link" [routerLink]="['/login']" data-dismiss="modal">
+        Already have an account? Sign in to your account
+      </p>
     </div>
   </div>
 </div>

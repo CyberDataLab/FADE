@@ -126,8 +126,6 @@ LOGGING = {
     },
 }
 
-
-
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
@@ -160,6 +158,7 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+# Custom user model
 AUTH_USER_MODEL = 'accounts.CustomUser'
 
 
@@ -178,6 +177,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:4200", 
 ]
 
+# Media files (uploads)
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
@@ -194,6 +194,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 APPEND_SLASH = False
 
+# Email settings
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = config("EMAIL_HOST", cast=str, default=None)
 EMAIL_PORT = config("EMAIL_PORT", cast=str, default='587')

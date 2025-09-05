@@ -1,3 +1,4 @@
+/* Set the base layout to occupy full screen and center content */
 html, body {
     min-height: 100vh; 
     min-width: 100vw;
@@ -9,6 +10,7 @@ html, body {
     font-family: 'Arial', sans-serif;
 }
 
+/* Responsive layout: stack login options vertically on small screens */
 @media (max-width: 480px) { 
     .login-options {
       flex-direction: column;
@@ -16,6 +18,7 @@ html, body {
     }
 }
 
+/* Responsive modal for tablets and small screens */
 @media (max-width: 768px) {
     .modal-content {
         width: 90%;
@@ -23,6 +26,7 @@ html, body {
     }
 }
 
+/* Position the modal in the center with top offset and animation */
 .modal-dialog {
     display: flex;
     justify-content: center;
@@ -31,12 +35,13 @@ html, body {
     animation: slideIn 0.5s ease-out;
 }
 
+/* Keyframe for modal slide-in animation */
 @keyframes slideIn {
     from { transform: translateY(-20px); opacity: 0; }
     to { transform: translateY(0); opacity: 1; }
 }
 
-
+/* Style for modal background with blur effect and soft colors */
 .login-modal .modal-content {
     background: rgba(172, 172, 172, 0.6);
     backdrop-filter: blur(15px); 
@@ -48,6 +53,7 @@ html, body {
     color: #dfe6ff; 
 }
 
+/* Style for login title */
 .login-title {
     color: #2d3436;
     font-size: 1.8rem;
@@ -58,6 +64,7 @@ html, body {
     position: relative;
 }
 
+/* Add a decorative line below the title */
 .login-title::after {
     content: '';
     position: absolute;
@@ -70,6 +77,7 @@ html, body {
     border-radius: 2px;
 }
 
+/* Style for the login form */
 .login-input {
     background: rgba(245, 246, 250, 0.9);
     border: none;
@@ -83,17 +91,20 @@ html, body {
     margin-bottom: 20px;
 }
 
+/* Style for input focus state */
 .login-input:focus {
     outline: none;
     border-color: #2470bc;
     box-shadow: inset 4px 4px 6px rgba(0, 0, 0, 0.2), inset -4px -4px 6px rgba(255, 255, 255, 0.5);
 }
 
+/* Placeholder text style */
 .login-input::placeholder {
     color: #77787b;
     font-weight: 400;
 }
 
+/* Style for error messages */
 .error-message {
     color: #ff4757;
     font-size: 14px;
@@ -101,6 +112,7 @@ html, body {
     margin-bottom: 15px;
 }
 
+/* Style for the login button */
 .login-btn {
     background: #2470bc;
     border: none;
@@ -116,10 +128,12 @@ html, body {
     text-transform: uppercase;
 }
 
+/* Style for login button hover state */
 .login-btn:hover {
     box-shadow: 0 8px 20px rgba(98, 87, 229, 0.3);
 }
 
+/* Style for login button active state */
 .login-options {
     display: flex;
     justify-content: space-between; 
@@ -130,6 +144,7 @@ html, body {
     padding: 0 5px;
 }
 
+/* Style for login options links */
 .login-link {
     color: #2470bc;
     text-decoration: none;
@@ -142,16 +157,19 @@ html, body {
     margin-right: 15px;
 }
 
+/* Style for login link hover state */
 .login-link:hover {
     color: #5256a3;
     text-decoration: underline;
     transform: translateX(3px);
 }
 
+/* Style for the last login link to remove right margin */
 .login-link:last-child {
     margin-right: 0;
 }
 
+/* Style for the password toggle button */
 .password-toggle-btn {
     position: absolute;
     right: 15px;
@@ -164,10 +182,12 @@ html, body {
     transition: color 0.3s ease;
 }
 
+/* Style for password toggle button hover state */
 .password-toggle-btn:hover {
     color: #2470bc;
 }
 
+/* Style for input group to position the password toggle button */
 .input-group {
     position: relative;
     margin-bottom: 25px;

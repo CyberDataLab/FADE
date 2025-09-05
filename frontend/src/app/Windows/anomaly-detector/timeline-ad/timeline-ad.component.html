@@ -1,36 +1,47 @@
-<div class="anomalies-container">
+<!-- Main container for displaying anomaly detection metrics -->
+ <div class="anomalies-container">
   <h2>Anomaly Detection Metrics</h2>
+
+  <!-- Loop over each grouped execution -->
   <div *ngFor="let execution of groupedMetrics">
     <h3>Execution: {{ execution.executionNumber }}</h3>
+
+    <!-- Loop over each model within the execution -->
     <div *ngFor="let model of execution.models">
       <h4>Model: {{ model.modelName }}</h4>
 
+      <!-- Wrapper for global explanation images and feature charts -->
       <div class="charts-wrapper-with-global">
 
-        <div class="global-shap-container" *ngFor="let img of execution.globalShapImages" (click)="showGlobalImageInModal(img, 'SHAP')">
-          <h5>{{ getGlobalTitle(img, 'SHAP') }}</h5>
-          <img [src]="getImageUrl(img)" alt="Global SHAP" />
-        </div>
-
-        <div class="global-lime-container" *ngFor="let img of execution.globalLimeImages" (click)="showGlobalImageInModal(img, 'LIME')">
-          <h5>{{ getGlobalTitle(img, 'LIME') }}</h5>
-          <img [src]="getImageUrl(img)" alt="Global LIME" />
-        </div>
-
+        <!-- Individual line charts per feature -->
         <div class="charts-wrapper">
           <div *ngFor="let feature of model.features" class="chart-container">
             <h5>Feature: {{ feature.featureName }}</h5>
+
+            <!-- Canvas for feature-wise time-series anomaly line chart -->
             <canvas id="line-{{execution.executionNumber}}-{{model.safeModelName}}-{{feature.safeFeatureName}}"
                     (click)="showChartInModal('line', execution.executionNumber, model, feature)">
             </canvas>
           </div>
         </div>
 
+        <!-- Global SHAP images for this execution -->
+        <div class="global-shap-container" *ngFor="let img of execution.globalShapImages" (click)="showGlobalImageInModal(img, 'SHAP')">
+          <h5>{{ getGlobalTitle(img, 'SHAP') }}</h5>
+          <img [src]="getImageUrl(img)" alt="Global SHAP" />
+        </div>
+
+        <!-- Global LIME images for this execution -->
+        <div class="global-lime-container" *ngFor="let img of execution.globalLimeImages" (click)="showGlobalImageInModal(img, 'LIME')">
+          <h5>{{ getGlobalTitle(img, 'LIME') }}</h5>
+          <img [src]="getImageUrl(img)" alt="Global LIME" />
+        </div>
       </div>
     </div>
   </div>
 </div>
 
+<!-- Modal for feature-specific line chart -->
 <div class="modal-overlay" *ngIf="showModal && !modalImageUrl" (click)="closeModal()">
   <div class="modal-content" (click)="$event.stopPropagation()">
     <button class="close-btn" (click)="closeModal()">✖</button>
@@ -39,10 +50,13 @@
   </div>
 </div>
 
+<!-- Modal for global explanation image (SHAP or LIME) -->
 <div class="modal-overlay" *ngIf="showModal && modalImageUrl" (click)="closeModal()">
   <div class="modal-content" (click)="$event.stopPropagation()">
     <button class="close-btn" (click)="closeModal()">✖</button>
     <h4>Global {{ modalImageType }} Image</h4>
+
+    <!-- Display global SHAP or LIME image with responsive size -->
     <img [src]="modalImageUrl" alt="Global {{ modalImageType }} Image" style="max-width: 100%; height: auto;" />
   </div>
 </div>

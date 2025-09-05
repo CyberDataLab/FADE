@@ -1,13 +1,23 @@
+<!-- Root container for the full application -->
 <div class="app-container">
+
+  <!-- Left panel: visual design toolbox -->
   <div class="design-container">
-    <!-- Data Source -->
+
+    <!-- Data Source section -->
     <div class="section">
+
+      <!-- Section header: clickable to toggle visibility -->
       <div class="section-header" (click)="toggleSection('dataSource')">
         <i class="fa fa-database"></i>
         <span>Data Source</span>
       </div>
+
+      <!-- Section content: shown if the section is active -->
       <div *ngIf="activeSections['dataSource']" class="sub-section">
         <div class="option-grid">
+
+          <!-- Render each data source element as a draggable option -->
           <div *ngFor="let element of config.sections.dataSource.elements"
                 class="option"
                 draggable="true"
@@ -20,7 +30,7 @@
       </div>
     </div>
 
-    <!-- Data Processing -->
+    <!-- Data Processing section -->
     <div class="section">
       <div class="section-header" (click)="toggleSection('dataProcessing')">
         <i class="fa fa-cogs"></i>
@@ -28,6 +38,8 @@
       </div>
       <div *ngIf="activeSections['dataProcessing']" class="sub-section">
         <div class="option-grid">
+
+          <!-- Render each processing element as draggable -->
           <div *ngFor="let element of config.sections.dataProcessing.elements"
                 class="option"
                 draggable="true"
@@ -40,14 +52,17 @@
       </div>
     </div>
 
-    <!-- Data Model -->
+    <!-- Data Model section (with nested subcategories) -->
     <div class="section">
       <div class="section-header" (click)="toggleSection('dataModel')">
         <i class="fa fa-project-diagram"></i>
         <span>Data Model</span>
       </div>
+
+      <!-- Only show if dataModel section is active -->
       <div *ngIf="activeSections['dataModel']" class="sub-section">
-        <!-- Classification -->
+
+        <!-- Classification subsection -->
         <div class="sub-category">
           <div class="sub-category-header" (click)="toggleSubSection('classification')">
             <i class="fa fa-check-circle"></i>
@@ -67,7 +82,7 @@
           </div>
         </div>
 
-        <!-- Regression -->
+        <!-- Regression subsection-->
         <div class="sub-category">
           <div class="sub-category-header" (click)="toggleSubSection('regression')">
             <i class="fa fa-check-circle"></i>
@@ -87,7 +102,7 @@
           </div>
         </div>
 
-        <!-- Anomaly Detection -->
+        <!-- Anomaly Detection subsection -->
         <div class="sub-category">
           <div class="sub-category-header" (click)="toggleSubSection('anomalyDetection')">
             <i class="fa fa-check-circle"></i>
@@ -107,7 +122,7 @@
           </div>
         </div>
 
-        <!-- Explainability -->
+        <!-- Explainability subsection -->
         <div class="sub-category">
           <div class="sub-category-header" (click)="toggleSubSection('explainability')">
             <i class="fa fa-check-circle"></i>
@@ -127,7 +142,7 @@
           </div>
         </div>
         
-        <!-- Monitoring -->
+        <!-- Monitoring subsection -->
         <div class="sub-category">
           <div class="sub-category-header" (click)="toggleSubSection('monitoring')">
             <i class="fa fa-check-circle"></i>
@@ -150,16 +165,23 @@
     </div>     
   </div>
 
+  <!-- Central canvas workspace where elements are dropped -->
   <div class="workspace" >
     <div id="drop-area" #dropArea
         class="drop-area" 
         (dragover)="onDragOver($event)" 
         (drop)="onDrop($event)">
     </div>
-    <div id="selection-box"></div>
+    <div id="selection-box"></div>  <!-- Optional: for multi-selection or visual feedback -->
   </div>
+
+  <!-- Right-side panel for configuration of selected nodes -->
   <div #configContainer class="config-container">
+
+    <!-- Close config panel button -->
     <button class="close-btn" (click)="closeConfig()">X</button>
+
+    <!-- Dynamic configuration content gets injected here -->
     <div class="config-content">
     </div>
   </div> 

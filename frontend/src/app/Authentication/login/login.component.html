@@ -1,39 +1,89 @@
+<!-- Login modal dialog container -->
 <div class="modal-dialog align-middle login-modal" role="document">
   <div class="modal-content">
+
+    <!-- Modal header with title -->
     <div class="modal-header">
       <h1 class="modal-title login-title" id="exampleModalLabel"><b>Welcome Back!</b></h1>
     </div>
+
+    <!-- Modal body containing the login form -->
     <div class="modal-body">
       <form (keydown)="keyDownFunction($event)">
-        <!-- Username -->
+        
+        <!-- Username input field -->
         <div class="form-group">
-          <input type="text" [(ngModel)]="userLoginDTO.username" name="username" class="form-control login-input" #username="ngModel" placeholder="Username" id="recipient-name" />
+          <input
+            type="text"
+            [(ngModel)]="userLoginDTO.username"
+            name="username"
+            class="form-control login-input"
+            #username="ngModel"
+            placeholder="Username"
+            id="recipient-name"
+          />
+          <!-- Error message for empty username -->
           <ng-container *ngIf="usernameError">
             <p class="error-message"><small>*Insert username</small></p>
           </ng-container>
         </div>
-        <!-- Password -->
+
+        <!-- Password input field with toggle visibility button -->
         <div class="form-group position-relative">
-          <input [type]="showPassword ? 'text' : 'password'" [(ngModel)]="userLoginDTO.password" name="password" class="form-control login-input" placeholder="Password" id="recipient-name"/>
-          <button type="button" (click)="togglePasswordVisibility()" class="password-toggle-btn">
+          <input
+            [type]="showPassword ? 'text' : 'password'"
+            [(ngModel)]="userLoginDTO.password"
+            name="password"
+            class="form-control login-input"
+            placeholder="Password"
+            id="recipient-name"
+          />
+
+          <!-- Toggle password visibility -->
+          <button
+            type="button"
+            (click)="togglePasswordVisibility()"
+            class="password-toggle-btn"
+          >
             <i [ngClass]="showPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
           </button>
+
+          <!-- Error message for empty password -->
           <ng-container *ngIf="passwordError">
             <p class="error-message"><small>*Insert password</small></p>
           </ng-container>
         </div>
       </form>
     </div>
+
+    <!-- Footer with sign-in button -->
     <div class="modal-footer">
-      <button (click)="login()" type="button" class="btn login-btn btn-lg btn-block" data-dismiss="modal">
+      <button
+        (click)="login()"
+        type="button"
+        class="btn login-btn btn-lg btn-block"
+        data-dismiss="modal"
+      >
         Sign in
       </button>
     </div>
+
+    <!-- Links for password recovery and account registration -->
     <div class="login-options">
-      <p type="button" class="btn btn-link login-link" [routerLink]="['/send-email']" data-dismiss="modal">
+      <p
+        type="button"
+        class="btn btn-link login-link"
+        [routerLink]="['/send-email']"
+        data-dismiss="modal"
+      >
         Forgot your password?
       </p>
-      <p type="button" class="btn btn-link login-link" [routerLink]="['/register']" data-dismiss="modal">
+      <p
+        type="button"
+        class="btn btn-link login-link"
+        [routerLink]="['/register']"
+        data-dismiss="modal"
+      >
         Don't have an account? Sign up here
       </p>
     </div>

@@ -1,3 +1,4 @@
+/* Reset base layout: full height with no margin or scrollbars */
 html, body {
   margin: 0;
   padding: 0;
@@ -5,12 +6,14 @@ html, body {
   overflow: hidden !important;
 }
 
+/* Main container for the layout: horizontal flex */
 .container {
   display: flex;
   flex-direction: row;
   height: 100vh;
 }
 
+/* Top navigation bar at the top of the screen */
 .top-bar {
   width: 100%;
   background-color: #00578f;
@@ -26,16 +29,19 @@ html, body {
   height: 60px;
 }
 
+/* Left section of the top bar */
 .top-bar-left {
   flex: 1; 
 }
 
+/* Right-side container for logout button */
 .logout-container {
   display: flex;
   justify-content: flex-end;
   width: auto;
 }
 
+/* Logout button style */
 .logout-btn {
   background-color: transparent;
   color: white;
@@ -45,10 +51,12 @@ html, body {
   border-radius: 4px;
 }
 
+/* Hover style for logout button */
 .logout-btn:hover {
   border: #ffffff 1px solid;
 }
 
+/* Sidebar menu on the left side */
 .sidebar {
   width: 200px;
   background-color: transparent;
@@ -63,6 +71,7 @@ html, body {
   overflow-y: auto; 
 }
 
+/* Menu option inside the sidebar */
 .option {
   cursor: pointer;
   padding: 25px 0; 
@@ -78,6 +87,7 @@ html, body {
   font-size: 16px;
 }
 
+/* Hover effect for sidebar option */
 .option:hover {
   background-color: #f8f9fa; 
   color: #2470bc;
@@ -85,17 +95,19 @@ html, body {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
+/* Focus state for accessibility */
 .option:focus {
   color: #2470bc; 
   outline: none; 
 }
 
-
+/* Style for currently selected option */
 .option.selected {
   color: #2470bc;
   font-weight: bold;
 }
 
+/* Main content area aligned to the right of the sidebar */
 .content {
   margin-left: 200px; 
   padding: 20px;
@@ -109,6 +121,7 @@ html, body {
   box-sizing: border-box;
 }
 
+/* Style for default utility buttons */
 .default-button {
   width: 200px; 
   padding: 15px 20px;
@@ -124,10 +137,12 @@ html, body {
   box-shadow: none; 
 }
 
+/* Hover effect for utility buttons */
 .default-button:hover {
   background-color: #6c757d;
 }
 
+/* Back and Save button shared styles */
 .back-btn, .save-button {
   background-color: transparent;
   color: white;
@@ -137,10 +152,12 @@ html, body {
   border-radius: 4px;
 }
 
+/* Hover state for back and save buttons */
 .back-btn:hover, .save-button:hover {
   border: #ffffff 1px solid;
 }
 
+/* Icon inside save button */
 .save-button i {
   font-size: 16px;
 }

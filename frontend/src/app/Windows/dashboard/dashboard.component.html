@@ -1,10 +1,20 @@
+<!-- Main container for the entire application layout -->
 <div class="container">
+
+  <!-- Top bar with navigation and logout actions -->
   <div class="top-bar">
+
+    <!-- Left side of the top bar -->
     <div class="top-bar-left">
+
+      <!-- Back button (only shown when not on dashboard) -->
       <button class="back-btn" *ngIf="!isDashboard()" (click)="goBack()">← Back</button>
+
+      <!-- Save button (conditionally shown based on saveButtonVisible flag) -->
       <button *ngIf="saveButtonVisible" class="save-button" (click)="onSaveClick()">💾</button>
     </div>
     
+    <!-- Right side of the top bar: logout button -->
     <div class="logout-container">
       <button class="logout-btn" (click)="logout()">
         <i class="fa fa-sign-out"></i>
@@ -12,23 +22,32 @@
     </div>
   </div>
 
+  <!-- Sidebar navigation menu (hidden on 'new-scenario' view) -->
   <ng-container *ngIf="!isNewScenario()">
     <div class="sidebar">
+
+      <!-- Navigation option: Anomaly Detector -->
       <div class="option" 
            (click)="navigateTo('anomaly-detector')" 
            [ngClass]="{'selected': isSelected('anomaly-detector')}">
         Anomaly Detector
       </div>
+
+      <!-- Navigation option: Policies -->
       <div class="option" 
            (click)="navigateTo('policies')" 
            [ngClass]="{'selected': isSelected('policies')}">
         Policies
       </div>
+
+      <!-- Navigation option: Options -->
       <div class="option" 
            (click)="navigateTo('options')" 
            [ngClass]="{'selected': isSelected('options')}">
         Options
       </div>
+
+      <!-- Navigation option: User -->
       <div class="option" 
            (click)="navigateTo('user')" 
            [ngClass]="{'selected': isSelected('user')}">
@@ -37,13 +56,8 @@
     </div>
   </ng-container>
 
+  <!-- Main content area, hidden only on the dashboard view -->
   <div class="content">
-    <ng-container *ngIf="isDashboard()">
-      <button class="default-button">Anomalies detected</button>
-      <button class="default-button">Network / Data statistics</button>
-      <button class="default-button">Tested actions / mitigations</button>
-    </ng-container>
-  
     <router-outlet *ngIf="!isDashboard()"></router-outlet>
   </div>
 </div>

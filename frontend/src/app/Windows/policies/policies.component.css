@@ -1,5 +1,97 @@
-.rete {
-    width: 100vw;
-    height: 100vh;
-  }
-  
+/* Container for the policy section: centered card with blur and shadow */
+.policies-section {
+  margin-top: 60px;
+  padding: 40px;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  max-width: 800px;
+  width: 100%;
+}
+
+/* Title of the policy section with underline decoration */
+.policies-title {
+  color: #2d3436;
+  font-size: 2rem;
+  margin-bottom: 30px;
+  text-align: center;
+  font-weight: 600;
+  position: relative;
+}
+
+/* Decorative line under the title */
+.policies-title::after {
+  content: '';
+  position: absolute;
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80px;
+  height: 3px;
+  background: #0097a6;
+  border-radius: 3px;
+}
+
+/* Group container for each policy input and label */
+.policy-form-group {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 20px;
+}
+
+/* Label for inputs and selects */
+.policy-label {
+  font-weight: 600;
+  color: #2d3436;
+  margin-bottom: 8px;
+}
+
+/* Input and select field styling */
+.policy-input, .policy-select {
+  background: rgba(245, 246, 250, 0.9);
+  border: none;
+  border-radius: 12px;
+  color: #2d3436;
+  font-size: 16px;
+  padding: 12px 16px;
+  transition: border-color 0.3s ease;
+  box-shadow: inset 2px 2px 6px rgba(0, 0, 0, 0.05), inset -2px -2px 6px rgba(255, 255, 255, 0.4);
+}
+
+/* Focus effect for input and select fields */
+.policy-input:focus, .policy-select:focus {
+  outline: none;
+  border: 1px solid #2470bc;
+  box-shadow: 0 0 0 2px rgba(36, 112, 188, 0.2);
+}
+
+/* Button for applying the policy */
+.apply-policy-button {
+  background: #0097a6;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 20px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.3s ease;
+  margin-top: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Hover effect for the apply button */
+.apply-policy-button:hover {
+  background: #007e8d;
+  box-shadow: 0 4px 12px rgba(0, 151, 166, 0.3);
+}
+
+/* Message displayed after applying policy */
+.policy-result-message {
+  margin-top: 20px;
+  color: #2d3436;
+  font-size: 15px;
+  text-align: center;
+}

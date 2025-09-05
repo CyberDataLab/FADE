@@ -1,3 +1,4 @@
+/* Reset margins and set base layout full screen with scroll support */
 html, body {
   margin: 0;
   padding: 0;
@@ -7,12 +8,14 @@ html, body {
   box-sizing: border-box;
 }
 
+/* Apply box-sizing to all elements */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
+/* Main application container with sidebar and workspace */
 .app-container {
   display: flex;
   flex-direction: row;
@@ -26,6 +29,7 @@ html, body {
   left: 0;
 }
 
+/* Sidebar container for draggable elements */
 .design-container {
   width: 250px;
   background-color: #30426a;
@@ -42,12 +46,14 @@ html, body {
   overflow-y: auto;
 }
 
+/* Section block inside sidebar */
 .section {
   margin: 10px 0;
   border-radius: 5px;
   cursor: pointer;
 }
 
+/* Section header with icon and label */
 .section-header {
   padding: 10px;
   background-color: #7690ad97;
@@ -57,7 +63,8 @@ html, body {
   gap: 10px;
   transition: background-color 0.3s ease-in-out;
 }
-  
+
+/* Hover effect for section header */
 .section-header:hover {
   background-color: #43556a;
 }
@@ -70,12 +77,14 @@ html, body {
   font-size: 14px;
 }
 
+/* Wrapper for options inside a section */
 .sub-section {
   padding: 10px 0;
   background-color: #3d4a5bd0;
   border-radius: 5px;
 }
 
+/* Grid layout for element options */
 .option-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -84,6 +93,7 @@ html, body {
   padding: 10px 0;
 }
 
+/* Style for each draggable option (with Angular deep styling) */
 :host ::ng-deep .option {
   display: flex !important;
   flex-direction: column;
@@ -125,10 +135,12 @@ html, body {
   white-space: normal;
 }
 
+/* Active state for selected element */
 :host ::ng-deep .option.active {
   background-color: #24313c;
 }
 
+/* Main working canvas area */
 .workspace {
   flex-grow: 1;
   position: relative;
@@ -139,6 +151,7 @@ html, body {
   height: calc(100vh - 60px);
 }
 
+/* Grid-style drop area for elements */
 .drop-area {
   width: 100%;
   height: calc(100vh - 60px);
@@ -154,7 +167,8 @@ html, body {
   position: absolute;
   z-index: 1; 
 }
-  
+
+/* Draggable element inside drop area */
 .drop-area .draggable {
   position: absolute;
   color: white;
@@ -167,30 +181,7 @@ html, body {
   color:white;
 }
 
-.controls {
-  display: flex;
-  justify-content: center;
-  margin-top: 10px;
-}
-
-.zoom-button {
-  background-color: #f4f4f4;
-  border: 1px solid #ccc;
-  border-radius: 5px;
-  margin: 0 5px;
-  padding: 10px;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-}
-
-.zoom-button:hover {
-  background-color: #e0e0e0;
-}
-
-.zoom-button i {
-  font-size: 16px;
-}
-
+/* Style for visual node elements */
 .workspace-element {
   position: relative;
   padding: 10px;
@@ -203,11 +194,13 @@ html, body {
   z-index: 1;
 }
 
+/* Selected element highlight */
 ::ng-deep .selected {
   border: 2px dashed rgb(255, 255, 255);
   background-color: #6a7d87;
 }
 
+/* Drag selection box styling */
 #selection-box {
   position: absolute;
   z-index: 1000;
@@ -216,35 +209,7 @@ html, body {
   pointer-events: none;
 }
 
-.context-menu {
-  display: none;
-  position: absolute;
-  background-color: white;
-  border: 1px solid #ccc;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-  padding: 5px;
-  list-style: none;
-  z-index: 1000;
-}
-
-.context-menu ul {
-  margin: 0;
-  padding: 0;
-}
-
-.context-menu li {
-  padding: 10px;
-  cursor: pointer;
-}
-
-.context-menu li:hover {
-  background-color: #f0f0f0;
-}
-
-.context-menu li:hover {
-  background-color: #f4f4f4;
-}
-
+/* Panel for node configuration */
 .config-container {
   width: 400px;
   padding: 10px;
@@ -261,10 +226,12 @@ html, body {
   overflow-y: auto;
 }
 
+/* Show the configuration panel */
 .config-container.show {
   display: block; 
 }
 
+/* Close button inside the config panel */
 .config-container .close-btn {
   background-color: #4a5c70;
   color: white;
@@ -280,12 +247,14 @@ html, body {
   background-color: #57616f;
 }
 
+/* Style for SVG layer used for connections */
 svg {
   z-index: -1;
   pointer-events: none;
   overflow: visible;
 }
 
+/* Icon inside node for config button */
 :host ::ng-deep .gear-icon {
   position: absolute;
   font-size: 15px !important;
@@ -297,33 +266,14 @@ svg {
   z-index: 2;
 }
 
-:host ::ng-deep .arrow-icon {
-  position: absolute;
-  font-size: 15px !important;
-  right: 3px;
-  top: 21px;
-  color: white;  
-  cursor: pointer;
-  display: none;
-  z-index: 2;
-}
-
-.control-point {
-  pointer-events: all; 
-  position: absolute;
-  z-index: 10; 
-}
-
-#drop-area svg circle {
-  pointer-events: all;
-}
-
+/* Subcategories within sections */
 .sub-category {
   margin: 5px 0;
   border-radius: 5px;
   cursor: pointer;
 }
 
+/* Header for subcategories */
 .sub-category-header {
   padding: 10px;
   background-color: #4a5c70;
@@ -348,12 +298,14 @@ svg {
   margin-left: 5px;
 }
 
+/* Visual config panel group sections */
 .sub-section {
   padding: 10px 0;
   background-color: #4a5c7063;
   border-radius: 5px;
 }
 
+/* Grid layout for selectable CSV columns */
 .csv-columns-container {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -363,6 +315,7 @@ svg {
   margin-top: 10px;
 }
 
+/* Each column item style */
 .column-item {
   padding: 8px 12px;
   border-radius: 4px;
@@ -381,11 +334,13 @@ svg {
   transition: all 0.2s;
 }
 
+/* Selected column visual style */
 .csv-columns-container .column-item.selected {
   background-color: #7690ad97 !important; 
   box-shadow: 0 2px 4px rgba(33, 150, 243, 0.2) !important;
 }
 
+/* Grid container for metrics */
 .metrics-container {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -413,11 +368,13 @@ svg {
   transition: all 0.2s;
 }
 
+/* Selected metric visual style */
 .metrics-container .metric-item.selected {
   background-color: #7690ad97;
   box-shadow: 0 2px 4px rgba(33, 150, 243, 0.2);
 }
 
+/* Grouped config property input with label */
 .config-property-group {
   display: flex;
   justify-content: space-between;
@@ -438,6 +395,7 @@ svg {
   border-radius: 4px;
 }
 
+/* Custom scrollbar styling */
 ::-webkit-scrollbar {
   width: 8px; 
 }

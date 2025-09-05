@@ -1,10 +1,22 @@
+// Angular core and shared modules
 import { Component, OnInit, Input, ChangeDetectorRef } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { CommonModule } from '@angular/common';
-import { ScenarioService } from '../../scenario.service';
-import { Chart } from 'chart.js/auto';
 import { HttpClient } from '@angular/common/http';
 
+// Application-specific services
+import { ScenarioService } from '../../scenario.service';
+
+// External libraries
+import { Chart } from 'chart.js/auto';
+
+/**
+ * @summary Displays classification and regression metrics using charts.
+ * 
+ * Loads metrics for a given scenario UUID, groups them by execution, and generates
+ * corresponding bar charts, confusion matrices, and regression metric visualizations.
+ * Also supports displaying SHAP and LIME images in a modal.
+ */
 @Component({
   selector: 'app-metrics',
   standalone: true,
@@ -13,11 +25,19 @@ import { HttpClient } from '@angular/common/http';
   styleUrls: ['./metrics.component.css']
 })
 export class MetricsComponent implements OnInit {
+  /** @summary Scenario UUID extracted from route parameters */
   uuid: string = '';
+
+  /** @summary Full list of fetched metrics */
   @Input() metrics: any[] = [];
+
+  /** @summary Chart instances mapped by chart ID */
   charts: any = {};
+
+  /** @summary Grouped metrics by execution */
   groupedMetrics: any[] = [];
 
+  /** @summary Modal display controls and data */
   showModal = false;
   modalChartType = '';
   modalMetric: any = null;
@@ -25,11 +45,20 @@ export class MetricsComponent implements OnInit {
   modalImageUrl: string | null = null;
   modalImageLabel: string | null = null;  
 
+  /** @summary Model type categories loaded from config.json */
   private modelTypes: {
     classification: string[],
     regression: string[]
   } = { classification: [], regression: [] };
 
+  /**
+   * @summary Injects required Angular services and dependencies.
+   * 
+   * @param route ActivatedRoute - Extracts scenario ID from route.
+   * @param scenarioService ScenarioService - Handles API calls to get metrics.
+   * @param cdr ChangeDetectorRef - Used to manually trigger UI updates.
+   * @param http HttpClient - Loads model type config from JSON.
+   */
   constructor(
     private route: ActivatedRoute,
     private scenarioService: ScenarioService,
@@ -37,12 +66,18 @@ export class MetricsComponent implements OnInit {
     private http: HttpClient
   ) {}
 
+  /**
+   * @summary Initializes the component: loads UUID, config, and metrics.
+   */
   ngOnInit(): void {
     this.uuid = this.route.snapshot.paramMap.get('id') || '';
     this.loadConfig();
     this.getMetrics();
   }
 
+  /**
+   * @summary Loads classification and regression model types from config file.
+   */
   private loadConfig(): void {
     this.http.get('assets/config.json').subscribe({
       next: (config: any) => {
@@ -53,6 +88,9 @@ export class MetricsComponent implements OnInit {
     });
   }
 
+  /**
+   * @summary Creates charts for all metrics grouped in the latest execution.
+   */
   private createAllCharts() {
     this.groupedMetrics.forEach(execution => {
       execution.models.forEach((model: any) => {
@@ -70,6 +108,9 @@ export class MetricsComponent implements OnInit {
     });
   }
 
+  /**
+   * @summary Fetches classification and regression metrics from backend and prepares chart data.
+   */
   getMetrics(): void {
     this.scenarioService.getScenarioClassificationMetrics(this.uuid).subscribe({
       next: (classificationData: any) => {
@@ -89,6 +130,11 @@ export class MetricsComponent implements OnInit {
     });
   }
 
+  /**
+   * @summary Groups metrics by execution and identifies model type.
+   * 
+   * Only the latest execution is retained for chart display.
+   */
   private groupMetricsByExecution() {
     const executions: any = {};
     
@@ -134,6 +180,12 @@ export class MetricsComponent implements OnInit {
 
   }
 
+  /**
+   * @summary Renders a bar chart with regression metrics.
+   * 
+   * @param metric The regression metric object
+   * @param chartId DOM element ID for the chart
+   */
   private createRegressionChart(metric: any, chartId: string) {
     try {
       const canvas = document.getElementById(chartId);
@@ -173,6 +225,12 @@ export class MetricsComponent implements OnInit {
     }
   }
 
+  /**
+   * @summary Renders a bar chart with classification metrics.
+   * 
+   * @param metric The classification metric object
+   * @param chartId DOM element ID for the chart
+   */
   private createBarChart(metric: any, chartId: string) {
     try {
       const safeMetric = {
@@ -229,6 +287,12 @@ export class MetricsComponent implements OnInit {
     }
   }
 
+  /**
+   * @summary Renders a scatter-style confusion matrix chart.
+   * 
+   * @param metric The classification metric object
+   * @param chartId DOM element ID for the chart
+   */
   private createConfusionMatrix(metric: any, chartId: string) {
     try {
       const canvas = document.getElementById(chartId) as HTMLCanvasElement;
@@ -311,6 +375,13 @@ export class MetricsComponent implements OnInit {
     }
   }
 
+  /**
+   * @summary Displays a selected chart in a modal window.
+   * 
+   * @param type Chart type ('bar', 'matrix', 'regression')
+   * @param executionNumber Execution index
+   * @param model Metric data to show
+   */
   showChartInModal(type: string, executionNumber: number, model: any) {
     this.showModal = true;
     this.modalChartType = type;
@@ -335,22 +406,35 @@ export class MetricsComponent implements OnInit {
     }, 100);
   }
 
+  /**
+   * @summary Opens a modal to display an explanation image (SHAP or LIME).
+   * 
+   * @param imageUrl Path to the image
+   */
   openModal(imageUrl: string) {
   this.modalImageUrl = imageUrl;
   this.modalImageLabel = this.extractClassLabel(imageUrl);
   this.showModal = true;
-}
+  }
 
-extractClassLabel(filePath: string): string {
-  const filename = filePath.split('/').pop() || '';
-  const parts = filename.replace('.png', '').split('_');
-  return parts[parts.length - 1] || 'unknown';
-}
+  /**
+   * @summary Extracts class label from the image filename.
+   * 
+   * @param filePath Full path of the image file
+   * @returns Extracted class name
+   */
+  extractClassLabel(filePath: string): string {
+    const filename = filePath.split('/').pop() || '';
+    const parts = filename.replace('.png', '').split('_');
+    return parts[parts.length - 1] || 'unknown';
+  }
 
-
-closeModal() {
-  this.showModal = false;
-  this.modalImageUrl = null;
-  this.modalImageLabel = null;
-}
+  /**
+   * @summary Closes the modal and resets its content.
+   */
+  closeModal() {
+    this.showModal = false;
+    this.modalImageUrl = null;
+    this.modalImageLabel = null;
+  }
 }

@@ -30,7 +30,8 @@ services:
       MYSQL_USER: user
       MYSQL_PASSWORD: password
       MYSQL_ROOT_PASSWORD: rootpassword
-      EXECUTION_MODE: gpu
+      HOST_OS: ${HOST_OS}
+      EXECUTION_MODE: ${EXECUTION_MODE}
     depends_on:
       - db
     deploy:

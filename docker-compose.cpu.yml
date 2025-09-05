@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   db:
-    image: mysql:8.0
+    image: mysql:8.0.36
     environment:
       MYSQL_DATABASE: defender
       MYSQL_USER: user
@@ -30,7 +30,8 @@ services:
       MYSQL_USER: user
       MYSQL_PASSWORD: password
       MYSQL_ROOT_PASSWORD: rootpassword
-      EXECUTION_MODE: cpu
+      HOST_OS: ${HOST_OS}
+      EXECUTION_MODE: ${EXECUTION_MODE}
     depends_on:
       - db
   

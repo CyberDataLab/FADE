@@ -1,871 +1,100 @@
 # Create your views here.
 from django.shortcuts import render
 import csv
-import pyshark
 from django.core.files.base import ContentFile
 from io import StringIO
 import os
 import joblib
 import subprocess
+import threading
 from django.conf import settings
-from rest_framework.parsers import MultiPartParser, JSONParser
+from rest_framework.parsers import MultiPartParser
 from rest_framework.decorators import api_view, permission_classes, parser_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from .models import Scenario, File, AnomalyDetector, ClassificationMetric, RegressionMetric, AnomalyMetric
-from accounts.models import CustomUser
 from .serializers import ScenarioSerializer
 from django.http import JsonResponse
-from .models import DataController, DataReceiver, DataFilter, DataStorage, DataMixer, DataSync
+from system_monitor.models import SystemConfiguration
 import logging
 import json
 import pandas as pd
 import numpy as np
 import copy
-import socket
-import struct
-import importlib
-import ipaddress
 import shap
-import matplotlib.pyplot as plt
-import tempfile
-from typing import List
 from celery import shared_task
 from collections import defaultdict
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import f1_score, precision_score, recall_score, accuracy_score, confusion_matrix, mean_squared_error, mean_absolute_error, r2_score
-from tensorflow.keras import Sequential
-from tensorflow.keras.layers import Dense, Flatten, Dropout, Conv1D, Conv2D, MaxPooling1D, AveragePooling1D, MaxPooling2D, AveragePooling2D,SimpleRNN, LSTM, GRU
 from tensorflow.keras.utils import to_categorical
-
-
+from .utils import *
 
 logger = logging.getLogger('backend')
-
-thread_controls = {}
-
-PROTOCOL_MAP = {
-    "1": "ICMP",
-    "2": "IGMP",
-    "6": "TCP",
-    "17": "UDP",
-    "41": "IPv6",
-    "47": "GRE",
-    "50": "ESP",
-    "51": "AH",
-    "58": "ICMPv6",
-    "89": "OSPF",
-    "132": "SCTP",
-}
-
-PROTOCOL_REVERSE_MAP = {v: int(k) for k, v in PROTOCOL_MAP.items()}
-
-def load_config():
-    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-    CONFIG_PATH = os.path.join(BASE_DIR, 'frontend', 'src', 'assets', 'config.json')
-
-    try:
-        with open(CONFIG_PATH, 'r', encoding='utf-8') as file:
-            config = json.load(file)
-        return config
-    except FileNotFoundError:
-        logger.error(" Error: File config.json no encontrado en %s", CONFIG_PATH)
-    except json.JSONDecodeError:
-        logger.error("Error: No se pudo decodificar el archivo config.json")
-
-def validate_design(config, design):
-    elements = {e["id"]: e for e in design["elements"]}
-    connections = design["connections"]
-
-    start_ids = [conn["startId"] for conn in connections]
-    end_ids = [conn["endId"] for conn in connections]
-
-    processing_types = [el["type"] for el in config.get("sections", {}).get("dataProcessing", {}).get("elements", [])]
-    logger.info("Processing types: %s", processing_types)
-    classification_types = [el["type"] for el in config.get("sections", {}).get("dataModel", {}).get("classification", [])]
-    logger.info("Classification types: %s", classification_types)
-    regression_types = [el["type"] for el in config.get("sections", {}).get("dataModel", {}).get("regression", [])]
-    logger.info("Regression types: %s", regression_types)
-    anomaly_types = [el["type"] for el in config.get("sections", {}).get("dataModel", {}).get("anomalyDetection", [])]
-    logger.info("Anomaly detection types: %s", anomaly_types)
-    explainability_types = [el["type"] for el in config.get("sections", {}).get("dataModel", {}).get("explainability", [])]
-    logger.info("Explainability types: %s", explainability_types)
-    monitor_types = [el["type"] for el in config.get("sections", {}).get("dataModel", {}).get("monitoring", [])]
-    logger.info("Monitoring types: %s", monitor_types)
-
-    must_be_start_and_end = set(processing_types + classification_types + regression_types)
-    splitter_types = {"DataSplitter", "CodeSplitter"}
-
-    forward_map = {}
-    backward_map = {}
-    for conn in connections:
-        forward_map.setdefault(conn["startId"], []).append(conn["endId"])
-        backward_map.setdefault(conn["endId"], []).append(conn["startId"])
-
-    for element_id, element in elements.items():
-        el_type = element["type"]
-        appears_in_start = element_id in start_ids
-        appears_in_end = element_id in end_ids
-
-        if el_type in ["CSV", "Network"]:
-            if not appears_in_start:
-                raise ValueError(f"{el_type} '{element_id}' must appear as startId.")
-            if appears_in_end:
-                raise ValueError(f"{el_type} '{element_id}' cannot appear as endId.")
-
-        elif el_type in ["ClassificationMonitor", "RegressionMonitor"]:
-            if not appears_in_end:
-                raise ValueError(f"{el_type} '{element_id}' must appear as endId.")
-            if appears_in_start:
-                raise ValueError(f"{el_type} '{element_id}' cannot appear as startId.")
-
-        elif el_type in must_be_start_and_end:
-            if not appears_in_start:
-                raise ValueError(f"Element '{element_id}' ({el_type}) should appear as startId but does not.")
-            if not appears_in_end:
-                raise ValueError(f"Element '{element_id}' ({el_type}) should appear as endId but does not.")
-
-        next_ids = forward_map.get(element_id, [])
-        next_types = [elements[nid]["type"] for nid in next_ids if nid in elements]
-
-        valid_next_types = set(processing_types + classification_types + regression_types + anomaly_types)
-        if el_type in ["CSV", "Network"]:
-            if not any(nt in valid_next_types for nt in next_types):
-                raise ValueError(
-                    f"After '{element_id}' ({el_type}) there must be a processing or model node "
-                    f"(classification/regression/anomaly). Found types: {next_types}"
-                )
-
-        if el_type in classification_types:
-            if not any(nt == "ClassificationMonitor" for nt in next_types):
-                raise ValueError(f"'{element_id}' ({el_type}) must be followed by a ClassificationMonitor.")
-
-        if el_type in regression_types:
-            if not any(nt == "RegressionMonitor" for nt in next_types):
-                raise ValueError(f"'{element_id}' ({el_type}) must be followed by a RegressionMonitor.")
-
-        # if el_type in anomaly_types:
-        #     if not any(nt in explainability_types for nt in next_types):
-        #         raise ValueError(f"'{element_id}' ({el_type}) must be followed by an explainability node.")
-
-        prev_ids = backward_map.get(element_id, [])
-        prev_types = [elements[pid]["type"] for pid in prev_ids if pid in elements]
-
-        if el_type in (classification_types + regression_types):
-            if not any(pt in splitter_types for pt in prev_types):
-                raise ValueError(f"Before '{element_id}' ({el_type}) there must be a DataSplitter or CodeSplitter.")
-            
-        if el_type in explainability_types:
-            if not any(pt in (classification_types + regression_types + anomaly_types) for pt in prev_types):
-                raise ValueError(
-                    f"'{element_id}' ({el_type}) must be preceded by a classification, regression, or anomaly model node. "
-                    f"Found previous types: {prev_types}"
-                )
-
-def import_class(full_class_name):
-    module_name, class_name = full_class_name.rsplit(".", 1)
-    module = importlib.import_module(module_name)
-    return getattr(module, class_name)
-
-
-def build_neural_network(input_shape, model_type, parameters):
-    model = Sequential()
-    logger.info("Construyendo modelo de red neuronal: %s", model_type)
-    logger.info("Parámetros del modelo: %s", parameters)
-
-    if model_type == "CNNClassifier":
-        for i, layer in enumerate(parameters.get("conv_layers", [])):
-            conv_cls = Conv1D if parameters["conv_type"] == "Conv1D" else Conv2D
-            kwargs = {
-                "filters": layer["filters"],
-                "kernel_size": layer["kernel_size"],
-                "activation": layer["activation"]
-            }
-            if i == 0:
-                kwargs["input_shape"] = input_shape
-            model.add(conv_cls(**kwargs))
-
-            if layer.get("use_pooling") == "true":
-                pool_type = layer.get("pool_type", "max").lower()
-                if parameters["conv_type"] == "Conv1D":
-                    pool_cls = MaxPooling1D if pool_type == "max" else AveragePooling1D
-                else:
-                    pool_cls = MaxPooling2D if pool_type == "max" else AveragePooling2D
-                model.add(pool_cls(pool_size=layer["pool_size"]))
-
-            if layer.get("use_dropout") == "true":
-                model.add(Dropout(rate=layer["dropout_rate"]))
-
-        if parameters.get("use_flatten", "true") == "true":
-            model.add(Flatten())
-        model.add(Dense(parameters["dense_units"], activation=parameters["output_activation"]))
-
-    elif model_type == "RNNClassifier":
-        for i, layer in enumerate(parameters.get("rnn_layers", [])):
-            rnn_cls = {"SimpleRNN": SimpleRNN, "LSTM": LSTM, "GRU": GRU}[parameters["rnn_cell_type"]]
-            kwargs = {
-                "units": layer["units"],
-                "activation": layer["activation"],
-                "return_sequences": layer["return_sequences"] == "true",
-                "go_backwards": layer.get("go_backwards", "false") == "true"
-            }
-            if layer.get("use_dropout") == "true":
-                kwargs["dropout"] = layer["dropout_rate"]
-            if layer.get("use_recurrent_dropout") == "true":
-                kwargs["recurrent_dropout"] = layer["recurrent_dropout_rate"]
-            if i == 0:
-                kwargs["input_shape"] = input_shape
-            model.add(rnn_cls(**kwargs))
-
-        if parameters.get("use_dense", "true") == "true":
-            model.add(Dense(parameters["dense_units"], activation=parameters["output_activation"]))
-
-    elif model_type == "MLPClassifier":
-        model.add(Flatten(input_shape=input_shape))
-        for layer in parameters.get("hidden_layers", []):
-            model.add(Dense(layer["units"], activation=layer["activation"]))
-            if layer.get("use_dropout") == "true":
-                model.add(Dropout(rate=layer["dropout_rate"]))
-        model.add(Dense(parameters["dense_units"], activation=parameters["output_activation"]))
-
-    else:
-        raise ValueError(f"Unsupported model type: {model_type}")
-
-    model.compile(
-        optimizer=parameters["optimizer"],
-        loss=parameters["loss"],
-        metrics=["accuracy"]
-    )
-    return model
-
-
-def extract_features_by_flow_from_pcap(file_obj):
-    logger.info("Extrayendo características del archivo PCAP")
-
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".pcap") as tmp:
-        tmp.write(file_obj.read())
-        tmp_path = tmp.name
-
-    logger.info("Archivo temporal creado en: %s", tmp_path)
-
-    cap = None
-    data = []
-    flow_dict = defaultdict(list)
-
-    try:
-        cap = pyshark.FileCapture(tmp_path, keep_packets=False)
-
-        for i, pkt in enumerate(cap):
-            try:
-                time = float(pkt.sniff_time.timestamp()) if hasattr(pkt, 'sniff_time') else None
-                length = int(pkt.length) if hasattr(pkt, 'length') else None
-
-                src = pkt.ip.src if hasattr(pkt, 'ip') else None
-                dst = pkt.ip.dst if hasattr(pkt, 'ip') else None
-
-                proto = pkt.transport_layer or getattr(pkt, 'highest_layer', None)
-                proto_name = PROTOCOL_MAP.get(str(proto), str(proto)) if proto else 'UNKNOWN'
-
-                src_port = dst_port = -1
-
-                if pkt.transport_layer:
-                    try:
-                        layer = pkt[pkt.transport_layer]
-                        src_port = int(getattr(layer, 'srcport', -1)) if hasattr(layer, 'srcport') else -1
-                        dst_port = int(getattr(layer, 'dstport', -1)) if hasattr(layer, 'dstport') else -1
-                    except Exception as e:
-                        logger.warning("Error obteniendo puertos del paquete %d: %s", i + 1, str(e))
-
-                flags = pkt.tcp.flags if hasattr(pkt, 'tcp') and hasattr(pkt.tcp, 'flags') else None
-                ttl = int(pkt.ip.ttl) if hasattr(pkt, 'ip') and hasattr(pkt.ip, 'ttl') else None
-
-                flow_key = (src, src_port, dst, dst_port, proto_name)
-                flow_dict[flow_key].append({
-                    'time': time,
-                    'length': length,
-                    'ttl': ttl,
-                    'flags': flags
-                })
-
-            except Exception as e:
-                logger.warning("Error procesando paquete %d: %s", i + 1, str(e))
-                continue
-
-    except Exception as e:
-        logger.error("Error leyendo el archivo PCAP: %s", str(e))
-    finally:
-        if cap:
-            cap.close()
-            del cap
-        logger.info("Captura cerrada correctamente")
-
-    aggregated = []
-    for flow, packets in flow_dict.items():
-        times = [p['time'] for p in packets if p['time'] is not None]
-        lengths = [p['length'] for p in packets if p['length'] is not None]
-        ttls = [p['ttl'] for p in packets if p['ttl'] is not None]
-
-        aggregated.append({
-            'src': flow[0],
-            'src_port': flow[1],
-            'dst': flow[2],
-            'dst_port': flow[3],
-            'protocol': flow[4],
-            'packet_count': len(packets),
-            'total_bytes': sum(lengths),
-            'avg_packet_size': sum(lengths) / len(lengths) if lengths else 0,
-            'flow_duration': max(times) - min(times) if times else 0,
-            'avg_ttl': sum(ttls) / len(ttls) if ttls else None,
-        })
-
-    df = pd.DataFrame(aggregated)
-    df['src_port'] = df['src_port'].fillna(-1)
-    df['dst_port'] = df['dst_port'].fillna(-1)
-    df['protocol'] = df['protocol'].fillna('UNKNOWN').replace('', 'UNKNOWN')
-
-    df.to_csv("features_por_flujo.csv", index=False)
-    logger.info("DataFrame agregado: %s", df)
-    return df
-
-def extract_features_by_packet_from_pcap(file_obj):
-    logger.info("Extrayendo características a nivel de paquete")
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".pcap") as tmp:
-        tmp.write(file_obj.read())
-        tmp_path = tmp.name
-
-    cap = pyshark.FileCapture(tmp_path, keep_packets=False)
-    packets = []
-
-    try:
-        for i, pkt in enumerate(cap):
-            try:
-                time = float(pkt.sniff_time.timestamp())
-                length = int(pkt.length)
-                src = pkt.ip.src if hasattr(pkt, 'ip') else None
-                dst = pkt.ip.dst if hasattr(pkt, 'ip') else None
-                ttl = int(pkt.ip.ttl) if hasattr(pkt, 'ip') and hasattr(pkt.ip, 'ttl') else None
-                proto = pkt.transport_layer or getattr(pkt, 'highest_layer', None)
-                proto_name = PROTOCOL_MAP.get(str(proto), str(proto)) if proto else 'UNKNOWN'
-
-                src_port = dst_port = -1
-                if pkt.transport_layer:
-                    layer = pkt[pkt.transport_layer]
-                    src_port = int(getattr(layer, 'srcport', -1))
-                    dst_port = int(getattr(layer, 'dstport', -1))
-
-                packets.append({
-                    'time': time,
-                    'length': length,
-                    'src': src,
-                    'dst': dst,
-                    'src_port': src_port,
-                    'dst_port': dst_port,
-                    'protocol': proto_name,
-                    'ttl': ttl,
-                })
-            except Exception as e:
-                logger.warning("Error en paquete %d: %s", i + 1, str(e))
-    finally:
-        cap.close()
-        del cap
-
-    df = pd.DataFrame(packets)
-    df.to_csv("features_por_paquete.csv", index=False)
-    logger.info("DataFrame agregado: %s", df)
-
-    return df
-
-def ip_to_int(ip_str):
-    try:
-        return int(ipaddress.IPv4Address(ip_str))
-    except:
-        return 0
-    
-def int_to_ip(ip_int):
-    return socket.inet_ntoa(struct.pack("!I", int(ip_int)))
-    
-def extract_parameters(properties, params):
-    extracted = {}
-    custom_params = {} 
-
-    for prop in properties:
-        prop_name = prop["name"]
-        if prop_name in params:
-            value = params[prop_name]
-            
-            if isinstance(value, str):
-                if value.lower() == "none":
-                    extracted[prop_name] = None
-                elif value.lower() == "true":
-                    extracted[prop_name] = True
-                elif value.lower() == "false":
-                    extracted[prop_name] = False
-                else:
-                    try:
-                        extracted[prop_name] = int(value)
-                    except ValueError:
-                        try:
-                            extracted[prop_name] = float(value)
-                        except ValueError:
-                            extracted[prop_name] = value
-            else:
-                extracted[prop_name] = value
-
-            if prop.get("type") == "conditional-select" and value == "custom":
-                dependent_prop = next(
-                    (p for p in properties if p.get("conditional", {}).get("dependsOn") == prop_name),
-                    None
-                )
-                if dependent_prop and params.get(dependent_prop["name"]):
-                    custom_params[prop_name] = params[dependent_prop["name"]]
-
-    for main_param, custom_value in custom_params.items():
-        extracted[main_param] = int(custom_value)
-        dependent_prop_name = f"custom_{main_param}"
-        if dependent_prop_name in extracted:
-            del extracted[dependent_prop_name]
-
-    for prop in properties:
-        if "conditional" in prop:
-            depends_on = prop["conditional"].get("dependsOn")
-            
-            condition_values = prop["conditional"].get("values", [])
-            condition_value = prop["conditional"].get("value", None)
-
-            if depends_on and depends_on in extracted:
-                parent_value = extracted[depends_on]
-                
-                if condition_value:
-                    if parent_value != condition_value:
-                        extracted.pop(prop["name"], None)
-                elif condition_values:
-                    if parent_value not in condition_values:
-                        extracted.pop(prop["name"], None)
-
-    return extracted
-
-def calculate_classification_metrics(y_true, y_pred, metrics_config):
-    logger.info("Métricas: %s", metrics_config)
-    logger.info("y_true: %s", y_true)
-    logger.info("y_pred: %s", y_pred)
-    metrics = {}
-    if metrics_config.get("accuracy"):
-         metrics["accuracy"] = round(accuracy_score(y_true, y_pred), 2)
-    if metrics_config.get("precision"):
-        metrics["precision"] = round(precision_score(y_true, y_pred, average="weighted", zero_division=0), 2)
-    if metrics_config.get("recall"):
-        metrics["recall"] = round(recall_score(y_true, y_pred, average="weighted", zero_division=0), 2)
-    if metrics_config.get("f1Score"):
-        metrics["f1_score"] = round(f1_score(y_true, y_pred, average="weighted", zero_division=0), 2)
-    if metrics_config.get("confusionMatrix"):
-        metrics["confusion_matrix"] = confusion_matrix(y_true, y_pred).tolist()
-    return metrics
-
-def calculate_regression_metrics(y_true, y_pred):
-    metrics = {}
-    
-    metrics["mse"] = round(mean_squared_error(y_true, y_pred), 2)
-    
-    metrics["rmse"] = round(np.sqrt(metrics["mse"]), 2)
-    
-    metrics["mae"] = round(mean_absolute_error(y_true, y_pred), 2)
-    
-    metrics["r2"] = round(r2_score(y_true, y_pred), 2)
-    
-    metrics["msle"] = round(mean_squared_error(np.log1p(y_true), np.log1p(y_pred)), 2)
-
-    logger.info("metrics: %s", metrics)
-    
-    return metrics
-
-def save_classification_metrics(detector, model_name, metrics, execution):
-    ClassificationMetric.objects.create(
-        detector=detector,
-        execution=execution,
-        model_name=model_name,
-        accuracy=metrics.get("accuracy"),
-        precision=metrics.get("precision"),
-        recall=metrics.get("recall"),
-        f1_score=metrics.get("f1_score"),
-        confusion_matrix=json.dumps(metrics.get("confusion_matrix")),
-    )
-
-def save_regression_metrics(detector, model_name, metrics, execution):
-    logger.info("Guardando métricas de regresión")
-    RegressionMetric.objects.create(
-        detector=detector,
-        execution=execution,
-        model_name=model_name,
-        mse=metrics.get("mse"),
-        rmse=metrics.get("rmse"),
-        mae=metrics.get("mae"),
-        r2=metrics.get("r2"),
-        msle=metrics.get("msle"),
-    )
-
-def save_anomaly_metrics(detector, model_name, feature_name, feature_values, anomalies, execution, production, anomaly_details=None, global_shap_images=None, local_shap_images=None, global_lime_images=None, local_lime_images=None
-):
-    global_shap_images = global_shap_images or []
-    local_shap_images = local_shap_images or []
-    global_lime_images = global_lime_images or []
-    local_lime_images = local_lime_images or []
-
-    anomaly_payload = {
-        'values': feature_values.tolist() if not production else feature_values,
-        'anomaly_indices': anomalies
-    }
-
-    AnomalyMetric.objects.create(
-        detector=detector,
-        model_name=model_name,
-        feature_name=feature_name,
-        anomalies=anomaly_payload,
-        execution=execution,
-        production=production,
-        anomaly_details=anomaly_details,
-        global_shap_images=global_shap_images,
-        local_shap_images=local_shap_images,
-        global_lime_images=global_lime_images,
-        local_lime_images=local_lime_images
-    )
-
-
-def find_explainer_class(module_name, explainer_name):
-    try:
-        mod = importlib.import_module(module_name)
-        if hasattr(mod, explainer_name):
-            return getattr(mod, explainer_name)
-    except Exception:
-        pass
-
-    shap_submodules = [
-        f"{module_name}.explainers", 
-        f"{module_name}.explainers.tree",
-        f"{module_name}.explainers.kernel",
-        f"{module_name}.explainers.deep",
-        f"{module_name}.explainers.linear"
-    ]
-    
-    lime_submodules = [
-        f"{module_name}.lime_tabular",
-        "lime.lime_tabular"
-    ]
-
-    submodules = shap_submodules + lime_submodules
-
-    for sub in submodules:
-        try:
-            mod = importlib.import_module(sub)
-            if hasattr(mod, explainer_name):
-                return getattr(mod, explainer_name)
-        except Exception:
-            continue
-
-    raise ImportError(f"No se pudo encontrar {explainer_name} dentro de {module_name} ni en submódulos comunes")
-
-def save_shap_bar_global(
-    shap_values, scenario_uuid, model_name, class_names=None, label=None, selected_classes=None
-) -> str:
-    output_dir = os.path.join(settings.MEDIA_ROOT, "shap_global_images")
-    os.makedirs(output_dir, exist_ok=True)
-
-    try:
-        if class_names is not None:
-            if isinstance(class_names, np.ndarray):
-                class_names = class_names.tolist()
-            class_names = [str(c).replace(" ", "_").replace("/", "_") for c in class_names]
-
-        if len(shap_values.shape) == 3:
-            n_classes = shap_values.shape[2]
-            paths = []
-
-            for class_idx in range(n_classes):
-                class_label = (
-                    class_names[class_idx] if class_names and class_idx < len(class_names)
-                    else f"class_{class_idx}"
-                )
-
-                if selected_classes and class_label not in selected_classes:
-                    continue
-
-                try:
-                    plt.figure()
-                    shap.plots.bar(shap_values[:, :, class_idx], show=False)
-
-                    output_filename = f"global_shap_{scenario_uuid}_{model_name}_{class_label}.png"
-                    output_path = os.path.join(output_dir, output_filename)
-
-                    plt.tight_layout()
-                    plt.savefig(output_path, bbox_inches='tight')
-                    plt.close()
-
-                    logger.info(f"[SHAP GLOBAL] Gráfica guardada: {output_path}")
-                    paths.append(f"shap_global_images/{output_filename}")
-                except Exception as e:
-                    logger.warning(f"[SHAP GLOBAL] Fallo al guardar para clase {class_label}: {e}")
-
-            return paths if paths else ""
-
-        else:
-            plt.figure()
-            shap.plots.bar(shap_values, show=False)
-
-            suffix = f"_{label}" if label else ""
-            output_filename = f"global_shap_{scenario_uuid}{suffix}.png"
-            output_path = os.path.join(output_dir, output_filename)
-
-            plt.tight_layout()
-            plt.savefig(output_path, bbox_inches='tight')
-            plt.close()
-
-            logger.info(f"[SHAP GLOBAL] Gráfica guardada: {output_path}")
-            return f"shap_global_images/{output_filename}"
-
-    except Exception as e:
-        logger.warning(f"[SHAP GLOBAL] Error al guardar gráfica: {e}")
-        return ""
-
-    
-def save_lime_bar_global(mean_weights: dict, scenario_uuid: str) -> str:
-    output_dir = os.path.join(settings.MEDIA_ROOT, "lime_global_images")
-    os.makedirs(output_dir, exist_ok=True)
-
-    try:
-        features, values = zip(*sorted(mean_weights.items(), key=lambda x: x[1], reverse=True))
-
-        plt.figure(figsize=(10, 6))
-        plt.barh(features[::-1], values[::-1])
-        plt.xlabel("Mean absolute weight (LIME)")
-        plt.title("Global LIME Feature Importance")
-        plt.tight_layout()
-
-        output_filename = f"global_lime_{scenario_uuid}.png"
-        output_path = os.path.join(output_dir, output_filename)
-        plt.savefig(output_path, bbox_inches="tight")
-        plt.close()
-
-        logger.info(f"[LIME GLOBAL] Gráfica guardada en: {output_path}")
-        return f"lime_global_images/{output_filename}"
-
-    except Exception as e:
-        logger.warning(f"[LIME GLOBAL] Error al guardar gráfica: {e}")
-        return ""
-    
-def save_lime_bar_local(exp, scenario_uuid: str, anomaly_index: int) -> str:
-    output_dir = os.path.join(settings.MEDIA_ROOT, "lime_local_images")
-    os.makedirs(output_dir, exist_ok=True)
-
-    try:
-        contribs = sorted(exp.as_list(), key=lambda x: abs(x[1]), reverse=True)
-        features, values = zip(*contribs)
-
-        features = features[::-1]
-        values = values[::-1]
-
-        feature_labels = [f"{cond}" for cond in features]
-
-        plt.figure(figsize=(8, 6))
-        colors = ["#FF0051" if v > 0 else "#1E88E5" for v in values]
-        bars = plt.barh(range(len(values)), values, color=colors)
-        plt.yticks(range(len(features)), feature_labels)
-        plt.axvline(0, color="black", linewidth=0.5, linestyle="--")
-        plt.xlabel("LIME value")
-        plt.title("Local explanation (LIME)")
-
-        for i, (bar, value) in enumerate(zip(bars, values)):
-            offset = 0.001 * (1 if value > 0 else -1)
-            plt.text(
-                bar.get_width() + offset,
-                bar.get_y() + bar.get_height() / 2,
-                f"{value:+.2f}",
-                va="center",
-                ha="left" if value > 0 else "right",
-                fontsize=9,
-                color=colors[i]
-            )
-
-        plt.tight_layout()
-
-        output_filename = f"lime_local_{scenario_uuid}_{anomaly_index}.png"
-        output_path = os.path.join(output_dir, output_filename)
-        plt.savefig(output_path, bbox_inches="tight")
-        plt.close()
-        logger.info(f"[LIME LOCAL] Gráfica tipo SHAP guardada en: {output_path}")
-        return f"lime_local_images/{output_filename}"
-
-    except Exception as e:
-        logger.warning(f"[LIME LOCAL] Error al guardar gráfica estilo SHAP: {e}")
-        return ""
-
-
-    
-def save_shap_bar_local(shap_values, scenario_uuid, index) -> str:
-    output_dir = os.path.join(settings.MEDIA_ROOT, "shap_local_images")
-    os.makedirs(output_dir, exist_ok=True)
-
-    try:
-        plt.figure()
-        shap.plots.bar(shap_values, show=False)
-        output_filename = f"local_shap_{scenario_uuid}_{index}.png"
-        output_path = os.path.join(output_dir, output_filename)
-        plt.tight_layout()
-        plt.savefig(output_path, bbox_inches='tight')
-        plt.close()
-        logger.info(f"[SHAP GLOBAL] Gráfica guardada en: {output_path}")
-        return f"shap_local_images/{output_filename}"
-    except Exception as e:
-        logger.warning(f"[SHAP GLOBAL] Error al guardar gráfica: {e}")
-        return ""
-
-def save_anomaly_information(info: dict, uuid: str, index: int, protocol: str) -> str:
-    info["protocol"] = protocol
-    info["src_port"] = int(info["src_port"])
-    info["dst_port"] = int(info["dst_port"])
-
-    logger.info("[IMAGEN] Generando imagen de anomalía con la información: %s", info)
-
-    plt.figure(figsize=(6, 4))
-    plt.axis("off")
-    texto = "\n".join([f"{k}: {v}" for k, v in info.items()])
-    plt.text(0, 0.9, texto, fontsize=10, va='top')
-    path = os.path.join(settings.MEDIA_ROOT, "anomaly_images", f"anomaly_{uuid}_{index}.png")
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    plt.savefig(path, bbox_inches="tight")
-    plt.close()
-    return f"anomaly_images/anomaly_{uuid}_{index}.png"
-
-
-def get_next_anomaly_index(detector):
-    return AnomalyMetric.objects.filter(detector=detector, production=True).count()
-
-def put_data_controller(request):
-    controller = DataController(name='Example Controller')
-    controller.put_data() 
-    return JsonResponse({'message': 'Data has been put successfully'})
-
-def sync_data_controller(request):
-    controller = DataController(name='Example Controller')
-    controller.sync_data()
-    return JsonResponse({'message': 'Data has been synchronized'})
-
-def set_aggregation_technique(request, technique):
-    controller = DataController(name='Example Controller')
-    controller.set_aggregation_technique(technique)
-    return JsonResponse({'message': f'Aggregation technique {technique} has been set'})
-
-def set_filtering_strategy_controller(request, strategy):
-    controller = DataController(name='Example Controller')
-    controller.set_filtering_strategy(strategy)
-    return JsonResponse({'message': f'Filtering strategy {strategy} has been set'})
-
-
-# View for DataReceiver
-def put_data_receiver(request):
-    receiver = DataReceiver(name='Example Receiver')
-    data = request.POST.get('data', '')
-    receiver.put_data(data)
-    return JsonResponse({'message': 'Data received by DataReceiver'})
-
-def validate_data_receiver(request):
-    receiver = DataReceiver(name='Example Receiver')
-    data = request.POST.get('data', '')
-    receiver.validate_data(data)
-    return JsonResponse({'message': 'Data validated by DataReceiver'})
-
-
-# View for DataFilter
-def set_filtering_strategy_filter(request, strategy):
-    data_filter = DataFilter(name='Example Filter')
-    data_filter.set_filtering_strategy(strategy)
-    return JsonResponse({'message': f'Filtering strategy {strategy} has been set by DataFilter'})
-
-def filter_data(request):
-    data_filter = DataFilter(name='Example Filter')
-    data = request.POST.get('data', '')
-    data_filter.filter_data(data)
-    return JsonResponse({'message': 'Data has been filtered'})
-
-
-# View for DataStorage
-def serialize_data(request):
-    storage = DataStorage(name='Example Storage')
-    data = request.POST.get('data', '')
-    storage.serialize_data(data)
-    return JsonResponse({'message': 'Data has been serialized'})
-
-def store_data(request):
-    storage = DataStorage(name='Example Storage')
-    data = request.POST.get('data', '')
-    storage.store_data(data)
-    return JsonResponse({'message': 'Data has been stored'})
-
-def get_available_space(request):
-    storage = DataStorage(name='Example Storage')
-    storage.get_available_space()
-    return JsonResponse({'message': 'Available space retrieved'})
-
-
-# View for para DataMixer
-def set_aggregation_technique_mixer(request, technique):
-    mixer = DataMixer(name='Example Mixer')
-    mixer.set_aggregation_technique(technique)
-    return JsonResponse({'message': f'Aggregation technique {technique} has been set by DataMixer'})
-
-def check_for_data_to_aggregate(request):
-    mixer = DataMixer(name='Example Mixer')
-    mixer.check_for_data_to_aggregate()
-    return JsonResponse({'message': 'Checked for data to aggregate'})
-
-def aggregate_data(request):
-    mixer = DataMixer(name='Example Mixer')
-    data_list = request.POST.getlist('data')
-    mixer.aggregate_data(data_list)
-    return JsonResponse({'message': 'Data has been aggregated'})
-
-
-# View for para DataSync
-def check_sync_status(request):
-    sync = DataSync(name='Example Sync')
-    sync.check_sync_status()
-    return JsonResponse({'message': 'Sync status checked'})
-
-def sync_data_sync(request):
-    sync = DataSync(name='Example Sync')
-    sync.sync()
-    return JsonResponse({'message': 'Data has been synchronized'})
-
-def verify_sync_data(request):
-    sync = DataSync(name='Example Sync')
-    sync.verify_sync_data()
-    return JsonResponse({'message': 'Sync data verified'})
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 @parser_classes([MultiPartParser])
 def create_scenario(request):
+    """
+    Creates a new scenario by uploading one or more CSV or PCAP files.
+
+    Expects (multipart/form-data):
+        - csv_files: List of CSV files.
+        - network_files: List of PCAP files.
+        - Additional scenario metadata fields (e.g., name, description, etc.) as part of the form data.
+
+    Behavior:
+        - Parses the form data and associates the scenario with the authenticated user.
+        - For each CSV file:
+            - If it already exists in the database (by name), increments reference count.
+            - If new, counts its entries, stores its content, and saves it.
+        - For each PCAP file:
+            - If it already exists in the database (by name), increments reference count.
+            - If new, stores its binary content and saves it.
+        - Links all uploaded files to the created scenario.
+
+    Returns:
+        - 201 Created with the serialized scenario if successful.
+        - 400 Bad Request if files are missing or errors occur in processing or serialization.
+    """
+
+    # Get the user from the request
     user = request.user  
+
+    # Parse the request data and prepare the scenario data
     data = request.data.dict()
     data['user'] = user.id  
 
-    logger.info(request.data)
+    logger.info(f"[CREATE SCENARIO] Request data: {request.data}")
 
+    # Get the uploaded files from the request
     csv_files = request.FILES.getlist('csv_files')
-    logger.info("CSV files received: %s", [f.name for f in csv_files])
     network_files = request.FILES.getlist('network_files')
 
+    logger.info(f"[CREATE SCENARIO] CSV files received: {[f.name for f in csv_files]}")
+    logger.info(f"[CREATE SCENARIO] PCAP files received: {[f.name for f in network_files]}")
+
+    # Check if at least one CSV or PCAP file is provided
     if not csv_files and not network_files:
+        # Return an error response if no files are provided
         return JsonResponse({"error": "At least one CSV or PCAP file is required."}, status=status.HTTP_400_BAD_REQUEST)
 
     saved_files = []
 
     try:
+        # Process CSV files
         for csv_file in csv_files:
+
+            # Check if the file already exists in the database
             existing_file = File.objects.filter(name=csv_file.name).first()
+
+            # If it exists, increment the reference count
             if existing_file:
                 existing_file.references += 1
                 existing_file.save()
                 saved_files.append(existing_file)
+                logger.info(f"[CREATE SCENARIO] Existing CSV file found: {csv_file.name} (references updated to {existing_file.references})")
+            
+            # If it does not exist, read the content, count entries, and save it
             else:
                 csv_content = csv_file.read().decode('utf-8')
                 csv_reader = csv.reader(StringIO(csv_content))
@@ -879,13 +108,22 @@ def create_scenario(request):
                     references=1
                 )
                 saved_files.append(new_file)
+                logger.info(f"[CREATE SCENARIO] New CSV file saved: {csv_file.name} (entries: {entry_count})")
 
+        # Process PCAP files
         for network_file in network_files:
+
+            # Check if the file already exists in the database
             existing_file = File.objects.filter(name=network_file.name).first()
+
+            # If it exists, increment the reference count
             if existing_file:
                 existing_file.references += 1
                 existing_file.save()
                 saved_files.append(existing_file)
+                logger.info(f"[CREATE SCENARIO] Existing PCAP file found: {network_file.name} (references updated to {existing_file.references})")
+            
+            # If it does not exist, read the content and save it
             else:
                 network_content = network_file.read()
                 new_file = File.objects.create(
@@ -896,52 +134,116 @@ def create_scenario(request):
                     references=1
                 )
                 saved_files.append(new_file)
+                logger.info(f"[CREATE SCENARIO] New PCAP file saved: {network_file.name}")
 
     except Exception as e:
+        # Return an error response if there is an issue processing the files
         return JsonResponse({"error": f"Error while processing the files: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
 
+    # Prepare the scenario data with the uploaded files
     serializer = ScenarioSerializer(data=data)
+
+    # If the serializer is valid, save the scenario and associate it with the user and files
     if serializer.is_valid():
         user.number_designs_created += 1
         user.save()
         scenario_instance = serializer.save(user=user)
         scenario_instance.files.set(saved_files)
+
+        # Return a success response with the serialized scenario data
         return JsonResponse(ScenarioSerializer(scenario_instance).data, status=status.HTTP_201_CREATED)
 
+    # Return an error response if the serializer is not valid
     return JsonResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_scenarios_by_user(request):
+    """
+    Retrieves all scenarios created by the authenticated user.
+
+    Returns:
+        - 200 OK with a list of serialized scenarios if any exist.
+        - Always returns an empty list if no scenarios exist for the user.
+    """
+
+    # Get the user from the request
     user = request.user  
 
+    # Fetch all scenarios associated with the user
     scenarios = Scenario.objects.filter(user=user.id)
 
+    # If no scenarios are found, return an empty list
     serializer = ScenarioSerializer(scenarios, many=True)
     
+    # Return the serialized scenarios as a JSON response
     return JsonResponse(serializer.data, safe=False, status=status.HTTP_200_OK)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_scenario_by_uuid(request, uuid):
+    """
+    Retrieves a specific scenario by UUID for the authenticated user.
+
+    Args:
+        uuid (str): UUID of the scenario to retrieve.
+
+    Returns:
+        - 200 OK with serialized scenario if found.
+        - 404 Not Found if the scenario does not exist or is not owned by the user.
+    """
+
+    # Get the user from the request
     user = request.user 
 
     try:
+        # Fetch the scenario by UUID and user ID
         scenario = Scenario.objects.get(uuid=uuid, user=user.id)
+
+        # Serialize the scenario data
         serializer = ScenarioSerializer(scenario)  
+
+        # Return the serialized data as a JSON response
         return JsonResponse(serializer.data, safe=False, status=status.HTTP_200_OK) 
+    
     except Scenario.DoesNotExist:
+
+        # Return 404 if the scenario does not exist or the user does not have permission to access it
         return JsonResponse({'error': 'Scenario not found or you do not have permission to access it'}, status=status.HTTP_404_NOT_FOUND)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_scenario_classification_metrics_by_uuid(request, uuid):
+    """
+    Retrieves all classification metrics for a given scenario UUID.
+
+    Args:
+        uuid (str): UUID of the scenario.
+
+    Behavior:
+        - Fetches the Scenario instance by UUID.
+        - Finds the associated AnomalyDetector instance.
+        - Retrieves all ClassificationMetric entries related to that detector, ordered by date descending.
+        - Ensures that SHAP/LIME image fields are returned as lists (even if stored as single strings).
+
+    Returns:
+        - 200 OK with a list of metrics and associated explanation images.
+        - 404 Not Found if scenario or detector is missing.
+        - 500 Internal Server Error for any other exception.
+    """
+
     try:
+
+        # Fetch the scenario by UUID
         scenario = Scenario.objects.get(uuid=uuid)
+
+        # Fetch the associated anomaly detector
         detector = AnomalyDetector.objects.get(scenario=scenario)
+
+        # Retrieve all classification metrics for the detector, ordered by date
         metrics = ClassificationMetric.objects.filter(detector=detector).order_by('-date')
 
+        # Prepare the metrics data for the response
         metrics_data = [
             {
                 "model_name": metric.model_name,
@@ -964,22 +266,53 @@ def get_scenario_classification_metrics_by_uuid(request, uuid):
             for metric in metrics
         ]
 
+        # Return the metrics data as a JSON response
         return JsonResponse({"metrics": metrics_data}, safe=False)
+    
+    # Return error if scenario is not found
     except Scenario.DoesNotExist:
         return JsonResponse({"error": "Scenario not found"}, status=404)
+    
+    # Return error if anomaly detector is not found
     except AnomalyDetector.DoesNotExist:
         return JsonResponse({"error": "Anomaly detector not found"}, status=404)
+    
+    # Return error for any other exceptions
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
     
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_scenario_regression_metrics_by_uuid(request, uuid):
+    """
+    Retrieves all regression metrics for a given scenario UUID.
+
+    Args:
+        uuid (str): UUID of the scenario.
+
+    Behavior:
+        - Looks up the Scenario instance by UUID.
+        - Retrieves the associated AnomalyDetector instance.
+        - Filters RegressionMetric entries by detector, ordered by date descending.
+        - Normalizes SHAP and LIME global image fields to always be lists.
+
+    Returns:
+        - 200 OK with list of regression metrics.
+        - 404 Not Found if the scenario or detector does not exist.
+        - 500 Internal Server Error for unexpected issues.
+    """
+
     try:
+        # Fetch the scenario by UUID
         scenario = Scenario.objects.get(uuid=uuid)
+
+        # Fetch the associated anomaly detector
         detector = AnomalyDetector.objects.get(scenario=scenario)
+
+        # Retrieve all regression metrics for the detector, ordered by date
         metrics = RegressionMetric.objects.filter(detector=detector).order_by('-date')
 
+        # Prepare the metrics data for the response
         metrics_data = [
             {
                 "model_name": metric.model_name,
@@ -1002,24 +335,55 @@ def get_scenario_regression_metrics_by_uuid(request, uuid):
             for metric in metrics
         ]
 
+        # Return the metrics data as a JSON response
         return JsonResponse({"metrics": metrics_data}, safe=False)
+    
+    # Return error if scenario is not found
     except Scenario.DoesNotExist:
         return JsonResponse({"error": "Scenario not found"}, status=404)
+    
+    # Return error if anomaly detector is not found
     except AnomalyDetector.DoesNotExist:
         return JsonResponse({"error": "Anomaly detector not found"}, status=404)
+    
+    # Return error for any other exceptions
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
     
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_scenario_anomaly_metrics_by_uuid(request, uuid):
+    """
+    Retrieves all non-production anomaly detection metrics for a given scenario UUID.
+
+    Args:
+        uuid (str): UUID of the scenario.
+
+    Behavior:
+        - Finds the associated scenario and anomaly detector.
+        - Filters anomaly metrics that are not from production mode, ordered by date descending.
+        - Parses the anomalies field (stored as JSON string or list).
+        - Ensures SHAP and LIME global images are returned as lists.
+
+    Returns:
+        - 200 OK with metrics list if found.
+        - 500 Internal Server Error on unexpected failure.
+    """
+
     try:
+        # Fetch the scenario by UUID
         scenario = Scenario.objects.get(uuid=uuid)
+
+        # Fetch the associated anomaly detector
         detector = AnomalyDetector.objects.get(scenario=scenario)
+
+        # Retrieve all anomaly metrics for the detector that are not in production mode, ordered by date
         metrics = AnomalyMetric.objects.filter(detector=detector, production=False).order_by('-date')
 
+        # Prepare the metrics data for the response
         metrics_data = []
         for metric in metrics:
+            # Attempt to parse anomalies field, fallback to raw value if parsing fails
             try:
                 anomalies = json.loads(metric.anomalies)
             except:
@@ -1042,21 +406,48 @@ def get_scenario_anomaly_metrics_by_uuid(request, uuid):
                 )
             })
 
-
+        # Return the metrics data as a JSON response
         return JsonResponse({"metrics": metrics_data}, safe=False)
+    
+    # Return error if scenario or anomaly detector or metrics are not found
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
     
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_scenario_production_anomaly_metrics_by_uuid(request, uuid):
+    """
+    Retrieves all production anomaly detection metrics for a given scenario UUID.
+
+    Args:
+        uuid (str): UUID of the scenario.
+
+    Behavior:
+        - Finds the associated scenario and anomaly detector.
+        - Filters anomaly metrics marked as production=True, ordered by date descending.
+        - Parses anomalies field (stored as JSON or plain text).
+        - Returns full explanation image paths for SHAP and LIME (global + local), and anomaly details if available.
+
+    Returns:
+        - 200 OK with metrics list.
+        - 500 Internal Server Error on unexpected failure.
+    """
+
     try:
+
+        # Fetch the scenario by UUID
         scenario = Scenario.objects.get(uuid=uuid)
+
+        # Fetch the associated anomaly detector
         detector = AnomalyDetector.objects.get(scenario=scenario)
+
+        # Retrieve all anomaly metrics for the detector that are in production mode, ordered by date
         metrics = AnomalyMetric.objects.filter(detector=detector, production=True).order_by('-date')
 
+        # Prepare the metrics data for the response
         metrics_data = []
         for metric in metrics:
+            # Attempt to parse anomalies field, fallback to raw value if parsing fails
             try:
                 anomalies = json.loads(metric.anomalies)
             except:
@@ -1078,7 +469,10 @@ def get_scenario_production_anomaly_metrics_by_uuid(request, uuid):
                     "local_lime_images": metric.local_lime_images or []
                 })
 
+        # Return the metrics data as a JSON response
         return JsonResponse({"metrics": metrics_data}, safe=False)
+    
+    # Return error if scenario or anomaly detector or metrics are not found
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
@@ -1086,26 +480,55 @@ def get_scenario_production_anomaly_metrics_by_uuid(request, uuid):
 @permission_classes([IsAuthenticated])
 @parser_classes([MultiPartParser])
 def put_scenario_by_uuid(request, uuid):
+
+    """
+    Updates an existing scenario by UUID. Accepts a new design and optionally new CSV or PCAP files.
+
+    Args:
+        uuid (str): UUID of the scenario to update.
+
+    Behavior:
+        - Validates the design JSON sent in the form data.
+        - Updates references for newly uploaded or existing files.
+        - Removes unused files and decrements their references.
+        - Updates the scenario's design and associated files.
+
+    Returns:
+        - 200 OK if scenario updated successfully.
+        - 400 Bad Request if design is missing or invalid, or serializer fails.
+        - 404 Not Found if the scenario does not exist.
+    """
+
+    # Get the user from the request
     user = request.user
 
     try:
+        # Fetch the scenario by UUID and user
         scenario = Scenario.objects.get(uuid=uuid, user=user)
 
+        # Get the design JSON and file uploads from the request
         design_json = request.POST.get('design')
         csv_files = request.FILES.getlist('csv_files')
         network_files = request.FILES.getlist('network_files')
 
+        # Return error if design field is missing
         if not design_json:
             return JsonResponse({'error': 'Design field is required'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
+            # Parse the design JSON
             design = json.loads(design_json)
+
+        # Return error if design JSON is invalid
         except json.JSONDecodeError:
             return JsonResponse({'error': 'Invalid design JSON'}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Get the design from the scenario in the database
         scenario.design = design
 
+        # Validate the design structure
         referenced_file_names = set()
+
         for element in design.get("elements", []):
             if element.get("type") == "CSV":
                 csv_name = element.get("parameters", {}).get("csvFileName")
@@ -1116,16 +539,24 @@ def put_scenario_by_uuid(request, uuid):
                 if net_name:
                     referenced_file_names.add(net_name)
 
+        # Fetch all referenced files from the database
         referenced_files = list(File.objects.filter(name__in=referenced_file_names))
 
         updated_files = []
 
+        # Process the uploaded CSV files 
         for csv_file in csv_files:
+            # Check if the file already exists in the database
             existing = File.objects.filter(name=csv_file.name).first()
+
+            # If it exists, increment the reference count
             if existing:
                 existing.references += 1
                 existing.save()
                 updated_files.append(existing)
+                logger.info(f"[UPDATE SCENARIO] Existing CSV file found: {csv_file.name} (references updated to {existing.references})")
+
+            # If it does not exist, read the content, count entries, and save it
             else:
                 csv_content = csv_file.read().decode('utf-8')
                 csv_reader = csv.reader(StringIO(csv_content))
@@ -1139,13 +570,22 @@ def put_scenario_by_uuid(request, uuid):
                     references=1
                 )
                 updated_files.append(new_file)
+                logger.info(f"[UPDATE SCENARIO] New CSV file saved: {csv_file.name} (entries: {entry_count})")
 
+        # Process the uploaded PCAP files
         for network_file in network_files:
+
+            # Check if the file already exists in the database
             existing = File.objects.filter(name=network_file.name).first()
+
+            # If it exists, increment the reference count
             if existing:
                 existing.references += 1
                 existing.save()
                 updated_files.append(existing)
+                logger.info(f"[UPDATE SCENARIO] Existing PCAP file found: {network_file.name} (references updated to {existing.references})")
+
+            # If it does not exist, read the content and save it
             else:
                 network_content = network_file.read()
                 new_file = File.objects.create(
@@ -1156,9 +596,12 @@ def put_scenario_by_uuid(request, uuid):
                     references=1
                 )
                 updated_files.append(new_file)
+                logger.info(f"[UPDATE SCENARIO] New PCAP file saved: {network_file.name}")
 
+        # Combine referenced files and updated files
         all_files_to_keep = {f.name: f for f in referenced_files + updated_files}
 
+        # Remove files that are no longer referenced in the scenarios in the database
         current_files = list(scenario.files.all())
         for old_file in current_files:
             if old_file.name not in all_files_to_keep:
@@ -1173,45 +616,76 @@ def put_scenario_by_uuid(request, uuid):
 
         scenario.files.set(all_files_to_keep.values())
 
+        # Serialize the updated scenario with the new design
         serializer = ScenarioSerializer(instance=scenario, data={'design': design}, partial=True)
+
+        # If the serializer is valid, save the scenario and return success response
         if serializer.is_valid():
             serializer.save(user=user)
             return JsonResponse({'message': 'Scenario updated correctly'}, status=status.HTTP_200_OK)
+        
+        # If the serializer is not valid, return error response with serializer errors
         else:
-            logger.error("Serializer errors: %s", serializer.errors)
             return JsonResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    # Return error if the scenario does not exist or the user does not have permission to update it
     except Scenario.DoesNotExist:
         return JsonResponse({'error': 'Scenario not found'}, status=status.HTTP_404_NOT_FOUND)
 
 
-
-
-import fnmatch
-
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
 def delete_scenario_by_uuid(request, uuid):
+
+    """
+    Deletes a scenario by UUID along with:
+        - Associated files (if no longer referenced).
+        - Linked anomaly detector and classification metrics.
+        - Related SHAP/LIME/model files from disk.
+
+    Args:
+        uuid (str): UUID of the scenario to delete.
+
+    Returns:
+        - 200 OK if deletion is successful.
+        - 404 Not Found if the scenario does not exist or is not owned by the user.
+    """
+
+    # Get the user from the request
     user = request.user
 
     try:
+        # Fetch the scenario by UUID and user
         scenario = Scenario.objects.get(uuid=uuid, user=user.id)
 
+        # Delete the scenario's files. If a file's reference count reaches zero, delete it from disk.
         for file_instance in scenario.files.all():
             file_instance.references -= 1
             if file_instance.references <= 0:
                 file_path = os.path.join(settings.MEDIA_ROOT, file_instance.content.name)
                 if os.path.exists(file_path):
                     os.remove(file_path)
+                    logger.info(f"[DELETE SCENARIO] Deleted file from disk: {file_path}")
                 file_instance.delete()
+                logger.info(f"[DELETE SCENARIO] File record deleted from DB: {file_instance.name}")
             else:
                 file_instance.save()
+                logger.info(f"[DELETE SCENARIO] Decremented reference for file: {file_instance.name}")
 
+        # Find the anomaly detector associated with the scenario
         anomaly_detector = AnomalyDetector.objects.filter(scenario=scenario).first()
+
+        # If an anomaly detector exists, delete its metrics and the detector itself
         if anomaly_detector:
             ClassificationMetric.objects.filter(detector=anomaly_detector).delete()
-            anomaly_detector.delete()
+            RegressionMetric.objects.filter(detector=anomaly_detector).delete()
+            AnomalyMetric.objects.filter(detector=anomaly_detector).delete()
+            logger.info(f"[DELETE SCENARIO] Deleted metrics for detector ID: {anomaly_detector.id}")
 
+            anomaly_detector.delete()
+            logger.info(f"[DELETE SCENARIO] Deleted anomaly detector for scenario UUID: {scenario.uuid}")
+
+        # Folders to clean related to the scenario
         folders_to_clean = [
             'models_storage',
             'shap_global_images',
@@ -1222,6 +696,7 @@ def delete_scenario_by_uuid(request, uuid):
 
         scenario_uuid = str(scenario.uuid)
 
+        # Clean up files in the specified folders that match the scenario UUID
         for folder in folders_to_clean:
             folder_path = os.path.join(settings.MEDIA_ROOT, folder)
             if not os.path.exists(folder_path):
@@ -1229,69 +704,123 @@ def delete_scenario_by_uuid(request, uuid):
             for filename in os.listdir(folder_path):
                 if scenario_uuid in filename:
                     file_to_delete = os.path.join(folder_path, filename)
-                    logger.info(f"Eliminando archivo: {file_to_delete}")
+                    logger.info(f"Deleting file: {file_to_delete}")
                     try:
                         os.remove(file_to_delete)
                     except Exception as e:
-                        logger.warning(f"No se pudo eliminar {file_to_delete}: {str(e)}")
+                        logger.warning(f"Can't be deleted {file_to_delete}: {str(e)}")
 
+        # Finally, delete the scenario itself
         scenario.delete()
+        logger.info(f"[DELETE SCENARIO] Scenario deleted successfully: {scenario.name} (UUID: {uuid})")
 
+        # Return success response
         return JsonResponse({'message': 'Scenario and related data deleted successfully'}, status=status.HTTP_200_OK)
 
+    # Return error if the scenario does not exist or the user does not have permission to delete it
     except Scenario.DoesNotExist:
         return JsonResponse({'error': 'Scenario not found or you do not have permission to delete it'}, status=status.HTTP_404_NOT_FOUND)
 
 @api_view(['PATCH'])
 @permission_classes([IsAuthenticated])
 def run_scenario_by_uuid(request, uuid):
+
+    """
+    Executes a scenario by UUID for the authenticated user.
+
+    Behavior:
+        - Marks the scenario as "Running".
+        - Creates or reuses the associated AnomalyDetector.
+        - Parses and executes the scenario design using execute_scenario().
+        - Updates the scenario's status to "Finished" or "Error" depending on execution.
+        - Increments the user's executed scenario counter on success.
+
+    Returns:
+        - 200 OK if execution completes successfully.
+        - 400 Bad Request if an error occurred during execution.
+        - 404 Not Found if the scenario does not exist or does not belong to the user.
+    """
+
+    # Get the user from the request
     user = request.user  
 
     try:
+        # Fetch the scenario by UUID and user
         scenario = Scenario.objects.get(uuid=uuid, user=user)
 
+        # Set the scenario status to "Running"
         scenario.status = "Running"
+
+        # Save the scenario to update its status
         scenario.save()
 
+        logger.info(f"[RUN SCENARIO] Scenario status updated to 'Running'")
+
+        # Create or get the anomaly detector for this scenario
         anomaly_detector, created = AnomalyDetector.objects.get_or_create(scenario=scenario)
 
+        if created:
+            logger.info(f"[RUN SCENARIO] Created new AnomalyDetector for scenario: {scenario.name}")
+        else:
+            logger.info(f"[RUN SCENARIO] Using existing AnomalyDetector for scenario: {scenario.name}")
+
+        # Retrieve the design from the scenario and parse it
         design = scenario.design
         if isinstance(design, str):  
             design = json.loads(design)
 
+        # Execute the scenario using the execute_scenario function
         result = execute_scenario(anomaly_detector, scenario, design)
 
+        # Return error response if the execution result indicates an error
         if result.get('error'):
             scenario.status = "Error"
             scenario.save()
+
+            logger.warning(f"[RUN SCENARIO] Scenario execution failed: {result['error']}")
             return JsonResponse(result, status=status.HTTP_400_BAD_REQUEST)
 
+        # If execution was successful, update the scenario status and increment user's executed scenarios
         scenario.status = 'Finished'
         scenario.save()
         user.number_executed_scenarios += 1
         user.save()
+        logger.info(f"[RUN SCENARIO] Scenario execution finished successfully.")
 
+        # Return success response
         return JsonResponse({
             'message': 'Scenario run successfully'
         }, status=status.HTTP_200_OK)
 
+    # Return error if the scenario does not exist or the user does not have permission to run it
     except Scenario.DoesNotExist:
         return JsonResponse({'error': 'Scenario not found or without permits to run it'}, status=status.HTTP_404_NOT_FOUND)
 
 @shared_task
 def execute_scenario(anomaly_detector, scenario, design):
     try:
+
+        logger.info(f"[EXECUTE SCENARIO] Starting execution for scenario: {scenario.name} (UUID: {scenario.uuid})")
+
+        # Increment the execution count for the anomaly detector
         anomaly_detector.execution += 1
         anomaly_detector.save()
+
+        # Load the configuration for the scenario
         config = load_config()
         element_types = {}
-        splitter = False
-        code_processing = False
-        code_splitter = False
+
+        # Get the execution mode from environment variable
         execution_mode_env = os.getenv("EXECUTION_MODE", "").strip().lower()
 
+        logger.info(f"[EXECUTE SCENARIO] Execution mode environment: {execution_mode_env}")
+
+        # Validate the design structure
         validate_design(config, design)
+
+        logger.info(f"[EXECUTE SCENARIO] Design validated successfully for scenario: {scenario.name} (UUID: {scenario.uuid})")
         
+        # Build the element types from the configuration
         for section_name, section in config["sections"].items():
             if section_name == "dataModel":
                 for model in section.get("classification", []):
@@ -1316,10 +845,11 @@ def execute_scenario(anomaly_detector, scenario, design):
         regression_types = [el["type"] for el in config["sections"]["dataModel"]["regression"]]
         anomaly_types = [el["type"] for el in config["sections"]["dataModel"]["anomalyDetection"]]
 
-
+        # Get the elements and connections from the design
         elements = {e["id"]: e for e in design["elements"]}
         connections = design["connections"]
         
+        # Sort the elements topologically based on their connections
         adj = defaultdict(list)
         in_degree = defaultdict(int)
         for conn in connections:
@@ -1338,15 +868,18 @@ def execute_scenario(anomaly_detector, scenario, design):
                 if in_degree[neighbor] == 0:
                     queue.append(neighbor)
 
-        logger.info("Orden topológico de los elementos: %s", sorted_order)
+        logger.info(f"[EXECUTE SCENARIO] Sorted elements in topological order: {sorted_order}")
         
         data_storage = {} 
         models = {}
 
+        # Process each element in the sorted order
         for element_id in sorted_order:
             element = elements[element_id]
             el_type = element["type"]
-            logger.info("Procesando elemento %s", el_type)
+            logger.info(f"[EXECUTE SCENARIO] Processing element: {el_type} (ID: {element_id})")
+
+            # Get the parameters for the element, defaulting to an empty dict if not present
             params = copy.deepcopy(element.get("parameters", {}))
             
             input_data = None
@@ -1356,80 +889,115 @@ def execute_scenario(anomaly_detector, scenario, design):
                     input_data = data_storage.get(predecessor_id)
                     break 
 
+            # Case element type is CSV
             if el_type == "CSV":
-                logger.info("Cargando CSV")
+                logger.info("[EXECUTE SCENARIO] Processing CSV element")
+
+                # Get the CSV file name from parameters
                 csv_file_name = params.get("csvFileName")
+
+                # Get the file from the database
                 try:
                     file = File.objects.get(name=csv_file_name)
                     df = pd.read_csv(file.content)
                 except Exception as e:
+                    logger.error(f"[EXECUTE SCENARIO] Error loading CSV file: {str(e)}")
                     return {"error": f"Error loading CSV: {str(e)}"}
                 
+                # Get the columns to keep from parameters
                 columns = params.get("columns", [])
                 selected_columns = []
                 
+                # If columns is a list, filter by selected columns
                 if isinstance(columns, list):
                     selected_columns = [col["name"] for col in columns if col.get("selected", True)]
                 elif isinstance(columns, dict):
                     selected_columns = [col for col, keep in columns.items() if keep]
                 
-                logger.info("Columnas seleccionadas en orden original: %s", selected_columns)
+                logger.info(f"[EXECUTE SCENARIO] Selected columns: {selected_columns}")
                 
                 try:
+                    # Generate a dataframe with the selected columns
                     df = df[selected_columns]
                 except KeyError as e:
+                    logger.error(f"[EXECUTE SCENARIO] Column not found in CSV: {str(e)}")
                     return {"error": f"Column not found in the CSV: {str(e)}"}
                 except Exception as e:
+                    logger.error(f"[EXECUTE SCENARIO] Error processing columns: {str(e)}")
                     return {"error": f"Error processing columns: {str(e)}"}
                 
+                # Store the DataFrame in the data storage
                 data_storage[element_id] = df
 
+            # Case element type is Network
             elif el_type == "Network":
-                logger.info("Cargando PCAP")
+                logger.info("[EXECUTE SCENARIO] Processing Network element")
 
+                # Get the network file name from parameters
                 network_file_name = params.get("networkFileName")
+
+                logger.info(f"[EXECUTE SCENARIO] Network file name: {network_file_name}")
+
+                # Get the analysis mode from parameters, defaulting to "flow"
                 analysis_mode = params.get("analysisMode", "flow")
-                logger.info("Modo de análisis: %s", analysis_mode)
-                logger.info("Nombre del archivo de red: %s", network_file_name)
+
+                logger.info(f"[EXECUTE SCENARIO] Analysis mode selected: {analysis_mode}")
+                logger.info(f"[EXECUTE SCENARIO] Network file name: {network_file_name}")
+
+                # Check if the file exists in the database
                 try:
                     file = File.objects.get(name=network_file_name)
                     with open(file.content.path, 'rb') as f:
+                        # Extract features from the PCAP file based on the analysis mode
                         if analysis_mode == "flow":
-                            logger.info("Extrayendo características por flujo")
+                            logger.info("[EXECUTE SCENARIO] Extracting features by flow")
                             df = extract_features_by_flow_from_pcap(f)
                         else:
-                            logger.info("Extrayendo características por paquete")
+                            logger.info("[EXECUTE SCENARIO] Extracting features by packet")
                             df = extract_features_by_packet_from_pcap(f)
-                    logger.info("DataFrame extraído: %s", df.head())
+                    logger.info(f"[EXECUTE SCENARIO] Extracted DataFrame: {df.head()}")
+                
+                # Handle errors when loading the PCAP file
                 except Exception as e:
                     return {"error": f"Error loading PCAP: {str(e)}"}
 
+                # Check if the DataFrame is empty
                 if df.empty:
                     return {"error": "The PCAP file does not contain usable data"}
 
+                # Store the DataFrame in the data storage
                 data_storage[element_id] = df
 
+            # Case element type is ClassificationModel or RegressionModel
             elif el_type in ["ClassificationMonitor", "RegressionMonitor"]:
-                logger.info("Procesando monitor")
+                logger.info("[EXECUTE SCENARIO] Processing Classification/Regression Monitor element")
+
+                # Get the model that has been trained
                 for conn in connections:
                     if conn["endId"] == element_id:
                         model_id = conn["startId"]
                         model_element = elements.get(model_id)
+
+                        # Check if the model element exists
                         if not model_element:
                             raise ValueError(f"Modelo {model_id} no encontrado para el monitor")
 
+                        # Check the model type and determine the monitor type
                         model_type = element_types.get(model_element["type"], {}).get("model_type")
                         monitor_type = "classification" if el_type == "ClassificationMonitor" else "regression"
-                        logger.info("Modelo: %s, Monitor: %s", model_type, monitor_type)
+                        logger.info(f"[EXECUTE SCENARIO] Model type: {model_type}, Monitor type: {monitor_type}")
 
+                        # Check if the model type matches the monitor type
                         if model_type != monitor_type:
                             raise ValueError(f"Error de tipo: {el_type} conectado a modelo {model_type}")
 
                         model_data = models.get(model_id)
-                        logger.info("Datos del modelo: %s", model_data)
+                        logger.info(f"[EXECUTE SCENARIO] Model data: {model_data}")
+
                         if model_data:
+                            # Calculate metrics based on the model type
                             if el_type == "ClassificationMonitor":
-                                logger.info("Calculando métricas de clasificación")
+                                logger.info("[EXECUTE SCENARIO] Calculating classification metrics")
                                 metrics_config = params.get("metrics", {})
                                 metrics = calculate_classification_metrics(model_data["y_test"], model_data["y_pred"], metrics_config)
                                 metric, created = ClassificationMetric.objects.get_or_create(
@@ -1444,9 +1012,11 @@ def execute_scenario(anomaly_detector, scenario, design):
                                 metric.f1_score = metrics.get("f1_score")
                                 metric.confusion_matrix = json.dumps(metrics.get("confusion_matrix"))
                                 metric.save()
+                                logger.info("[EXECUTE SCENARIO] Classification metrics saved for model")
                             else:
-                                logger.info("Calculando métricas de regresión")
-                                metrics = calculate_regression_metrics(model_data["y_test"], model_data["y_pred"])
+                                logger.info("[EXECUTE SCENARIO] Calculating regression metrics")
+                                metrics_config = params.get("metrics", {})
+                                metrics = calculate_regression_metrics(model_data["y_test"], model_data["y_pred"], metrics_config)
 
                                 metric, created = RegressionMetric.objects.get_or_create(
                                     detector=anomaly_detector,
@@ -1460,49 +1030,60 @@ def execute_scenario(anomaly_detector, scenario, design):
                                 metric.r2 = metrics.get("r2")
                                 metric.msle = metrics.get("msle")
                                 metric.save()
+                                logger.info("[EXECUTE SCENARIO] Regression metrics saved for model")
 
-
+            # Case element type is DataSplitter
             elif el_type == "DataSplitter":
-                logger.info("Ejecutando DataSplitter")
-                splitter = True
+                logger.info("[EXECUTE SCENARIO] Processing DataSplitter element")
 
+                # Get the input data from the previous element
                 if input_data is None:
                     return {"error": "DataSplitter requires input data"}
 
                 try:
+                    # Get the parameters for the DataSplitter
                     splitter_params = extract_parameters(element_types[el_type]["properties"], params)
-                    logger.info("Parámetros del DataSplitter: %s", splitter_params)
+                    logger.info(f"[EXECUTE SCENARIO] DataSplitter parameters: {splitter_params}", splitter_params)
 
+                    # Check if train_size and test_size are provided
                     train_size = splitter_params.get("train_size", 80) / 100
                     test_size = splitter_params.get("test_size", 20) / 100
-                    logger.info("Tamaños de train y test: %s, %s", train_size, test_size)
+            
+                    logger.info(f"[EXECUTE SCENARIO] Train and test sizes: {train_size}, {test_size}")
 
+                    # Validate the sizes
                     if round(train_size + test_size, 2) > 1.0:
                         return {"error": "The sum of train_size and test_size cannot be greater than 100%"}
-
                     X = input_data.iloc[:, :-1]
                     y = input_data.iloc[:, -1]
 
+                    # Split the data into training and testing sets with the specified sizes
                     X_train, X_test, y_train, y_test = train_test_split(
                         X, y,
                         train_size=train_size,
                         test_size=test_size
                     )
 
+                    # Store the split data in the data storage
                     data_storage[element_id] = {
                         "train": (X_train, y_train),
                         "test": (X_test, y_test)
                     }
 
-                    logger.info(data_storage)
+                    logger.info(f"[EXECUTE SCENARIO] Current data storage: {data_storage}")
 
+                # Return error if there is an issue with the DataSplitter
                 except Exception as e:
                     return {"error": f"Error in DataSplitter: {str(e)}"}
                 
+            # Case element type is CodeProcessing or CodeSplitter
             elif el_type in ["CodeProcessing", "CodeSplitter"]:
-                logger.info("Ejecutando función personalizada")
+                logger.info("[EXECUTE SCENARIO] Processing CustomCode element")
 
+                # Get the code from the parameters
                 user_code = params.get("code", "")
+
+                # Check if the code is provided and input data is available
                 if input_data is None:
                     return {"error": "CustomCode requires input data"}
                 if not user_code.strip():
@@ -1514,10 +1095,11 @@ def execute_scenario(anomaly_detector, scenario, design):
                     "np": __import__('numpy'),
                 }
 
+                # Require the function name based on the element type
                 required_function_name = "processing" if el_type == "CodeProcessing" else "splitter"
 
-
                 try:
+                    # Execute the user code in a controlled context
                     exec(user_code, exec_context)
                     user_functions = {k: v for k, v in exec_context.items() if callable(v)}
                     if len(user_functions) != 1:
@@ -1525,22 +1107,22 @@ def execute_scenario(anomaly_detector, scenario, design):
 
                     user_function = list(user_functions.values())[0]
 
+                    # Check if the function name matches the required one
                     if required_function_name != user_function.__name__:
                         return {"error": f"The function must be named '{required_function_name}'"}
                     
                     output_data = user_function(input_data)
 
+                    # Store the output data based on its type
                     if isinstance(output_data, pd.DataFrame):
-                        logger.info("CustomCode detectado como preprocesador")
+                        logger.info("CustomCode detected as processing function")
                         data_storage[element_id] = output_data
-                        code_processing = True
-                        logger.info(data_storage)
+                        logger.info(f"[EXECUTE SCENARIO] Current data storage: {data_storage}")
 
                     elif isinstance(output_data, dict) and "train" in output_data and "test" in output_data:
-                        logger.info("CustomCode detectado como splitter")
+                        logger.info("CustomCode detected as splitter function")
                         data_storage[element_id] = output_data
-                        code_splitter = True
-                        logger.info(data_storage)
+                        logger.info(f"[EXECUTE SCENARIO] Current data storage: {data_storage}")
 
                     else:
                         return {"error": "The function must return a DataFrame or a dict with 'train' and 'test' keys"}
@@ -1548,22 +1130,31 @@ def execute_scenario(anomaly_detector, scenario, design):
                 except Exception as e:
                     return {"error": f"Error executing custom function: {str(e)}"}
 
+            # Case element type is in Processing, Model, or Explainability
             else:
                 element_def = element_types.get(el_type)
-                logger.info("Definición del elemento: %s", element_def)
+
+                logger.info(f"[EXECUTE SCENARIO] Element definition: {element_def}")
                 if not element_def:
                     return {"error": f"Unknown element type: {el_type}"}
                 
+                # Check if the element has a category
                 category = element_def.get("category", "")
 
-                logger.info("Categoría del elemento: %s", category)
+                logger.info(f"[EXECUTE SCENARIO] Element category: {category}")
 
+                # Import the class based on the category
                 if category not in ["model", "explainability"]:
-                    logger.info("Importando clase: %s", element_def["class"])
+                    logger.info(f"[EXECUTE SCENARIO] Importing class: {element_def['class']}")
                     cls = import_class(element_def["class"])
                 
+                # Check if category is preprocessing
                 if category == "preprocessing":
+
+                    # Get the element to transform
                     applies_to = element_def.get("appliesTo", "all")
+
+                    # Get the transformer
                     transformer = cls(**extract_parameters(element_def["properties"], params))
                     
                     if input_data is not None:
@@ -1576,20 +1167,23 @@ def execute_scenario(anomaly_detector, scenario, design):
                                     pass
                         '''
 
+                        # Check if the input data has target or label columns
                         if 'target' in input_data.columns or 'label' in input_data.columns:
                             target_column = input_data.pop('target') if 'target' in input_data.columns else None
                             label_column = input_data.pop('label') if 'label' in input_data.columns else None
 
+                            # Store the original targets
                             original_targets = {}
                             if target_column is not None:
                                 original_targets['target'] = target_column
                             if label_column is not None:
                                 original_targets['label'] = label_column
 
+                            # Transform the input data based on the applies_to parameter
                             if applies_to == "numeric":
                                 excluded_numeric = ['src_port', 'dst_port']
                                 numeric_cols = [col for col in input_data.select_dtypes(include=['number']).columns if col not in excluded_numeric]
-                                logger.info(f"[TRAINING] Columnas usadas para fit en {el_type}: {numeric_cols}")
+                                logger.info(f"[EXECUTE SCENARIO] [TRAINING] Columns used for fitting in {el_type}: {numeric_cols}")
                                 
                                 transformed = transformer.fit_transform(input_data[numeric_cols])
                                 output_data = input_data.copy()
@@ -1606,12 +1200,13 @@ def execute_scenario(anomaly_detector, scenario, design):
 
                             for col_name, col_data in original_targets.items():
                                 output_data[col_name] = col_data
-                            
+                        
+                        # If no target or label columns, transform the entire input data
                         else:
                             if applies_to == "numeric":
                                 excluded_numeric = ['src_port', 'dst_port']
                                 numeric_cols = [col for col in input_data.select_dtypes(include=['number']).columns if col not in excluded_numeric]
-                                logger.info(f"[TRAINING] Columnas usadas para fit en {el_type}: {numeric_cols}")
+                                logger.info(f"[EXECUTE SCENARIO] [TRAINING] Columns used for fitting in {el_type}: {numeric_cols}")
                                 
                                 transformed = transformer.fit_transform(input_data[numeric_cols])
                                 output_data = input_data.copy()
@@ -1635,42 +1230,50 @@ def execute_scenario(anomaly_detector, scenario, design):
                         joblib.dump(model, step_path)
 
                         joblib.dump(transformer, step_path)
-                        logger.info(f"Guardado: {step_path}")
+                        logger.info(f"Saved: {step_path}")
 
+                        # Store the transformed data in the data storage
                         data_storage[element_id] = output_data
-                        logger.info("Datos inicial: %s", input_data.head())
-                        logger.info("Datos transformados: %s", output_data.head())
-                        logger.info(data_storage)
+                        logger.info(f"[EXECUTE SCENARIO] Initial input data: {input_data.head()}")
+                        logger.info(f"[EXECUTE SCENARIO] Transformed output data: {output_data.head()}")
 
+                        logger.info(f"[EXECUTE SCENARIO] Current data storage: {data_storage}")
+
+                # Case category is model and input data is available
                 elif category == "model" and input_data is not None:
-                    logger.info("Entrenando modelo")
+                    logger.info(f"[EXECUTE SCENARIO] Training model")
+
+                    # Get the execution mode from parameters
                     execution_mode_model = params.pop("execution_mode", None)
 
-                    logger.info("Execución del modelo: %s", execution_mode_model)
-                    logger.info("Execución del entorno: %s", execution_mode_env)    
+                    logger.info(f"[EXECUTE SCENARIO] Model execution mode: {execution_mode_model}")
+                    logger.info(f"[EXECUTE SCENARIO] Environment execution mode: {execution_mode_env}")
 
                     if execution_mode_model and execution_mode_env and execution_mode_model.strip().lower() != execution_mode_env:
                         error_msg = f"Incompatible execution mode: model='{execution_mode_model}', env='{execution_mode_env}'"
-                        logger.error(error_msg)
+                        logger.error(f"[EXECUTE SCENARIO] Error: {error_msg}")
                         return {"error": error_msg}
                     
+                    # Import the class based on the execution mode
                     if execution_mode_model.strip().lower() == "cpu":
                         cls = import_class(element_def["class_cpu"])
                     else:
                         cls = import_class(element_def["class_gpu"])
                     
+                    # Extract the parameters for the model
                     if el_type not in ["CNNClassifier", "RNNClassifier", "MLPClassifier"]:
                         model = cls(**extract_parameters(element_def["properties"], params))
-                        logger.info(model.get_params())
+                        logger.error(f"[EXECUTE SCENARIO] Model params: {model.get_params()}")
 
+                    # Case the model is a classification or a regression model
                     if element_def.get("model_type") in ["classification", "regression"]:
-                        logger.info(f"Entrenamiento modelo {element_def.get('model_type')}")
+                        logger.info(f"[EXECUTE SCENARIO] Training a {element_def.get('model_type')} model")
 
-                        
                         X_train_all, y_train_all = [], []
                         X_test_all, y_test_all = [], []
                         has_train = has_test = False
 
+                        # Iterate through connections to find the data for training and testing
                         for conn in connections:
                             if conn["endId"] == element_id:
                                 source_id = conn["startId"]
@@ -1691,16 +1294,19 @@ def execute_scenario(anomaly_detector, scenario, design):
                                     X_test_all.append(X_test)
                                     y_test_all.append(y_test)
 
+                        # If the previous element does not provide both train and test outputs, return an error
                         if not has_train or not has_test:
                             return {"error": f"Model {element_id} requires at least one connection with 'train' and 'test' outputs"}
 
+                        # Concatenate all training and testing data
                         X_train_concat = pd.concat(X_train_all)
                         y_train_concat = pd.concat(y_train_all)
                         X_test_concat = pd.concat(X_test_all)
                         y_test_concat = pd.concat(y_test_all)
 
+                        # Case the model is a neural network
                         if el_type in ["CNNClassifier", "RNNClassifier", "MLPClassifier"]:
-                            logger.info(f"Entrenando red neuronal: {el_type}")
+                            logger.info(f"[EXECUTE SCENARIO] Training neural network model: {el_type}")
 
                             X_train_raw = X_train_concat.values
                             X_test_raw = X_test_concat.values
@@ -1709,6 +1315,7 @@ def execute_scenario(anomaly_detector, scenario, design):
                                 X_train_reshaped = X_train_raw.reshape((X_train_raw.shape[0], X_train_raw.shape[1], 1))
                                 X_test_reshaped = X_test_raw.reshape((X_test_raw.shape[0], X_test_raw.shape[1], 1))
                                 input_shape = (X_train_raw.shape[1], 1)
+
                             elif el_type == "MLPClassifier":
                                 X_train_reshaped = X_train_raw
                                 X_test_reshaped = X_test_raw
@@ -1717,7 +1324,10 @@ def execute_scenario(anomaly_detector, scenario, design):
                             y_train_encoded = to_categorical(y_train_concat)
                             y_test_encoded = to_categorical(y_test_concat)
 
+                            # Build the neural network model
                             model = build_neural_network(input_shape, el_type, params)
+
+                            # Train the neural network model
                             model.fit(
                                 X_train_reshaped, y_train_encoded,
                                 epochs=params.get("epochs", 50),
@@ -1725,10 +1335,13 @@ def execute_scenario(anomaly_detector, scenario, design):
                                 verbose=0
                             )
 
+                            # Predict using the trained model
                             y_pred_proba = model.predict(X_test_reshaped)
+
                             y_pred = np.argmax(y_pred_proba, axis=1)
                             y_test_labels = np.argmax(y_test_encoded, axis=1)
 
+                            # Store the model and results
                             models[element_id] = {
                                 "type": el_type,
                                 "y_test": y_test_labels,
@@ -1737,17 +1350,23 @@ def execute_scenario(anomaly_detector, scenario, design):
                                 "X_train": X_train_reshaped,
                             }
 
+                            # Store the reshaped training data
                             data_storage[element_id] = X_train_reshaped
 
+                        # Case the model is a classic model
                         else:
-                            logger.info(f"Entrenando modelo clásico: {el_type}")
+                            logger.info(f"[EXECUTE SCENARIO] Training classic model: {el_type}")
+                            logger.info(f"[EXECUTE SCENARIO] Concatenated training data:\n{X_train_concat}")
+                            logger.info(f"[EXECUTE SCENARIO] Concatenated testing data:\n{X_test_concat}")
 
-                            logger.info("Datos de entrenamiento concatenados: %s", X_train_concat)
-                            logger.info("Datos de prueba concatenados: %s", X_test_concat)
 
+                            # Fit the model with the concatenated training data
                             model.fit(X_train_concat, y_train_concat)
+
+                            # Predict using the trained model
                             y_pred = model.predict(X_test_concat)
 
+                            # Store the model and results
                             models[element_id] = {
                                 "type": el_type,
                                 "y_test": y_test_concat,
@@ -1756,27 +1375,33 @@ def execute_scenario(anomaly_detector, scenario, design):
                                 "X_train": X_train_concat,
                             }
 
+                            # Store the concatenated training data
                             data_storage[element_id] = X_train_concat
 
+                            logger.info(f"[EXECUTE SCENARIO] Current data storage: {data_storage}")
+
+                    # Case the model is an anomaly detection model
                     elif element_def.get("model_type") == "anomalyDetection":
-                        logger.info("Modelo Detección de anomalías")
+                        logger.info(f"[EXECUTE SCENARIO] Anomaly detection model")
 
                         if not isinstance(input_data, pd.DataFrame):
                             return {"error": "Input data for anomaly detection must be a DataFrame"}
 
                         input_copy = input_data.copy()
 
+                        # Convert IP addresses to integers if applicable
                         for ip_col in ['src', 'dst']:
                             if ip_col in input_copy.columns:
                                 input_copy[ip_col] = input_copy[ip_col].apply(ip_to_int)
                         
+                        # Convert protocol strings to numerical codes
                         if 'protocol' in input_copy.columns:
                             def protocol_to_code(p):
                                 if isinstance(p, str):
                                     p_clean = p.strip().upper()
                                     code = PROTOCOL_REVERSE_MAP.get(p_clean, -1)
                                     if code == -1:
-                                        logger.warning(f"[WARN] Protocolo desconocido: {p}")
+                                        logger.warning(f"[EXECUTE SCENARIO] Unknown protocol: {p}")
                                     return code
                                 return p
 
@@ -1784,15 +1409,17 @@ def execute_scenario(anomaly_detector, scenario, design):
 
                         #input_copy = input_copy.drop(columns=[col for col in input_copy.columns if input_copy[col].dtype == 'object'])
 
+                        # Return error if the input data is empty
                         if input_copy.empty:
                             return {"error": "There are no numerical columns after preprocessing"}
                         
-                        logger.info("Datos preprocesados para detección de anomalías: %s", input_copy)
+                        logger.info(f"[EXECUTE SCENARIO] Preprocessed data for anomaly detection:\n{input_copy}")
 
-                        input_copy.to_csv("input_copy.csv", index=False)
-
+                        # Fit the model with the input data
                         model.fit(input_copy)
-                        logger.info(model.feature_names_in_)
+                        logger.info(f"[EXECUTE SCENARIO] Model feature names: {model.feature_names_in_}")
+
+                        # Store the training model
                         step_id = f"{element_id}_{scenario.uuid}"
                         model_dir = os.path.join(settings.MEDIA_ROOT, 'models_storage')
                         os.makedirs(model_dir, exist_ok=True)
@@ -1802,12 +1429,15 @@ def execute_scenario(anomaly_detector, scenario, design):
                             "model": model,
                             "X_train": input_copy
                         }, step_path)
-                        logger.info(f"Guardado: {step_path}")
 
+                        logger.info(f"[EXECUTE SCENARIO] Model saved at: {step_path}")
+
+                        # Predict anomalies
                         predictions = model.predict(input_copy)
                         y_pred = [1 if x == -1 else 0 for x in predictions]
-                        logger.info("Predicciones: %s", y_pred)
+                        logger.info(f"[EXECUTE SCENARIO] Predictions: {y_pred}")
 
+                        # Save anomaly metrics
                         for column in input_copy.columns:
                             feature_values = input_copy[column].values
                             anomalies = [i for i, (val, pred) in enumerate(zip(feature_values, y_pred)) if pred == 1]
@@ -1817,37 +1447,49 @@ def execute_scenario(anomaly_detector, scenario, design):
                                                  global_shap_images=[], local_shap_images=[], global_lime_images=[], 
                                                  local_lime_images=[])
 
+                        # Store the model and results
                         models[element_id] = {
                             "type": el_type,
                             "y_pred": y_pred,
                             "model_object": model,
                             "X_train": input_copy
                         }
+
+                        # Store the input data for future use
                         data_storage[element_id] = input_copy
 
-                        logger.info("Modelo de detección de anomalías entrenado y guardado")
+                        logger.info(f"[EXECUTE SCENARIO] Current data storage: {data_storage}")
 
+                        logger.info(f"[EXECUTE SCENARIO] Anomaly detection model trained and saved")
+
+                # Case category is explainability
                 elif category == "explainability":
-                    logger.info(f"Procesando nodo de explicabilidad dinámico: {el_type}")
+                    logger.info(f"[EXECUTE SCENARIO] Processing explainability node: {el_type}")
 
+                    # Check if the input data is available
                     if input_data is None:
                         return {"error": f"No input data found for node {el_type}"}
                     
-                    logger.info("Datos de entrada para explicabilidad: %s", input_data)
+                    logger.info(f"[EXECUTE SCENARIO] Input data for explainability: {input_data}")
 
+                    # Get the parameters for the explainer
                     explainer_type = params.get("explainer_type", "").strip()
                     explainer_module_path = element_def.get("class")
 
+                    # Get the selected classes to be explained
                     selected_classes_raw = params.get("selectedClasses", [])
+
                     selected_classes = [
                         str(c["name"]).replace(" ", "_").replace("/", "_")
                         for c in selected_classes_raw
                         if c.get("selected")
                     ]
 
+                    # Validate the configuration data
                     if not explainer_module_path or not explainer_type:
                         return {"error": f"Missing configuration data in {el_type}"}
 
+                    # Check if the node connected is a model node
                     model_id = next((c["startId"] for c in connections if c["endId"] == element_id), None)
                     if not model_id or model_id not in models:
                         return {"error": f"No valid connected model found for {el_type}"}
@@ -1858,11 +1500,14 @@ def execute_scenario(anomaly_detector, scenario, design):
                         return {"error": f"Model object not found in {model_id}"}
 
                     try:
+                        # Import the explainer class dynamically
                         explainer_class = find_explainer_class(explainer_module_path, explainer_type)
 
+                        # Case the explainer is SHAP
                         if el_type == "SHAP":
                             model_type = model_info.get("type")
 
+                            # Check input data for SHAP
                             if el_type in classification_types + regression_types:
                                 input_data = model_info.get("X_train")
                                 if input_data is None:
@@ -1871,8 +1516,9 @@ def execute_scenario(anomaly_detector, scenario, design):
                             elif input_data is None:
                                 return {"error": f"No input data found for node {el_type}"}
 
-                            logger.info("Calculando valores SHAP con los datos: %s", input_data)
+                            logger.info(f"[EXECUTE SCENARIO] Calculating SHAP values with data: {input_data}")
 
+                            # Case explainer type is KernelExplainer, LinearExplainer, DeepExplainer, or TreeExplainer
                             if explainer_type == "KernelExplainer":
                                 def model_score(X):
                                     if isinstance(X, np.ndarray):
@@ -1898,23 +1544,27 @@ def execute_scenario(anomaly_detector, scenario, design):
                                 explainer = explainer_class(model_object)
 
                             try:
-                                logger.info("Aplicando SHAP para el elemento %s", model_type)
+                                logger.info(f"[EXECUTE SCENARIO] Applying SHAP to element: {model_type}")
                                 metrics = []
 
+                                # Case model connected is anomaly detection model
                                 if model_type in anomaly_types:
-                                    logger.info("Modelo de detección de anomalías, aplicando SHAP")
+                                    logger.info(f"[EXECUTE SCENARIO] Anomaly detection model detected, applying SHAP")
                                     y_pred = model_info.get("y_pred")
+
                                     if y_pred is None:
                                         return {"error": "Missing y_pred to apply SHAP in anomaly detection model"}
 
                                     y_pred_arr = np.array(y_pred)
                                     input_df = input_data.copy()
 
+                                    # Get normal and anomaly data based on predictions
                                     normal_data = input_df[y_pred_arr == 0]
                                     anomaly_data = input_df[y_pred_arr == 1]
 
                                     shap_image_paths = []
 
+                                    # Generate global shap values for normal and anomaly data depending on selected classes
                                     if not normal_data.empty and "normal" in selected_classes:
                                         if explainer_type == "TreeExplainer":
                                             shap_normal = explainer(normal_data, check_additivity=False)
@@ -1931,54 +1581,66 @@ def execute_scenario(anomaly_detector, scenario, design):
                                         path_anomaly = save_shap_bar_global(shap_anomaly, scenario.uuid, model_type, label="anomaly")
                                         shap_image_paths.append(path_anomaly)
 
+                                    # Save the anomaly metrics
                                     if shap_image_paths:
                                         metrics = AnomalyMetric.objects.filter(
                                             detector=anomaly_detector,
                                             execution=anomaly_detector.execution,
                                         )
 
+                                # Case model connected is classification or regression model
                                 else:
                                     shap_values = explainer(input_data)
                                     class_names = getattr(model_object, "classes_", None)
 
-                                    logger.info("Clases del modelo: %s", class_names)
-                                    logger.info("Clases seleccionadas para SHAP: %s", selected_classes)
+                                    logger.info(f"[EXECUTE SCENARIO] Model classes: {class_names}")
+                                    logger.info(f"[EXECUTE SCENARIO] Selected classes for SHAP: {selected_classes}")
 
+                                    # Generate global SHAP values for the selected classes
                                     shap_image_paths = save_shap_bar_global(
                                         shap_values, scenario.uuid, model_type, class_names, selected_classes=selected_classes
                                     )
 
-
                                     if shap_image_paths:
-                                        logger.info("Guardando imágenes SHAP globales: %s", shap_image_paths)
-
+                                        logger.info(f"[EXECUTE SCENARIO] Saving global SHAP images: {shap_image_paths}")
+                                                    
+                                        # Case model type is classification 
                                         if model_type in classification_types:
-                                            logger.info("Modelo de clasificación, buscando métricas")
+                                            logger.info("[EXECUTE SCENARIO] Classification model detected, retrieving metrics")
+
+                                            # Get or create the classification metric
                                             metric, created = ClassificationMetric.objects.get_or_create(
                                                 detector=anomaly_detector,
                                                 execution=anomaly_detector.execution,
                                                 model_name=model_type,
                                                 defaults={"global_shap_images": shap_image_paths}
                                             )
+
+                                            # If the metric already exists, update the global SHAP images
                                             if not created:
                                                 metric.global_shap_images = shap_image_paths
                                                 metric.save()
 
+                                        # Case model type is regression
                                         elif model_type in regression_types:
-                                            logger.info("Modelo de regresión, buscando métricas")
+                                            logger.info("[EXECUTE SCENARIO] Regression model detected, retrieving metrics")
+
+                                            # Get or create the regression metric
                                             metric, created = RegressionMetric.objects.get_or_create(
                                                 detector=anomaly_detector,
                                                 execution=anomaly_detector.execution,
                                                 model_name=model_type,
                                                 defaults={"global_shap_images": shap_image_paths}
                                             )
+
+                                            # If the metric already exists, update the global SHAP images
                                             if not created:
                                                 metric.global_shap_images = shap_image_paths
                                                 metric.save()
 
+                                logger.info(f"[EXECUTE SCENARIO] Saving global SHAP images: {shap_image_paths}")
+                                logger.info(f"[EXECUTE SCENARIO] Retrieved metrics: {metrics}")
 
-                                logger.info("Guardando imágenes SHAP globales: %s", shap_image_paths)
-                                logger.info("Métricas encontradas: %s", metrics)
                                 for metric in metrics:
                                     metric.global_shap_images = shap_image_paths
                                     metric.save()
@@ -1986,6 +1648,7 @@ def execute_scenario(anomaly_detector, scenario, design):
                             except Exception as e:
                                 return {"error": f"Error generating SHAP values: {str(e)}"}
 
+                        # Case the explainer is LIME
                         elif el_type == "LIME":
                             explainer = explainer_class(
                                 training_data=input_data.values,
@@ -2020,6 +1683,7 @@ def execute_scenario(anomaly_detector, scenario, design):
                             sorted_items = sorted(mean_weights.items(), key=lambda x: x[1], reverse=True)
                             features, values = zip(*sorted_items)
 
+                            # Save the LIME bar chart
                             lime_image_path = save_lime_bar_global(mean_weights, scenario.uuid)
 
                             metrics = AnomalyMetric.objects.filter(
@@ -2042,149 +1706,120 @@ def execute_scenario(anomaly_detector, scenario, design):
     except Exception as e:
         logger.error(f"Error en execute_scenario: {str(e)}")
         return {"error": str(e)}
-    
-
-import threading
-import time
-
-def topological_sort(elements, connections):
-    adj = defaultdict(list)
-    in_degree = defaultdict(int)
-
-    for conn in connections:
-        adj[conn["startId"]].append(conn["endId"])
-        in_degree[conn["endId"]] += 1
-        in_degree.setdefault(conn["startId"], 0)
-
-    queue = [node for node, deg in in_degree.items() if deg == 0]
-    sorted_order = []
-
-    while queue:
-        node = queue.pop(0)
-        sorted_order.append(node)
-        for neighbor in adj[node]:
-            in_degree[neighbor] -= 1
-            if in_degree[neighbor] == 0:
-                queue.append(neighbor)
-
-    return sorted_order
-
-
-def build_pipelines_from_design(design, scenario_uuid, config, base_path):
-    from collections import defaultdict
-    import os
-    import joblib
-
-    elements = {e["id"]: e for e in design["elements"]}
-    connections = design["connections"]
-    prev_map = defaultdict(list)
-    for conn in connections:
-        prev_map[conn["endId"]].append(conn["startId"])
-
-    sorted_order = topological_sort(elements, connections)
-    model_types = set()
-
-    for section in config["sections"].values():
-        for key in ["classification", "regression", "anomalyDetection"]:
-            for model in section.get(key, []):
-                model_types.add(model["type"])
-
-    pipelines = []
-
-    for element_id in sorted_order:
-        element = elements[element_id]
-        el_type = element["type"]
-
-        if el_type in model_types:
-            pipeline_steps = []
-            visited = set()
-            stack = [element_id]
-
-            while stack:
-                node = stack.pop()
-                if node in visited:
-                    continue
-                visited.add(node)
-
-                for prev_id in prev_map.get(node, []):
-                    stack.append(prev_id)
-                    prev_type = elements[prev_id]["type"]
-                    pkl_path = os.path.join(base_path, f'{prev_id}_{scenario_uuid}.pkl')
-                    if os.path.exists(pkl_path):
-                        instance = joblib.load(pkl_path)
-                        pipeline_steps.insert(0, (prev_type, instance))
-
-            model_path = os.path.join(base_path, f'{element_id}_{scenario_uuid}.pkl')
-            if os.path.exists(model_path):
-                model_bundle = joblib.load(model_path)
-
-                if isinstance(model_bundle, dict):
-                    model_instance = model_bundle.get("model")
-                    X_train = model_bundle.get("X_train")
-                else:
-                    model_instance = model_bundle
-                    X_train = None
-
-                pipelines.append((element_id, model_instance, pipeline_steps, X_train))
-
-    return pipelines
-
-
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def play_scenario_production_by_uuid(request, uuid):
+    """
+    Starts real-time packet capture and anomaly detection in production mode
+    for a given scenario UUID, using either flow or packet-level analysis.
+
+    Behavior:
+        - Loads user-specific system configuration (SSH user, interface, tshark path).
+        - Loads scenario and pipeline design.
+        - Detects analysis mode from the design (flow or packet).
+        - Builds pipelines from the design.
+        - Launches a background thread that:
+            - Connects via SSH to run tshark in live mode.
+            - Streams packets to a handler function depending on analysis mode.
+            - Performs prediction and anomaly detection in real time.
+
+    Returns:
+        - 200 OK when thread starts successfully.
+        - 400 if no pipeline is found.
+        - 404 if user config or scenario does not exist.
+        - 500 for any other failure.
+    """
+
+    # Get the user from the request
     user = request.user
     try:
+        try:
+            # Load user-specific system configuration
+            user_config = SystemConfiguration.objects.get(user=user)
+            host_username = user_config.host_username or 'default_user'
+            tshark_path = user_config.tshark_path or '/usr/bin/tshark'
+            interface = user_config.interface or 'eth0'
+
+            logger.info(f"[PRODUCTION EXECUTION] Loaded system config for user {user.username}")
+
+        # Return error if user config does not exist
+        except SystemConfiguration.DoesNotExist:
+            logger.info(f"[PRODUCTION EXECUTION] Scenario found: {scenario.name} (UUID: {uuid})")
+            return JsonResponse({'error': 'User system config not found'}, status=404)
+
+        # Load the scenario and its design
         scenario = Scenario.objects.get(uuid=uuid, user=user)
         config = load_config()
         design = json.loads(scenario.design) if isinstance(scenario.design, str) else scenario.design
+
+        # Detect the analysis mode from the design
         analysis_mode = "flow"
         for element in design["elements"]:
             if element["type"] == "Network":
                 analysis_mode = element.get("parameters", {}).get("analysisMode", "flow").strip().lower()
                 break
-        logger.info(f"[INFO] Modo de análisis en producción: {analysis_mode}")
+
+        logger.info(f"[PRODUCTION EXECUTION] Analysis mode detected: {analysis_mode}")
+
+        # Build pipelines from the design
         anomaly_detector = AnomalyDetector.objects.get(scenario=scenario)
         execution = anomaly_detector.execution
         base_path = os.path.join(settings.MEDIA_ROOT, 'models_storage')
         pipelines = build_pipelines_from_design(design, scenario.uuid, config, base_path)
 
         if not pipelines:
+            logger.warning(f"[PRODUCTION EXECUTION] No pipelines found for scenario UUID: {uuid}")
             return JsonResponse({'error': 'No pipelines found for this scenario.'}, status=400)
 
         def capture_and_predict_streaming(uuid):
-            logger.info(f"[INFO] Iniciando captura en vivo para el escenario {uuid}")
+            """
+            Captures packets in real-time and performs anomaly detection.
+            This function runs in a separate thread to avoid blocking the main thread.
+
+            Args:
+                uuid (str): The UUID of the scenario being processed.
+            """
+
+            logger.info(f"[PRODUCTION EXECUTION] Starting live capture for scenario UUID: {uuid}")
+
+            # Prepare the SSH command to run tshark
             ssh_command = [
-                "ssh", "edulb96@host.docker.internal",
-                "sudo -n /opt/homebrew/bin/tshark -l -i en0 -T ek"
+                "ssh", f"{host_username}@host.docker.internal",
+                f"sudo -n {tshark_path} -l -i {interface} -T ek"
             ]
+
             try:
-                logger.info("[START] Lanzando captura en vivo por SSH...")
+                logger.info(f"[PRODUCTION EXECUTION] Launching SSH capture with command: {' '.join(ssh_command)}")
                 proc = subprocess.Popen(ssh_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)
 
                 if analysis_mode == "packet":
-                    from .utils import handle_packet_prediction
+                    logger.info("[PRODUCTION EXECUTION] Packet mode selected")
                     handle_packet_prediction(proc, pipelines, anomaly_detector, design, config, execution, uuid, scenario)
                 else:
-                    from .utils import handle_flow_prediction
-                    logger.info("[INFO] Modo de análisis por flujo seleccionado.")
+                    logger.info("[PRODUCTION EXECUTION] Flow mode selected")
                     handle_flow_prediction(proc, pipelines, anomaly_detector, design, config, execution, uuid, scenario)
 
             except Exception as e:
-                logger.error(f"[FATAL ERROR] {e}")
+                logger.error(f"[PRODUCTION EXECUTION] FATAL ERROR during live capture: {e}")
+
             finally:
                 proc.terminate()
-                logger.info("[STOP] Captura detenida.")
+                logger.info("[PRODUCTION EXECUTION] Live capture stopped.")
 
+        # Launch background thread for real-time processing
         thread_controls[uuid] = True
         thread = threading.Thread(target=capture_and_predict_streaming, args=(uuid,), daemon=True)
         thread.start()
 
+        # Return success response
         return JsonResponse({'message': 'Real-time capture started'}, status=200)
 
+    # Return error if scenario does not exist
     except Scenario.DoesNotExist:
         return JsonResponse({'error': 'Scenario not found'}, status=404)
+    
+    # Handle any other exceptions
     except Exception as e:
         logger.error("Error en ejecución en producción: %s", str(e))
         return JsonResponse({'error': str(e)}, status=500)
@@ -2192,49 +1827,87 @@ def play_scenario_production_by_uuid(request, uuid):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def stop_scenario_production_by_uuid(request, uuid):
+    """
+    Stops real-time production capture for a given scenario UUID by
+    setting the thread control flag to False.
+
+    Returns:
+        - 200 OK if stopped successfully.
+        - 500 Internal Server Error on failure.
+    """
     try:
         thread_controls[uuid] = False
-        logger.info(f"Parando producción para el escenario {uuid}")
+        logger.info(f"[STOP PRODUCTION] Stopping production for scenario UUID: {uuid}")
         return JsonResponse({'message': 'Capture stopped'}, status=status.HTTP_200_OK)
     except Exception as e:
-        logger.error(f"Error al detener captura: {str(e)}")
+        logger.error(f"[STOP PRODUCTION] Error stopping capture for UUID {uuid}: {str(e)}")
         return JsonResponse({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
 def delete_anomaly(request, uuid, anomaly_id):
+    """
+    Deletes a specific anomaly and its associated local SHAP images.
+
+    Args:
+        uuid (str): UUID of the scenario.
+        anomaly_id (int): ID of the anomaly to delete.
+
+    Returns:
+        - 204 No Content if successfully deleted.
+        - 404 Not Found if scenario, detector, or anomaly does not exist.
+        - 500 Internal Server Error on failure.
+    """
+
+    # Get the user from the request
     user = request.user
 
     try:
+        # Retrieve the scenario, detector, and anomaly
         scenario = Scenario.objects.get(uuid=uuid, user=user.id)
         detector = AnomalyDetector.objects.get(scenario=scenario)
         anomaly = AnomalyMetric.objects.get(id=anomaly_id, detector=detector)
 
         local_shap_images = anomaly.local_shap_images or []
 
+        # Delete local SHAP images
         for image_shap in local_shap_images:
             filename_shap = os.path.basename(image_shap)
-            logger.info(f"Deleting local SHAP image: {filename_shap}")
             full_path_shap = os.path.join(settings.MEDIA_ROOT, 'shap_local_images', filename_shap)
-            logger.info(f"Full path for SHAP image: {full_path_shap}")
+            logger.info(f"[DELETE ANOMALY] Attempting to delete local SHAP image: {full_path_shap}")
 
             if os.path.exists(full_path_shap):
                 try:
                     os.remove(full_path_shap)
-                    logger.info(f"Deleted file: {full_path_shap}")
+                    logger.info(f"[DELETE ANOMALY] Deleted file: {full_path_shap}")
                 except Exception as e:
-                    logger.warning(f"Could not delete {full_path_shap}: {str(e)}")
+                    logger.warning(f"[DELETE ANOMALY] Could not delete {full_path_shap}: {str(e)}")
 
+        # Delete the anomaly metric
         anomaly.delete()
 
+        logger.info(f"[DELETE ANOMALY] Anomaly ID {anomaly_id} deleted from database.")
+
+        # Return success response
         return JsonResponse({'message': 'Anomaly and associated local images deleted.'}, status=204)
 
+    # Return error if scenario does not exist
     except Scenario.DoesNotExist:
+        logger.warning(f"[DELETE ANOMALY] Scenario with UUID {uuid} not found or permission denied.")
         return JsonResponse({'error': 'Scenario not found or permission denied.'}, status=404)
+
+    # Return error if detector does not exist
     except AnomalyDetector.DoesNotExist:
+        logger.warning(f"[DELETE ANOMALY] Anomaly detector not found for scenario UUID: {uuid}")
         return JsonResponse({'error': 'Anomaly detector not found.'}, status=404)
+
+    # Return error if anomaly does not exist
     except AnomalyMetric.DoesNotExist:
+        logger.warning(f"[DELETE ANOMALY] Anomaly ID {anomaly_id} not found for scenario UUID: {uuid}")
         return JsonResponse({'error': 'Anomaly not found.'}, status=404)
+
+    # Handle any other exceptions
     except Exception as e:
-        logger.error(f"Error deleting anomaly: {str(e)}")
+        logger.exception(f"[DELETE ANOMALY] Unexpected error deleting anomaly ID {anomaly_id}: {str(e)}")
         return JsonResponse({'error': str(e)}, status=500)

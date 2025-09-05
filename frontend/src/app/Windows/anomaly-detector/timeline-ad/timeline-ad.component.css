@@ -1,3 +1,4 @@
+/* Main container for anomalies view */
 .anomalies-container {
   height: 93vh;
   max-width: 1400px;
@@ -7,6 +8,7 @@
   background: white;
 }
 
+/* Reset default heading styles */
 h2, h3, h4, h5 {
   position: static;
   background: transparent;
@@ -15,6 +17,7 @@ h2, h3, h4, h5 {
   margin: 0;
 }
 
+/* Custom margins and sizes for headings */
 h2 {
   margin-bottom: 1.5rem;
 }
@@ -33,6 +36,7 @@ h5 {
   color: #666;
 }
 
+/* Wrapper for anomaly-related charts */
 .charts-wrapper {
   display: flex;
   flex-wrap: wrap;
@@ -41,6 +45,7 @@ h5 {
   padding: 10px 0;
 }
 
+/* Chart container for individual plots */
 .chart-container {
   flex: 1 1 48%;
   min-width: 350px;
@@ -52,6 +57,7 @@ h5 {
   padding: 15px;
 }
 
+/* Title inside each chart box */
 .chart-container h5 {
   margin: 0 0 12px 0;
   padding: 10px;
@@ -60,10 +66,12 @@ h5 {
   min-height: 15px; 
 }
 
+/* Canvas inside each chart box */
 .chart-container canvas {
   height: calc(100% - 40px) !important; 
 }
 
+/* Full-screen modal overlay background */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -77,6 +85,7 @@ h5 {
   z-index: 9999;
 }
 
+/* Modal window for expanded visualizations */
 .modal-content {
   position: relative;
   width: 80%;
@@ -86,16 +95,19 @@ h5 {
   border-radius: 10px;
 }
 
+/* Canvas inside modal */
 .modal-content canvas {
   width: 100% !important;
   height: 600px !important;
 }
 
+/* Title inside modal */
 .modal-content h4 {
   text-align: center;
   margin-bottom: 1rem;
 }
 
+/* Close button for modal */
 .close-btn {
   position: absolute;
   top: 10px;
@@ -106,6 +118,7 @@ h5 {
   cursor: pointer;
 }
 
+/* Wrapper that includes global explanation images (SHAP/LIME) and charts */
 .charts-wrapper-with-global {
   display: flex;
   flex-direction: row;
@@ -114,12 +127,14 @@ h5 {
   flex-wrap: wrap;
 }
 
+/* Container for global SHAP and LIME visualizations */
 .global-shap-container, .global-lime-container {
   flex: 0 0 370px;
   text-align: center;
   cursor: pointer;
 }
 
+/* Global explanation image styles */
 .global-shap-container img, .global-lime-container img {
   width: 100%;
   max-width: 100%;
@@ -129,12 +144,14 @@ h5 {
   transition: transform 0.2s ease;
 }
 
+/* Chart wrapper (duplicate class but used in override) */
 .charts-wrapper {
   display: flex;
   flex-wrap: wrap;
   gap: 16px;
 }
 
+/* Override: smaller chart box format */
 .chart-container {
   flex: 0 0 calc(50% - 16px);
   padding: 12px;
@@ -143,6 +160,7 @@ h5 {
   background-color: #fafafa;
 }
 
+/* Group of images */
 .image-group {
   display: flex;
   flex-direction: column;
@@ -150,6 +168,7 @@ h5 {
   margin-top: 10px;
 }
 
+/* Image style inside the group */
 .image-group img {
   width: 100%;
   border: 1px solid #ccc;
@@ -158,6 +177,7 @@ h5 {
   transition: transform 0.2s ease;
 }
 
+/* Hover effect to slightly scale the image */
 .image-group img:hover {
   transform: scale(1.02);
 }

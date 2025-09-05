@@ -1,11 +1,17 @@
+<!-- Floating play/stop button shown only on production routes -->
 <div class="button-container" *ngIf="isProductionRoute()">
   <button class="button" (click)="toggle()">
+
+    <!-- Icon toggles between play and stop based on 'isPlaying' -->
     <i class="fas" [ngClass]="isPlaying ? 'fa-stop' : 'fa-play'"></i>
   </button>
 </div>
 
+<!-- Main content container -->
 <div class="content">
   <div class="table-container">
+
+    <!-- Table showing list of detected anomalies -->
     <table class="scenario-table">
       <thead>
         <tr>
@@ -15,23 +21,32 @@
         </tr>
       </thead>
       <tbody>
+
+        <!-- Loop through all anomalies and render rows -->
         <tr *ngFor="let anomaly of productionAnomalies; let i = index">
+
+          <!-- Show latest anomaly at top by reversing the index -->
           <td>{{ productionAnomalies.length - i }}</td>
 
+          <!-- Anomaly details and SHAP/LIME hover content -->
           <td class="anomaly-cell"
               (mouseenter)="showHoverImages($event, i)"
               (mouseleave)="hideHoverImages()"
               [ngClass]="{'hover-up': hoverDirection[i] === 'up'}">
 
+            <!-- Text content showing anomaly indices -->
             {{ anomaly.anomalies?.anomaly_indices }}
 
+            <!-- Hover area with images and optional packet detail -->
             <div class="hover-images"
                  *ngIf="anomaly.local_shap_images?.length || anomaly.local_lime_images?.length">
 
+              <!-- Optional detailed textual info -->
               <pre class="anomaly-details" *ngIf="anomaly.anomaly_details">
                 {{ anomaly.anomaly_details }}
               </pre>
 
+              <!-- SHAP explanation thumbnails -->
               <ng-container *ngIf="anomaly.local_shap_images?.length">
                 <img *ngFor="let img of anomaly.local_shap_images"
                      [src]="'http://localhost:8000/media/' + img"
@@ -39,6 +54,7 @@
                      (click)="openModal('http://localhost:8000/media/' + img)" />
               </ng-container>
 
+              <!-- LIME explanation thumbnails -->
               <ng-container *ngIf="anomaly.local_lime_images?.length">
                 <img *ngFor="let img of anomaly.local_lime_images"
                      [src]="'http://localhost:8000/media/' + img"
@@ -48,23 +64,59 @@
             </div>
           </td>
 
+          <!-- Action buttons for each anomaly -->
           <td>
             <div class="action-buttons">
+
+              <!-- Download anomaly as ZIP file -->
               <button class="default-button"
                       (click)="downloadAnomalyAsZip(anomaly, productionAnomalies.length - i)"
                       title="Download anomaly as ZIP">
                 <i class="fas fa-download"></i>
               </button>
 
+              <!-- Delete anomaly -->
               <button class="default-button delete-button"
                       (click)="deleteAnomaly(anomaly.id)"
                       title="Delete anomaly">
                 <i class="fas fa-trash-alt"></i>
               </button>
+
+              <!-- More actions -->
+              <div class="dropdown"
+                [class.open]="dropdownOpenIndex === (productionAnomalies.length - i)"
+                [class.drop-up]="dropdownDirection[productionAnomalies.length - i] === 'up'">
+                <button class="default-button more-button"
+                        (click)="toggleDropdown($event, productionAnomalies.length - i)"
+                        title="Más acciones"
+                        aria-haspopup="true"
+                        [attr.aria-expanded]="dropdownOpenIndex === (productionAnomalies.length - i)">
+                  <i class="fas fa-ellipsis-v"></i>
+                </button>
+
+                <!-- Block IP or port -->
+                <ul class="menu"
+                    *ngIf="dropdownOpenIndex === (productionAnomalies.length - i)"
+                    role="menu">
+                  <li class="menu-item" role="menuitem" (click)="onDropdownAction('block_ip_src', anomaly)">
+                    Block src IP
+                  </li>
+                  <li class="menu-item" role="menuitem" (click)="onDropdownAction('block_ip_dst', anomaly)">
+                    Block dst IP
+                  </li>
+                  <li class="menu-item" role="menuitem" (click)="onDropdownAction('block_port_src', anomaly)">
+                    Block src port
+                  </li>
+                  <li class="menu-item" role="menuitem" (click)="onDropdownAction('block_port_dst', anomaly)">
+                    Block dst port
+                  </li>
+                </ul>
+              </div>
             </div>
           </td>
         </tr>
 
+        <!-- Message shown when there are no anomalies -->
         <tr *ngIf="productionAnomalies.length === 0">
           <td colspan="3" class="empty-row">No production anomalies yet</td>
         </tr>
@@ -73,6 +125,7 @@
   </div>
 </div>
 
+<!-- Modal view for expanding SHAP/LIME images -->
 <div class="image-modal" *ngIf="modalImage">
   <button class="close-btn" (click)="closeModal()">✖</button>
   <img [src]="modalImage" alt="Expanded image" />
