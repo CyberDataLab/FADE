@@ -1,69 +1,71 @@
-<!-- Container for the entire network policy configuration section -->
-<div class="policies-section">
-  <h2 class="policies-title">Network Policies</h2>
+<div class="policies-page">
+  <div class="policies-section">
+    <h2 class="policies-title">Network Policies</h2>
 
-  <!-- Dropdown to select the type of policy to apply -->
-  <div class="policy-form-group">
-    <label class="policy-label">Policy Type</label>
-    <select class="policy-select" [(ngModel)]="policyType">
-      <option value="block_ip_src">Block src IP</option>
-      <option value="block_ip_dst">Block dst IP</option>
-      <option value="allow_ip_src">Allow src IP</option>
-      <option value="allow_ip_dst">Allow dst IP</option>
-      <option value="block_port_src">Block src port</option>
-      <option value="block_port_dst">Block dst port</option>
-      <option value="allow_port_src">Allow src port</option>
-      <option value="allow_port_dst">Allow dst port</option>
-      <option value="limit_bandwidth">Limit Bandwidth</option>
-      <option value="send_email">Send Email</option>
-    </select>
+    <form class="policies-form" (ngSubmit)="applyPolicy()" #f="ngForm">
+      <!-- Policy Type -->
+      <div class="policy-form-group">
+        <label class="policy-label">Policy Type</label>
+        <select
+          class="policy-select"
+          name="policyType"
+          [(ngModel)]="policyType"
+          [ngClass]="{ 'is-placeholder': !policyType || (policyType==='send_email' && !selectedReason) }"
+          required>
+          <option class="placeholder" [ngValue]="''" disabled>Select a policy…</option>
+          <option *ngFor="let t of policyTypes" [ngValue]="t.value">
+            {{ t.label }} — {{
+              t.value === 'send_email' && selectedReason
+                ? selectedReason
+                : getPlaceholderFor(t.value)
+            }}
+          </option>
+        </select>
+      </div>
+
+      <!-- Target -->
+      <div class="policy-form-group">
+        <label class="policy-label">Target</label>
+        <input
+          class="policy-input"
+          type="text"
+          name="targetValue"
+          [(ngModel)]="targetValue"
+          [placeholder]="
+            policyType === 'send_email'
+              ? (selectedReason ? 'Target for ' + selectedReason : 'Choose reason first')
+              : getPlaceholderFor(policyType)
+          " />
+      </div>
+
+      <!-- Main Reason (solo para send_email) -->
+      <div class="policy-form-group span-2" *ngIf="policyType === 'send_email'">
+        <label class="policy-label">Main Reason</label>
+        <select class="policy-select"
+                name="reason"
+                [(ngModel)]="selectedReason"
+                [ngClass]="{ 'is-placeholder': !selectedReason }">
+          <option class="placeholder" [ngValue]="''" disabled>Choose reason…</option>
+          <option *ngFor="let reason of predefinedReasons" [value]="reason">{{ reason }}</option>
+        </select>
+      </div>
+
+      <!-- Campos extra para send_email -->
+      <div class="policy-form-group" *ngIf="policyType === 'send_email' && selectedReason">
+        <label class="policy-label">Target to Monitor</label>
+        <input class="policy-input" type="text" name="monitorTarget"
+               [(ngModel)]="monitorTarget"
+               [placeholder]="selectedReason.includes('IP') ? 'e.g., 192.168.1.1' : 'e.g., 8080'"/>
+      </div>
+
+      <div class="policy-form-group" *ngIf="policyType === 'send_email' && selectedReason">
+        <label class="policy-label">Threshold (Packets)</label>
+        <input class="policy-input" type="number" name="monitorThreshold"
+               [(ngModel)]="monitorThreshold" placeholder="e.g., 10" min="1" max="10000"/>
+      </div>
+
+      <button class="apply-policy-button" type="submit" [disabled]="!f.form.valid">Apply Policy</button>
+      <div class="policy-result-message">{{ resultMessage }}</div>
+    </form>
   </div>
-
-  <!-- Input field for the target (IP, port, or other) -->
-  <div class="policy-form-group">
-    <label class="policy-label">Target</label>
-    <input
-      type="text"
-      class="policy-input"
-      [(ngModel)]="targetValue"
-      [placeholder]="getPlaceholder()" />
-  </div>
-
-  <!-- Email alert configuration: reason selection (shown only when policy is 'send_email') -->
-  <div class="policy-form-group" *ngIf="policyType === 'send_email'">
-    <label class="policy-label">Main Reason</label>
-    <select class="policy-select" [(ngModel)]="selectedReason">
-      <option *ngFor="let reason of predefinedReasons" [value]="reason">
-        {{ reason }}
-      </option>
-    </select>
-  </div>
-
-  <!-- Email alert configuration: monitoring target (e.g. IP or port) -->
-  <div class="policy-form-group" *ngIf="policyType === 'send_email' && selectedReason">
-    <label class="policy-label">Target to Monitor</label>
-    <input
-      type="text"
-      class="policy-input"
-      [(ngModel)]="monitorTarget"
-      [placeholder]="selectedReason.includes('IP') ? 'e.g., 192.168.1.1' : 'e.g., 8080'" />
-  </div>
-  
-  <!-- Email alert configuration: traffic threshold -->
-  <div class="policy-form-group" *ngIf="policyType === 'send_email' && selectedReason">
-    <label class="policy-label">Threshold (Packets)</label>
-    <input
-      type="number"
-      class="policy-input"
-      [(ngModel)]="monitorThreshold"
-      placeholder="e.g., 10"
-      min="1"
-      max="10000" />
-  </div>
-
-  <!-- Button to apply the selected policy -->
-  <button class="apply-policy-button" (click)="applyPolicy()">Apply Policy</button>
-
-  <!-- Message area to show feedback after applying the policy -->
-  <div class="policy-result-message">{{ resultMessage }}</div>
 </div>

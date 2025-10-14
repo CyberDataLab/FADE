@@ -8,7 +8,8 @@ import { RouterModule } from '@angular/router';
 
 // Application-specific imports
 import { UserLogin } from '../../DTOs/UserLogin';
-import { AuthenticationService } from '../authentication.service';
+import { AuthenticationService } from '../../Core/services/authentication.service';
+import { ThemeToggleComponent } from '../../Theme/theme-toggle/theme-toggle.component';
 
 /**
  * @summary Manages user authentication via login form.
@@ -21,7 +22,8 @@ import { AuthenticationService } from '../authentication.service';
   imports: [
     CommonModule,
     FormsModule,
-    RouterModule
+    RouterModule,
+    ThemeToggleComponent
   ],
   templateUrl: './login.component.html',
   styleUrl: './login.component.css'

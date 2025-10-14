@@ -56,34 +56,34 @@ class Scenario(models.Model):
     class Meta:
         db_table = "Scenario"
 
-class AnomalyDetector(models.Model):
+class ScenarioModel(models.Model):
     """
-    Represents an anomaly detection model associated with a scenario.
+    Represents a model associated with a scenario.
 
     Fields:
-    - scenario: Foreign key to the Scenario this detector belongs to.
-    - execution: Execution number to track multiple runs of the detector.
+    - scenario: Foreign key to the Scenario this scenario model belongs to.
+    - execution: Execution number to track multiple runs of the scenario model.
     """
     scenario = models.ForeignKey(Scenario, on_delete=models.CASCADE, null=True, blank=True)
     execution = models.IntegerField(default=0)
     
     class Meta:
-        db_table = "AnomalyDetector"
+        db_table = "ScenarioModel"
 
 class ClassificationMetric(models.Model):
     """
     Represents metrics for classification models used in anomaly detection.
 
     Fields:
-    - detector: Foreign key to the AnomalyDetector this metric belongs to.
-    - execution: Execution number to track multiple runs of the detector.
+    - scenario_model: Foreign key to the ScenarioModel this metric belongs to.
+    - execution: Execution number to track multiple runs of the scenario model.
     - model_name: Name of the classification model used.
     - accuracy, precision, recall, f1_score: Performance metrics of the classification model.
     - confusion_matrix: Text representation of the confusion matrix.
     - date: Timestamp when the metrics were recorded.
     - global_shap_images, local_shap_images, global_lime_images, local_lime_images: JSON fields to store images related to SHAP and LIME explanations.
     """
-    detector = models.ForeignKey(AnomalyDetector, on_delete=models.CASCADE, null=True, blank=True)
+    scenario_model = models.ForeignKey(ScenarioModel, on_delete=models.CASCADE, null=True, blank=True)
     execution = models.IntegerField(default=0)
     model_name = models.CharField(max_length=255, default='model_name')
     accuracy = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
@@ -106,14 +106,14 @@ class RegressionMetric(models.Model):
     Represents metrics for regression models used in anomaly detection.
 
     Fields:
-    - detector: Foreign key to the AnomalyDetector this metric belongs to.
-    - execution: Execution number to track multiple runs of the detector.
+    - scenario_model: Foreign key to the ScenarioModel this metric belongs to.
+    - execution: Execution number to track multiple runs of the scenario model.
     - model_name: Name of the regression model used.
     - mse, rmse, mae, r2, msle: Performance metrics of the regression model.
     - date: Timestamp when the metrics were recorded.
     - global_shap_images, local_shap_images, global_lime_images, local_lime_images: JSON fields to store images related to SHAP and LIME explanations.
     """
-    detector = models.ForeignKey(AnomalyDetector, on_delete=models.CASCADE, null=True, blank=True)
+    scenario_model = models.ForeignKey(ScenarioModel, on_delete=models.CASCADE, null=True, blank=True)
     execution = models.IntegerField(default=0)
     model_name = models.CharField(max_length=255, default='model_name')
     mse = models.DecimalField(max_digits=10, decimal_places=5, null=True, blank=True)
@@ -136,8 +136,8 @@ class AnomalyMetric(models.Model):
     Represents metrics for anomaly detection models, including detected anomalies and associated metadata.
     
     Fields:
-    - detector: Foreign key to the AnomalyDetector this metric belongs to.
-    - execution: Execution number to track multiple runs of the detector.
+    - scenario_model: Foreign key to the ScenarioModel this metric belongs to.
+    - execution: Execution number to track multiple runs of the scenario model.
     - model_name: Name of the anomaly detection model used.
     - feature_name: Name of the feature being analyzed for anomalies.
     - anomalies: JSON field containing details about detected anomalies.
@@ -145,7 +145,7 @@ class AnomalyMetric(models.Model):
     - anomaly_details: Text field for additional details about the anomalies.
     - global_shap_images, local_shap_images, global_lime_images, local_lime_images: JSON fields to store images related to SHAP and LIME explanations.
     """
-    detector = models.ForeignKey(AnomalyDetector, on_delete=models.CASCADE)
+    scenario_model = models.ForeignKey(ScenarioModel, on_delete=models.CASCADE)
     execution = models.IntegerField()
     model_name = models.CharField(max_length=255, default='model_name')
     feature_name = models.CharField(max_length=255)

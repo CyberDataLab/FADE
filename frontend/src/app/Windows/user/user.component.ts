@@ -4,7 +4,7 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
 
 // Application-specific service and DTO
-import { AuthenticationService } from '../../Authentication/authentication.service';
+import { AuthenticationService } from '../../Core/services/authentication.service';
 import { Password } from '../../DTOs/Password';
 
 /**

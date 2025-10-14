@@ -1,101 +1,183 @@
-/* Table container for displaying system or user information */
-.information-table {
+/* options.component.css — 2025 Blue/Glass style */
+
+/* Card contenedor */
+.options-section{
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  backdrop-filter: saturate(140%) blur(10px);
+  -webkit-backdrop-filter: saturate(140%) blur(10px);
+  border-radius: 16px;
+  padding: clamp(16px, 2.2vw, 28px);
+  box-shadow: 0 10px 30px rgba(28, 77, 214, .10);
   width: 100%;
-  border-collapse: collapse;
-  margin: 1rem 0;
-  flex-grow: 1;
-  font-size: 18px;
+  max-width: 1100px;
+  margin: 0 auto;
 }
 
-/* Make table head and each row behave like a fixed-width table */
-.information-table thead, .information-table tbody tr {
+/* Título de sección */
+.section-title{
+  margin: 0 0 14px 0;
+  font-size: clamp(18px, 2.2vw, 24px);
+  font-weight: 700;
+  letter-spacing: .2px;
+  color: var(--text-strong);
+}
+
+/* -----------------------------
+   Zona de inputs del usuario
+--------------------------------*/
+.user-inputs{
+  display: grid;
+  grid-template-columns: repeat(3, minmax(220px, 1fr));
+  gap: 14px clamp(12px, 2vw, 20px);
+  align-items: start;
+  margin-bottom: clamp(14px, 2.2vw, 20px);
+}
+
+.user-inputs label{
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.user-inputs input{
+  appearance: none;
+  background: var(--field-bg);
+  border: 1px solid var(--field-border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: var(--text);
+  outline: none;
+  transition: box-shadow .15s ease, border-color .15s ease, transform .06s ease;
+}
+
+.user-inputs input:focus{
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px var(--ring);
+}
+
+.user-inputs input:active{
+  transform: translateY(0.5px);
+}
+
+/* Botón primario "Save" */
+.user-inputs button{
+  align-self: end;
+  height: 40px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  background: linear-gradient(180deg, var(--btn-from), var(--btn-to));
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(46, 121, 255, .28);
+  transition: transform .06s ease, filter .2s ease, box-shadow .2s ease;
+}
+
+.user-inputs button:hover{ filter: brightness(1.03); }
+.user-inputs button:active{ transform: translateY(1px); }
+.user-inputs button:focus-visible{
+  outline: none;
+  box-shadow: 0 0 0 4px var(--ring), 0 6px 18px rgba(46, 121, 255, .28);
+}
+
+/* -----------------------------
+   Tabla de información del sistema
+--------------------------------*/
+.information-table{
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0;
+  font-size: 14.5px;
+  border-radius: 12px;
+  overflow: hidden; /* bordes redondeados consistentes */
+}
+
+/* Encabezado fijo y cuerpo scrollable */
+.information-table thead,
+.information-table tbody tr{
   display: table;
   width: 100%;
   table-layout: fixed;
 }
 
-/* Make tbody scrollable while header stays fixed */
-.information-table tbody {
-  display: block;
-  width: 100%;
-  max-height: 70vh;
+.information-table thead{
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: linear-gradient(180deg, var(--blue-500), var(--blue-600));
+  color: #fff;
+}
+
+.information-table th, .information-table td{
+  padding: 12px 14px;
+  text-align: left;
+}
+
+.information-table th{
+  font-weight: 700;
+  letter-spacing: .2px;
+}
+
+.information-table tbody{
+  display: table !important;
+  max-height: 60vh;        /* cuerpo con scroll, no toda la página */
   overflow-y: auto;
+  background: rgba(255,255,255,.55);
 }
 
-/* Base style for table header and cell content */
-.information-table th, .information-table td {
-  padding: 12px;
-  text-align: left;
-  color: rgba(98, 96, 96);
+/* Filas y separadores */
+.information-table tbody tr:not(:last-child) td{
+  border-bottom: 1px solid rgba(36, 87, 255, .14);
 }
 
-/* Header row background and text color */
-.information-table th {
-  background-color: #0097a6;
-  color: white;
-  padding: 12px;
-  text-align: left;
+.information-table tbody tr:hover td{
+  background: rgba(159,193,255,.20);
 }
 
-/* Add separator between rows except the last one */
-.information-table tbody tr:not(:last-child) td {
-  border-bottom: 1px solid #0097a6;
-  padding-bottom: 8px;
+/* Scrollbar acorde al sistema */
+.information-table tbody::-webkit-scrollbar{ width: 10px; }
+.information-table tbody::-webkit-scrollbar-thumb{
+  background: linear-gradient(180deg, var(--blue-400), var(--blue-600));
+  border-radius: 10px;
+}
+.information-table tbody::-webkit-scrollbar-track{
+  background: rgba(240,242,250,.6);
+  border-radius: 10px;
 }
 
-/* Custom scrollbar styling */
-::-webkit-scrollbar {
-  width: 8px; 
+/* -----------------------------
+   Estados y accesibilidad
+--------------------------------*/
+:host{
+  display: block;
 }
 
-/* Style for scrollbar thumb */
-::-webkit-scrollbar-thumb {
-  background-color: #2676798f;
-  border-radius: 10px; 
+/* Reducir animaciones si el usuario lo prefiere */
+@media (prefers-reduced-motion: reduce){
+  .user-inputs input,
+  .user-inputs button{ transition: none; }
 }
 
-/* Style for scrollbar track */
-::-webkit-scrollbar-track {
-  background-color: rgba(245, 246, 250, 0.4); 
+/* -----------------------------
+   Responsive
+--------------------------------*/
+@media (max-width: 1024px){
+  .user-inputs{
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+  }
 }
-
-/* Container for user input filters or fields */
-.user-inputs {
-  display: flex;
-  gap: 1rem;
-  flex-wrap: wrap;
-  margin-bottom: 1.5rem;
-  align-items: center;
-}
-
-/* Label style with vertical input alignment */
-.user-inputs label {
-  display: flex;
-  flex-direction: column;
-  font-weight: bold;
-  font-size: 14px;
-}
-
-/* Style for input fields inside the filter area */
-.user-inputs input {
-  padding: 6px 10px;
-  border-radius: 6px;
-  border: 1px solid #ccc;
-  min-width: 200px;
-  margin-top: 4px;
-}
-
-/* Style for the filter or search button */
-.user-inputs button {
-  padding: 8px 16px;
-  background-color: #0097a6;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-/* Hover effect for the button */
-.user-inputs button:hover {
-  background-color: #007b8f;
+@media (max-width: 640px){
+  .user-inputs{
+    grid-template-columns: 1fr;
+  }
+  .options-section{
+    padding: 14px;
+    border-radius: 14px;
+  }
 }

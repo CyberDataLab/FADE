@@ -1,163 +1,184 @@
-/* Reset base layout: full height with no margin or scrollbars */
-html, body {
-  margin: 0;
-  padding: 0;
-  height: 100%;
-  overflow: hidden !important;
-}
+/* ============================================================
+   Dashboard — 2025 Blue UI
+   Reemplazo completo del CSS del componente
+   ============================================================ */
 
-/* Main container for the layout: horizontal flex */
-.container {
+/* Compatibilidad y consistencia */
+*, *::before, *::after { box-sizing: border-box; }
+
+/* ===== Layout raíz ===== */
+.container{
   display: flex;
   flex-direction: row;
   height: 100vh;
+  background:
+    radial-gradient(900px 700px at 8% 12%, var(--blue-100, #e9f0ff), transparent 60%),
+    radial-gradient(700px 600px at 85% 15%, var(--blue-50, #f3f7ff), transparent 55%),
+    linear-gradient(180deg, #eef4ff, #e9f0ff);
+  overflow: hidden; /* pantalla sin scroll global */
 }
 
-/* Top navigation bar at the top of the screen */
-.top-bar {
+/* ===== Top bar ===== */
+.top-bar{
+  position: fixed;
+  top: 0; left: 0;
+  z-index: 10;
   width: 100%;
-  background-color: #00578f;
-  padding: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  position: fixed;
-  top: 0;
-  left: 0;
-  z-index: 10;
   height: 60px;
+  padding: 10px 16px;
+
+  display: flex; align-items: center; justify-content: space-between;
+  background: linear-gradient(180deg, var(--blue-500, #2e79ff), var(--blue-600, #1d5be0));
+  color: #fff;
+
+  box-shadow: 0 10px 24px rgba(28, 70, 170, .18), inset 0 -1px 0 rgba(255,255,255,.15);
 }
 
-/* Left section of the top bar */
-.top-bar-left {
-  flex: 1; 
-}
-
-/* Right-side container for logout button */
-.logout-container {
-  display: flex;
-  justify-content: flex-end;
-  width: auto;
-}
-
-/* Logout button style */
-.logout-btn {
-  background-color: transparent;
-  color: white;
-  border: none;
-  padding: 8px 16px;
+/* Botones del top bar */
+.back-btn, .save-button, .logout-btn{
+  background: transparent;
+  color: #fff;
+  border: 0;
+  padding: 8px 14px;
+  border-radius: 10px;
   cursor: pointer;
-  border-radius: 4px;
+  transition: transform .06s ease, box-shadow .2s ease, background .2s ease;
+}
+.back-btn:hover, .save-button:hover, .logout-btn:hover{
+  transform: translateY(-1px);
+  background: rgba(255,255,255,.12);
+  box-shadow: 0 8px 18px rgba(28, 70, 170, .18);
+}
+.back-btn:focus-visible, .save-button:focus-visible, .logout-btn:focus-visible{
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(46,104,255,.28);
 }
 
-/* Hover style for logout button */
-.logout-btn:hover {
-  border: #ffffff 1px solid;
-}
-
-/* Sidebar menu on the left side */
-.sidebar {
-  width: 200px;
-  background-color: transparent;
-  color: rgb(0, 0, 0);
-  border-right: rgba(0, 0, 0, 0.507) 0.1px solid;
-  height: calc(100vh - 60px); 
+/* ===== Sidebar ===== */
+.sidebar{
   position: fixed;
-  top: 60px; 
-  left: 0;
-  z-index: 10;
-  padding: 0;
-  overflow-y: auto; 
+  top: 60px; left: 0;
+  z-index: 9;
+  width: 220px;
+  height: calc(100vh - 60px);
+  padding: 8px 0;
+
+  background: color-mix(in oklab, #fff 82%, var(--blue-50, #f3f7ff) 18%);
+  border-right: 1px solid rgba(20, 35, 80, .12);
+  backdrop-filter: blur(14px) saturate(120%);
+  -webkit-backdrop-filter: blur(14px) saturate(120%);
+  box-shadow: 0 12px 28px rgba(22,36,80,.10);
+  overflow-y: auto;
 }
 
-/* Menu option inside the sidebar */
-.option {
-  cursor: pointer;
-  padding: 25px 0; 
-  background-color: transparent; 
-  border-bottom: rgba(0, 0, 0, 0.507) 0.1px solid;
-  transition: background-color 0.2s;
-  color: rgba(98, 96, 96); 
-  box-sizing: border-box;
+/* Opción del menú */
+.option{
   position: relative;
-  transition: all 0.2s;
-  width: 100%; 
-  text-align: center; 
-  font-size: 16px;
+  cursor: pointer;
+  width: 100%;
+  padding: 16px 14px 16px 18px;
+  color: rgba(30, 41, 59, .75);
+  background: transparent;
+  border: 0;
+  text-align: left;
+  font-size: 15px;
+  transition: background .2s ease, color .2s ease, transform .06s ease;
 }
-
-/* Hover effect for sidebar option */
-.option:hover {
-  background-color: #f8f9fa; 
-  color: #2470bc;
-  transform: scale(1.02);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+.option::before{
+  content: "";
+  position: absolute;
+  left: 0; top: 10px; bottom: 10px;
+  width: 3px;
+  border-radius: 999px;
+  background: transparent;
+  transition: background .2s ease;
 }
-
-/* Focus state for accessibility */
-.option:focus {
-  color: #2470bc; 
-  outline: none; 
+.option:hover{
+  background: rgba(46, 121, 255, .06);
+  color: var(--blue-600, #1d5be0);
+  transform: translateX(1px);
 }
-
-/* Style for currently selected option */
-.option.selected {
-  color: #2470bc;
-  font-weight: bold;
+.option:hover::before{ background: color-mix(in oklab, var(--blue-600, #1d5be0) 50%, transparent); }
+.option:focus-visible{
+  outline: none;
+  box-shadow: inset 0 0 0 2px rgba(46,104,255,.28);
+  border-radius: 10px;
 }
+.option.selected{
+  color: var(--blue-600, #1d5be0);
+  font-weight: 700;
+}
+.option.selected::before{ background: var(--blue-600, #1d5be0); }
 
-/* Main content area aligned to the right of the sidebar */
-.content {
-  margin-left: 200px; 
-  padding: 20px;
-  flex: 1;
+/* ===== Área de contenido ===== */
+.content{
+  margin-left: 220px;           /* deja espacio al sidebar */
+  margin-top: 60px;             /* deja espacio al topbar */
+  padding: 20px 24px;
+  height: calc(100vh - 60px);
+  overflow: auto;               /* solo el contenido scrollea */
   display: flex;
-  flex-direction: column;
-  align-items: center; 
-  justify-content: center;
-  margin-top: 60px;
-  height: calc(100vh - 60px); 
-  box-sizing: border-box;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 16px;
 }
 
-/* Style for default utility buttons */
-.default-button {
-  width: 200px; 
-  padding: 15px 20px;
-  background-color: transparent;
-  border-radius: 4px;
-  color: rgba(98, 96, 96); 
-  font-size: 16px;
-  margin: 10px 0; 
+/* ===== Botones utilitarios (coherentes con Anomaly Detector) ===== */
+.default-button{
+  display: inline-grid;
+  place-items: center;
+  min-width: 200px;
+  padding: 14px 18px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.70);
+  background: linear-gradient(180deg, #f7faff, #eaf1ff);
+  color: var(--blue-600, #1d5be0);
+  font-size: 15px;
   cursor: pointer;
+  transition: transform .06s ease, box-shadow .2s ease, background .2s ease;
+  box-shadow: 0 6px 16px rgba(22,36,80,.10), inset 0 1px 0 rgba(255,255,255,.35);
   text-align: center;
-  transition: background-color 0.2s;
-  border: none; 
-  box-shadow: none; 
+}
+.default-button:hover{
+  transform: translateY(-1px);
+  background: linear-gradient(180deg, #ffffff, #edf3ff);
+  box-shadow: 0 10px 22px rgba(28, 70, 170, .14), inset 0 1px 0 rgba(255,255,255,.45);
+}
+.default-button:focus-visible{
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(46,104,255,.28), 0 6px 16px rgba(22,36,80,.10);
 }
 
-/* Hover effect for utility buttons */
-.default-button:hover {
-  background-color: #6c757d;
-}
+/* ===== Utilidades visuales ===== */
+.top-bar-left{ flex: 1; }
+.logout-container{ display:flex; align-items:center; justify-content:flex-end; gap:8px; width:auto; }
+.save-button i{ font-size: 16px; }
 
-/* Back and Save button shared styles */
-.back-btn, .save-button {
-  background-color: transparent;
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  cursor: pointer;
-  border-radius: 4px;
-}
+/* ===== Scrollbar minimal ===== */
+.sidebar::-webkit-scrollbar,
+.content::-webkit-scrollbar{ width: 8px; }
+.sidebar::-webkit-scrollbar-thumb,
+.content::-webkit-scrollbar-thumb{ background: rgba(46,104,255,.35); border-radius: 10px; }
+.sidebar::-webkit-scrollbar-track,
+.content::-webkit-scrollbar-track{ background: rgba(245,246,250,.5); }
 
-/* Hover state for back and save buttons */
-.back-btn:hover, .save-button:hover {
-  border: #ffffff 1px solid;
+/* ===== Responsive ===== */
+@media (max-width: 1024px){
+  .sidebar{ width: 200px; }
+  .content{ margin-left: 200px; }
 }
-
-/* Icon inside save button */
-.save-button i {
-  font-size: 16px;
+@media (max-width: 860px){
+  .sidebar{
+    width: 72px;           /* sidebar compacto */
+    padding-top: 12px;
+  }
+  .option{
+    text-align: center;
+    padding: 14px 8px;
+  }
+  .option::before{ left: 50%; transform: translateX(-50%); width: 2px; }
+  .content{ margin-left: 72px; }
+}
+@media (prefers-reduced-motion: reduce){
+  *{ transition: none !important; animation: none !important; }
 }

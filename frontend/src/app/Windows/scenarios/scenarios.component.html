@@ -1,0 +1,105 @@
+<!-- Button options section (visible only on root sub-routes) -->
+<div class="options-container" *ngIf="isRootSubRoute()">
+  <!-- New scenario -->
+  <button class="new-button new-scenario" (click)="newScenario()" aria-label="Create new scenario">
+    <i class="fas fa-plus"></i>
+    <span class="tooltip-text">Click to design a new scenario</span>
+  </button>
+
+  <!-- Import scenario -->
+  <button class="import-button load-scenario" (click)="triggerFileInput()" aria-label="Import scenario">
+    <i class="fas fa-folder-open"></i>
+    <span class="tooltip-text">Click to import an existing scenario. Please select the JSON and data files</span>
+  </button>
+
+  <!-- Hidden file input -->
+  <input type="file" id="fileInput" style="display: none;" (change)="loadScenario($event)" accept=".json, .csv, .pcap" multiple>
+</div>
+
+<!-- Main content -->
+<div class="content">
+  <!-- Scenarios card -->
+  <div class="table-container" *ngIf="isRootSubRoute()">
+    <header class="table-header">
+      <h2 class="table-title">Scenarios</h2>
+      <div class="header-actions">
+        <!-- (Opcional) espacio para filtros/controles futuros -->
+      </div>
+    </header>
+
+    <table class="scenario-table" role="grid" aria-label="Scenarios list">
+      <thead>
+        <tr>
+          <th scope="col">ID</th>
+          <th scope="col">Name</th>
+          <th scope="col">Status</th>
+          <th scope="col">Date</th>
+          <th scope="col" class="actions-col">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let scenario of scenarios">
+          <td>{{ scenario.uuid }}</td>
+          <td class="name-cell" title="{{ scenario.name }}">{{ scenario.name }}</td>
+
+          <!-- Status chip (usa tus clases existentes) -->
+          <td [class.finished]="scenario.status === 'Finished'"
+              [class.error]="scenario.status === 'Error'"
+              class="status-cell">
+            {{ scenario.status }}
+          </td>
+
+          <td>{{ scenario.date | date:'dd/MM/yyyy HH:mm:ss' }}</td>
+
+          <td>
+            <div class="action-buttons">
+              <button class="default-button edit-button" (click)="editScenario(scenario.uuid)" title="Edit" aria-label="Edit scenario">
+                <i class="fas fa-pencil-alt"></i>
+              </button>
+
+              <button class="default-button" (click)="downloadScenario(scenario)" title="Download" aria-label="Download scenario">
+                <i class="fas fa-download"></i>
+              </button>
+
+              <button class="default-button" (click)="runScenario(scenario.status, scenario.uuid)" title="Run" aria-label="Run scenario">
+                <i class="fas fa-play"></i>
+              </button>
+
+              <button class="default-button"
+                      *ngIf="scenario.status === 'Finished' && hasAnomalyDetection(scenario)"
+                      (click)="viewTimelineAD(scenario.uuid)"
+                      title="Timeline AD" aria-label="View AD timeline">
+                <i class="fas fa-chart-line"></i>
+              </button>
+
+              <button class="default-button"
+                      *ngIf="scenario.status === 'Finished' && hasAnomalyDetection(scenario)"
+                      (click)="production(scenario.uuid)"
+                      title="Production AD" aria-label="Deploy to production">
+                <i class="fa-solid fa-cloud-arrow-up"></i>
+              </button>
+
+              <button class="default-button"
+                      *ngIf="scenario.status === 'Finished' && hasClassificationOrRegression(scenario)"
+                      (click)="viewMetrics(scenario.uuid)"
+                      title="Metrics" aria-label="View metrics">
+                <i class="fas fa-chart-bar"></i>
+              </button>
+
+              <button class="default-button delete-button" (click)="deleteScenario(scenario.uuid)" title="Delete" aria-label="Delete scenario">
+                <i class="fas fa-trash-alt"></i>
+              </button>
+            </div>
+          </td>
+        </tr>
+
+        <tr *ngIf="scenarios.length === 0">
+          <td colspan="5" class="empty-row">No scenarios available</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Dynamic routing outlet -->
+  <router-outlet></router-outlet>
+</div>

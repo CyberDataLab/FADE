@@ -1,4 +1,5 @@
 <!-- Modal dialog wrapper for registration -->
+<app-theme-toggle class="theme-toggle-fixed"></app-theme-toggle>
 <div class="modal-dialog align-middle register-modal" role="document">
   <div class="modal-content">
 
@@ -12,96 +13,159 @@
       <form (keydown)="keyDownFunction($event)">
 
         <!-- Admin username field -->
-        <div class="form-group">
-          <input type="text" [(ngModel)]="userRegisterDTO.admin_username" name="admin_username"
-                 class="form-control register-input" placeholder="Admin username" />
+        <div class="form-group position-relative">
+          <i class="fas fa-user input-icon"></i>
+          <input
+            type="text"
+            [(ngModel)]="userRegisterDTO.admin_username"
+            name="admin_username"
+            class="form-control register-input with-icon"
+            placeholder="Admin username"
+          />
           <ng-container *ngIf="admin_usernameError">
             <p class="error-message"><small>*Insert admin username</small></p>
           </ng-container>
         </div>
 
         <!-- Admin password field with toggle visibility -->
-        <div class="form-group">
-          <div class="input-wrapper">
-            <input [type]="showAdminPassword ? 'text' : 'password'" [(ngModel)]="userRegisterDTO.admin_password"
-                   name="admin_password" class="form-control register-input" placeholder="Admin password" />
-            <button type="button" (click)="toggleVisibility('admin')" class="password-toggle-btn">
-              <i [ngClass]="showAdminPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
-            </button>
-          </div>
+        <div class="form-group position-relative">
+          <i class="fas fa-lock input-icon"></i>
+          <input
+            [type]="showAdminPassword ? 'text' : 'password'"
+            [(ngModel)]="userRegisterDTO.admin_password"
+            name="admin_password"
+            class="form-control register-input with-icon"
+            placeholder="Admin password"
+          />
+          <button
+            type="button"
+            (click)="toggleVisibility('admin')"
+            class="password-toggle-btn"
+            aria-label="Toggle admin password visibility"
+          >
+            <i [ngClass]="showAdminPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
+          </button>
           <ng-container *ngIf="admin_passwordError">
             <p class="error-message"><small>*Insert admin password</small></p>
           </ng-container>
         </div>
 
         <!-- New user: username -->
-        <div class="form-group">
-          <input type="text" [(ngModel)]="userRegisterDTO.username" name="username"
-                 class="form-control register-input" placeholder="Username" />
+        <div class="form-group position-relative">
+          <i class="fas fa-user input-icon"></i>
+          <input
+            type="text"
+            [(ngModel)]="userRegisterDTO.username"
+            name="username"
+            class="form-control register-input with-icon"
+            placeholder="Username"
+          />
           <ng-container *ngIf="usernameError; else usernameValid">
             <p class="error-message"><small>*Insert username</small></p>
           </ng-container>
           <ng-template #usernameValid>
-            <p *ngIf="badUsernameError" class="error-message"><small>*Username format is incorrect. At least 6 characters long and include at least one lowercase letter and one number.</small></p>
+            <p *ngIf="badUsernameError" class="error-message">
+              <small>*Username format is incorrect. At least 6 characters long and include at least one lowercase letter and one number.</small>
+            </p>
           </ng-template>
         </div>
 
         <!-- New user: password -->
-        <div class="form-group">
-          <div class="input-wrapper">
-            <input [type]="showNewPassword ? 'text' : 'password'" [(ngModel)]="userRegisterDTO.password"
-                   name="password" class="form-control register-input" placeholder="Password" />
-            <button type="button" (click)="toggleVisibility('new')" class="password-toggle-btn">
-              <i [ngClass]="showNewPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
-            </button>
-          </div>
+        <div class="form-group position-relative">
+          <i class="fas fa-lock input-icon"></i>
+          <input
+            [type]="showNewPassword ? 'text' : 'password'"
+            [(ngModel)]="userRegisterDTO.password"
+            name="password"
+            class="form-control register-input with-icon"
+            placeholder="Password"
+          />
+          <button
+            type="button"
+            (click)="toggleVisibility('new')"
+            class="password-toggle-btn"
+            aria-label="Toggle new password visibility"
+          >
+            <i [ngClass]="showNewPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
+          </button>
           <ng-container *ngIf="passwordError; else passwordValid">
             <p class="error-message"><small>*Insert password</small></p>
           </ng-container>
           <ng-template #passwordValid>
-            <p *ngIf="badPasswordError" class="error-message"><small>*Password format is incorrect. At least 8 characters long and include at least one uppercase letter, one lowercase letter, and one number.</small></p>
+            <p *ngIf="badPasswordError" class="error-message">
+              <small>*Password format is incorrect. At least 8 characters long and include at least one uppercase letter, one lowercase letter, and one number.</small>
+            </p>
           </ng-template>
         </div>
 
         <!-- New user: confirm password -->
-        <div class="form-group">
-          <div class="input-wrapper">
-            <input [type]="showConfirmPassword ? 'text' : 'password'" [(ngModel)]="userRegisterDTO.confirm_password"
-                   name="confirm_password" class="form-control register-input" placeholder="Confirm password" />
-            <button type="button" (click)="toggleVisibility('confirm')" class="password-toggle-btn">
-              <i [ngClass]="showConfirmPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
-            </button>
-          </div>
+        <div class="form-group position-relative">
+          <i class="fas fa-lock input-icon"></i>
+          <input
+            [type]="showConfirmPassword ? 'text' : 'password'"
+            [(ngModel)]="userRegisterDTO.confirm_password"
+            name="confirm_password"
+            class="form-control register-input with-icon"
+            placeholder="Confirm password"
+          />
+          <button
+            type="button"
+            (click)="toggleVisibility('confirm')"
+            class="password-toggle-btn"
+            aria-label="Toggle confirm password visibility"
+          >
+            <i [ngClass]="showConfirmPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
+          </button>
           <ng-container *ngIf="confirm_passwordError; else confirm_passwordValid">
             <p class="error-message"><small>*Insert password</small></p>
           </ng-container>
           <ng-template #confirm_passwordValid>
-            <p *ngIf="badConfirmPasswordError" class="error-message"><small>*Password format is incorrect. At least 8 characters long and include at least one uppercase letter, one lowercase letter, and one number.</small></p>
+            <p *ngIf="badConfirmPasswordError" class="error-message">
+              <small>*Password format is incorrect. At least 8 characters long and include at least one uppercase letter, one lowercase letter, and one number.</small>
+            </p>
           </ng-template>
         </div>
 
         <!-- New user: first name -->
-        <div class="form-group">
-          <input type="text" [(ngModel)]="userRegisterDTO.first_name" name="first_name"
-                 class="form-control register-input" placeholder="First name" />
+        <div class="form-group position-relative">
+          <i class="fas fa-id-badge input-icon"></i>
+          <input
+            type="text"
+            [(ngModel)]="userRegisterDTO.first_name"
+            name="first_name"
+            class="form-control register-input with-icon"
+            placeholder="First name"
+          />
           <ng-container *ngIf="first_nameError">
             <p class="error-message"><small>*Insert first name</small></p>
           </ng-container>
         </div>
 
         <!-- New user: last name -->
-        <div class="form-group">
-          <input type="text" [(ngModel)]="userRegisterDTO.last_name" name="last_name"
-                 class="form-control register-input" placeholder="Last name" />
+        <div class="form-group position-relative">
+          <i class="fas fa-id-card input-icon"></i>
+          <input
+            type="text"
+            [(ngModel)]="userRegisterDTO.last_name"
+            name="last_name"
+            class="form-control register-input with-icon"
+            placeholder="Last name"
+          />
           <ng-container *ngIf="last_nameError">
             <p class="error-message"><small>*Insert last name</small></p>
           </ng-container>
         </div>
 
         <!-- New user: email -->
-        <div class="form-group">
-          <input type="text" [(ngModel)]="userRegisterDTO.email" name="email"
-                 class="form-control register-input" placeholder="Email" />
+        <div class="form-group position-relative">
+          <i class="fas fa-envelope input-icon"></i>
+          <input
+            type="text"
+            [(ngModel)]="userRegisterDTO.email"
+            name="email"
+            class="form-control register-input with-icon"
+            placeholder="Email"
+          />
           <ng-container *ngIf="emailError; else emailValid">
             <p class="error-message"><small>*Insert email</small></p>
           </ng-container>

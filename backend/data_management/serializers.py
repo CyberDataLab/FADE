@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Scenario, File, AnomalyDetector, ClassificationMetric, RegressionMetric,AnomalyMetric
+from .models import Scenario, File, ScenarioModel, ClassificationMetric, RegressionMetric,AnomalyMetric
 
 class FileSerializer(serializers.ModelSerializer):
     """
@@ -26,15 +26,15 @@ class ScenarioSerializer(serializers.ModelSerializer):
         model = Scenario
         fields = ['id', 'name', 'user', 'design', 'uuid', 'status', 'date', 'files']
 
-class AnomalyDetectorSerializer(serializers.ModelSerializer):
+class ScenarioModelSerializer(serializers.ModelSerializer):
     """
-    Serializer for the AnomalyDetector model.
+    Serializer for the ScenarioModel model.
     Handles serialization and deserialization of anomaly detector data,
     including scenario, execution, and user.
     The user field is read-only, ensuring that it is set automatically.
     """
     class Meta:
-        model = AnomalyDetector
+        model = ScenarioModel
         fields = ['id', 'scenario', 'execution']
         extra_kwargs = {'user': {'read_only': True}}
 

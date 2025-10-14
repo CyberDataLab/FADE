@@ -5,7 +5,8 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 
 // Application-specific service and interface
-import { PoliciesService, PolicyPayload } from './policies.service';
+import { PoliciesService, PolicyPayload } from '../../Core/services/policies.service';
+
 
 /**
  * @summary Component for configuring and applying security policies.
@@ -24,7 +25,7 @@ import { PoliciesService, PolicyPayload } from './policies.service';
 
 export class PoliciesComponent {
   /** @summary Selected policy type from the dropdown (e.g., block_ip, send_email) */
-  policyType: string = 'block_ip';
+  policyType: string = '';
 
   /** @summary Target value associated with the policy (e.g., IP, port, interface) */
   targetValue: string = '';
@@ -50,6 +51,34 @@ export class PoliciesComponent {
     'Excessive number of packets from a specific port',
     'High bandwidth usage in a short time',
   ];
+
+   // sin selección inicial para que se vea el placeholder
+  policyTypes = [
+    { value: 'block_ip_src',  label: 'Block src IP' },
+    { value: 'block_ip_dst',  label: 'Block dst IP' },
+    { value: 'allow_ip_src',  label: 'Allow src IP' },
+    { value: 'allow_ip_dst',  label: 'Allow dst IP' },
+    { value: 'block_port_src',label: 'Block src port' },
+    { value: 'block_port_dst',label: 'Block dst port' },
+    { value: 'allow_port_src',label: 'Allow src port' },
+    { value: 'allow_port_dst',label: 'Allow dst port' },
+    { value: 'limit_bandwidth',label: 'Limit Bandwidth' },
+    { value: 'send_email',    label: 'Send Email' },
+  ];
+
+  // Mapa de placeholders por tipo de policy
+  private placeholders: Record<string, string> = {
+    block_ip_src:   'e.g., 192.168.1.10',
+    block_ip_dst:   'e.g., 192.168.1.20',
+    allow_ip_src:   'e.g., 10.0.0.5',
+    allow_ip_dst:   'e.g., 10.0.0.8',
+    block_port_src: 'e.g., 22',
+    block_port_dst: 'e.g., 443',
+    allow_port_src: 'e.g., 8080',
+    allow_port_dst: 'e.g., 8443',
+    limit_bandwidth:'e.g., 10mbps',
+    send_email:     'Choose reason / configure below',
+  };
 
   /**
    * @summary Injects HTTP client and policies service.
@@ -86,23 +115,8 @@ export class PoliciesComponent {
    * 
    * @returns Placeholder string for the main input field
    */
-  getPlaceholder(): string {
-    switch (this.policyType) {
-      case 'block_ip_src' || 'block_ip_dst':
-        return 'e.g., 192.168.0.10';
-      case 'block_port_src' || 'block_port_dst':
-        return 'e.g., 22';
-      case 'allow_ip_src' || 'allow_ip_dst':
-        return 'e.g., 192.168.0.5';
-      case 'allow_port_src' || 'allow_port_dst':
-        return 'e.g., 22';
-      case 'limit_bandwidth':
-        return 'e.g., en0:500Kbit/s';
-      case 'send_email':
-        return 'e.g., admin@example.com';
-      default:
-        return 'Enter value';
-    }
+  getPlaceholderFor(type?: string | null): string {
+    return type && this.placeholders[type] ? this.placeholders[type] : 'Select a policy to see hint';
   }
 
   /**

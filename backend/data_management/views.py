@@ -12,7 +12,7 @@ from rest_framework.parsers import MultiPartParser
 from rest_framework.decorators import api_view, permission_classes, parser_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
-from .models import Scenario, File, AnomalyDetector, ClassificationMetric, RegressionMetric, AnomalyMetric
+from .models import Scenario, File, ScenarioModel, ClassificationMetric, RegressionMetric, AnomalyMetric
 from .serializers import ScenarioSerializer
 from django.http import JsonResponse
 from system_monitor.models import SystemConfiguration
@@ -27,8 +27,11 @@ from collections import defaultdict
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.utils import to_categorical
 from .utils import *
+from netanoms_runtime.detection import run_live_production, SSHConfig, CaptureConfig
 
 logger = logging.getLogger('backend')
+
+production_handles = {}
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -223,12 +226,12 @@ def get_scenario_classification_metrics_by_uuid(request, uuid):
     Behavior:
         - Fetches the Scenario instance by UUID.
         - Finds the associated AnomalyDetector instance.
-        - Retrieves all ClassificationMetric entries related to that detector, ordered by date descending.
+        - Retrieves all ClassificationMetric entries related to that scenario model, ordered by date descending.
         - Ensures that SHAP/LIME image fields are returned as lists (even if stored as single strings).
 
     Returns:
         - 200 OK with a list of metrics and associated explanation images.
-        - 404 Not Found if scenario or detector is missing.
+        - 404 Not Found if scenario or scenario model is missing.
         - 500 Internal Server Error for any other exception.
     """
 
@@ -237,11 +240,11 @@ def get_scenario_classification_metrics_by_uuid(request, uuid):
         # Fetch the scenario by UUID
         scenario = Scenario.objects.get(uuid=uuid)
 
-        # Fetch the associated anomaly detector
-        detector = AnomalyDetector.objects.get(scenario=scenario)
+        # Fetch the associated scenario model
+        scenario_model = ScenarioModel.objects.get(scenario=scenario)
 
-        # Retrieve all classification metrics for the detector, ordered by date
-        metrics = ClassificationMetric.objects.filter(detector=detector).order_by('-date')
+        # Retrieve all classification metrics for the scenario model, ordered by date
+        metrics = ClassificationMetric.objects.filter(scenario_model=scenario_model).order_by('-date')
 
         # Prepare the metrics data for the response
         metrics_data = [
@@ -273,9 +276,9 @@ def get_scenario_classification_metrics_by_uuid(request, uuid):
     except Scenario.DoesNotExist:
         return JsonResponse({"error": "Scenario not found"}, status=404)
     
-    # Return error if anomaly detector is not found
-    except AnomalyDetector.DoesNotExist:
-        return JsonResponse({"error": "Anomaly detector not found"}, status=404)
+    # Return error if scenario model is not found
+    except ScenarioModel.DoesNotExist:
+        return JsonResponse({"error": "Scenario model not found"}, status=404)
     
     # Return error for any other exceptions
     except Exception as e:
@@ -292,13 +295,13 @@ def get_scenario_regression_metrics_by_uuid(request, uuid):
 
     Behavior:
         - Looks up the Scenario instance by UUID.
-        - Retrieves the associated AnomalyDetector instance.
-        - Filters RegressionMetric entries by detector, ordered by date descending.
+        - Retrieves the associated ScenarioModel instance.
+        - Filters RegressionMetric entries by scenario model, ordered by date descending.
         - Normalizes SHAP and LIME global image fields to always be lists.
 
     Returns:
         - 200 OK with list of regression metrics.
-        - 404 Not Found if the scenario or detector does not exist.
+        - 404 Not Found if the scenario or scenario model does not exist.
         - 500 Internal Server Error for unexpected issues.
     """
 
@@ -306,11 +309,11 @@ def get_scenario_regression_metrics_by_uuid(request, uuid):
         # Fetch the scenario by UUID
         scenario = Scenario.objects.get(uuid=uuid)
 
-        # Fetch the associated anomaly detector
-        detector = AnomalyDetector.objects.get(scenario=scenario)
+        # Fetch the associated scenario model
+        scenario_model = ScenarioModel.objects.get(scenario=scenario)
 
-        # Retrieve all regression metrics for the detector, ordered by date
-        metrics = RegressionMetric.objects.filter(detector=detector).order_by('-date')
+        # Retrieve all regression metrics for the scenario model, ordered by date
+        metrics = RegressionMetric.objects.filter(scenario_model=scenario_model).order_by('-date')
 
         # Prepare the metrics data for the response
         metrics_data = [
@@ -342,9 +345,9 @@ def get_scenario_regression_metrics_by_uuid(request, uuid):
     except Scenario.DoesNotExist:
         return JsonResponse({"error": "Scenario not found"}, status=404)
     
-    # Return error if anomaly detector is not found
-    except AnomalyDetector.DoesNotExist:
-        return JsonResponse({"error": "Anomaly detector not found"}, status=404)
+    # Return error if scenario model is not found
+    except ScenarioModel.DoesNotExist:
+        return JsonResponse({"error": "Scenario Model not found"}, status=404)
     
     # Return error for any other exceptions
     except Exception as e:
@@ -360,7 +363,7 @@ def get_scenario_anomaly_metrics_by_uuid(request, uuid):
         uuid (str): UUID of the scenario.
 
     Behavior:
-        - Finds the associated scenario and anomaly detector.
+        - Finds the associated scenario and scenario model.
         - Filters anomaly metrics that are not from production mode, ordered by date descending.
         - Parses the anomalies field (stored as JSON string or list).
         - Ensures SHAP and LIME global images are returned as lists.
@@ -374,11 +377,11 @@ def get_scenario_anomaly_metrics_by_uuid(request, uuid):
         # Fetch the scenario by UUID
         scenario = Scenario.objects.get(uuid=uuid)
 
-        # Fetch the associated anomaly detector
-        detector = AnomalyDetector.objects.get(scenario=scenario)
+        # Fetch the associated scenario model
+        scenario_model = ScenarioModel.objects.get(scenario=scenario)
 
-        # Retrieve all anomaly metrics for the detector that are not in production mode, ordered by date
-        metrics = AnomalyMetric.objects.filter(detector=detector, production=False).order_by('-date')
+        # Retrieve all anomaly metrics for the scenario model that are not in production mode, ordered by date
+        metrics = AnomalyMetric.objects.filter(scenario_model=scenario_model, production=False).order_by('-date')
 
         # Prepare the metrics data for the response
         metrics_data = []
@@ -409,7 +412,7 @@ def get_scenario_anomaly_metrics_by_uuid(request, uuid):
         # Return the metrics data as a JSON response
         return JsonResponse({"metrics": metrics_data}, safe=False)
     
-    # Return error if scenario or anomaly detector or metrics are not found
+    # Return error if scenario or scenario model or metrics are not found
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
     
@@ -423,7 +426,7 @@ def get_scenario_production_anomaly_metrics_by_uuid(request, uuid):
         uuid (str): UUID of the scenario.
 
     Behavior:
-        - Finds the associated scenario and anomaly detector.
+        - Finds the associated scenario and scenario model.
         - Filters anomaly metrics marked as production=True, ordered by date descending.
         - Parses anomalies field (stored as JSON or plain text).
         - Returns full explanation image paths for SHAP and LIME (global + local), and anomaly details if available.
@@ -438,11 +441,11 @@ def get_scenario_production_anomaly_metrics_by_uuid(request, uuid):
         # Fetch the scenario by UUID
         scenario = Scenario.objects.get(uuid=uuid)
 
-        # Fetch the associated anomaly detector
-        detector = AnomalyDetector.objects.get(scenario=scenario)
+        # Fetch the associated scenario model
+        scenario_model = ScenarioModel.objects.get(scenario=scenario)
 
-        # Retrieve all anomaly metrics for the detector that are in production mode, ordered by date
-        metrics = AnomalyMetric.objects.filter(detector=detector, production=True).order_by('-date')
+        # Retrieve all anomaly metrics for the scenario model that are in production mode, ordered by date
+        metrics = AnomalyMetric.objects.filter(scenario_model=scenario_model, production=True).order_by('-date')
 
         # Prepare the metrics data for the response
         metrics_data = []
@@ -472,7 +475,7 @@ def get_scenario_production_anomaly_metrics_by_uuid(request, uuid):
         # Return the metrics data as a JSON response
         return JsonResponse({"metrics": metrics_data}, safe=False)
     
-    # Return error if scenario or anomaly detector or metrics are not found
+    # Return error if scenario or scenario model or metrics are not found
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
@@ -640,7 +643,7 @@ def delete_scenario_by_uuid(request, uuid):
     """
     Deletes a scenario by UUID along with:
         - Associated files (if no longer referenced).
-        - Linked anomaly detector and classification metrics.
+        - Linked scenario model and classification metrics.
         - Related SHAP/LIME/model files from disk.
 
     Args:
@@ -672,18 +675,18 @@ def delete_scenario_by_uuid(request, uuid):
                 file_instance.save()
                 logger.info(f"[DELETE SCENARIO] Decremented reference for file: {file_instance.name}")
 
-        # Find the anomaly detector associated with the scenario
-        anomaly_detector = AnomalyDetector.objects.filter(scenario=scenario).first()
+        # Find the scenario model associated with the scenario
+        scenario_model = ScenarioModel.objects.filter(scenario=scenario).first()
 
-        # If an anomaly detector exists, delete its metrics and the detector itself
-        if anomaly_detector:
-            ClassificationMetric.objects.filter(detector=anomaly_detector).delete()
-            RegressionMetric.objects.filter(detector=anomaly_detector).delete()
-            AnomalyMetric.objects.filter(detector=anomaly_detector).delete()
-            logger.info(f"[DELETE SCENARIO] Deleted metrics for detector ID: {anomaly_detector.id}")
+        # If an scenario model exists, delete its metrics and the scenario model itself
+        if scenario_model:
+            ClassificationMetric.objects.filter(scenario_model=scenario_model).delete()
+            RegressionMetric.objects.filter(scenario_model=scenario_model).delete()
+            AnomalyMetric.objects.filter(scenario_model=scenario_model).delete()
+            logger.info(f"[DELETE SCENARIO] Deleted metrics for scenario model ID: {scenario_model.id}")
 
-            anomaly_detector.delete()
-            logger.info(f"[DELETE SCENARIO] Deleted anomaly detector for scenario UUID: {scenario.uuid}")
+            scenario_model.delete()
+            logger.info(f"[DELETE SCENARIO] Deleted scenario model for scenario UUID: {scenario.uuid}")
 
         # Folders to clean related to the scenario
         folders_to_clean = [
@@ -730,7 +733,7 @@ def run_scenario_by_uuid(request, uuid):
 
     Behavior:
         - Marks the scenario as "Running".
-        - Creates or reuses the associated AnomalyDetector.
+        - Creates or reuses the associated scenario model.
         - Parses and executes the scenario design using execute_scenario().
         - Updates the scenario's status to "Finished" or "Error" depending on execution.
         - Increments the user's executed scenario counter on success.
@@ -756,13 +759,13 @@ def run_scenario_by_uuid(request, uuid):
 
         logger.info(f"[RUN SCENARIO] Scenario status updated to 'Running'")
 
-        # Create or get the anomaly detector for this scenario
-        anomaly_detector, created = AnomalyDetector.objects.get_or_create(scenario=scenario)
+        # Create or get the scenario model for this scenario
+        scenario_model, created = ScenarioModel.objects.get_or_create(scenario=scenario)
 
         if created:
-            logger.info(f"[RUN SCENARIO] Created new AnomalyDetector for scenario: {scenario.name}")
+            logger.info(f"[RUN SCENARIO] Created new ScenarioModel for scenario: {scenario.name}")
         else:
-            logger.info(f"[RUN SCENARIO] Using existing AnomalyDetector for scenario: {scenario.name}")
+            logger.info(f"[RUN SCENARIO] Using existing ScenarioModel for scenario: {scenario.name}")
 
         # Retrieve the design from the scenario and parse it
         design = scenario.design
@@ -770,7 +773,7 @@ def run_scenario_by_uuid(request, uuid):
             design = json.loads(design)
 
         # Execute the scenario using the execute_scenario function
-        result = execute_scenario(anomaly_detector, scenario, design)
+        result = execute_scenario(scenario_model, scenario, design)
 
         # Return error response if the execution result indicates an error
         if result.get('error'):
@@ -797,14 +800,14 @@ def run_scenario_by_uuid(request, uuid):
         return JsonResponse({'error': 'Scenario not found or without permits to run it'}, status=status.HTTP_404_NOT_FOUND)
 
 @shared_task
-def execute_scenario(anomaly_detector, scenario, design):
+def execute_scenario(scenario_model, scenario, design):
     try:
 
         logger.info(f"[EXECUTE SCENARIO] Starting execution for scenario: {scenario.name} (UUID: {scenario.uuid})")
 
-        # Increment the execution count for the anomaly detector
-        anomaly_detector.execution += 1
-        anomaly_detector.save()
+        # Increment the execution count for the scenario model
+        scenario_model.execution += 1
+        scenario_model.save()
 
         # Load the configuration for the scenario
         config = load_config()
@@ -1000,36 +1003,13 @@ def execute_scenario(anomaly_detector, scenario, design):
                                 logger.info("[EXECUTE SCENARIO] Calculating classification metrics")
                                 metrics_config = params.get("metrics", {})
                                 metrics = calculate_classification_metrics(model_data["y_test"], model_data["y_pred"], metrics_config)
-                                metric, created = ClassificationMetric.objects.get_or_create(
-                                    detector=anomaly_detector,
-                                    execution=anomaly_detector.execution,
-                                    model_name=model_element["type"]
-                                )
-
-                                metric.accuracy = metrics.get("accuracy")
-                                metric.precision = metrics.get("precision")
-                                metric.recall = metrics.get("recall")
-                                metric.f1_score = metrics.get("f1_score")
-                                metric.confusion_matrix = json.dumps(metrics.get("confusion_matrix"))
-                                metric.save()
+                                save_classification_metrics(scenario_model, model_element["type"], metrics, scenario_model.execution)
                                 logger.info("[EXECUTE SCENARIO] Classification metrics saved for model")
                             else:
                                 logger.info("[EXECUTE SCENARIO] Calculating regression metrics")
                                 metrics_config = params.get("metrics", {})
                                 metrics = calculate_regression_metrics(model_data["y_test"], model_data["y_pred"], metrics_config)
-
-                                metric, created = RegressionMetric.objects.get_or_create(
-                                    detector=anomaly_detector,
-                                    execution=anomaly_detector.execution,
-                                    model_name=model_element["type"]
-                                )
-
-                                metric.mse = metrics.get("mse")
-                                metric.rmse = metrics.get("rmse")
-                                metric.mae = metrics.get("mae")
-                                metric.r2 = metrics.get("r2")
-                                metric.msle = metrics.get("msle")
-                                metric.save()
+                                save_regression_metrics(scenario_model, model_element["type"], metrics, scenario_model.execution)
                                 logger.info("[EXECUTE SCENARIO] Regression metrics saved for model")
 
             # Case element type is DataSplitter
@@ -1442,8 +1422,8 @@ def execute_scenario(anomaly_detector, scenario, design):
                             feature_values = input_copy[column].values
                             anomalies = [i for i, (val, pred) in enumerate(zip(feature_values, y_pred)) if pred == 1]
 
-                            save_anomaly_metrics(anomaly_detector, el_type, column, feature_values, anomalies, 
-                                                 anomaly_detector.execution, production=False, anomaly_details=None,
+                            save_anomaly_metrics(scenario_model, el_type, column, feature_values, anomalies, 
+                                                 scenario_model.execution, production=False, anomaly_details=None,
                                                  global_shap_images=[], local_shap_images=[], global_lime_images=[], 
                                                  local_lime_images=[])
 
@@ -1584,8 +1564,8 @@ def execute_scenario(anomaly_detector, scenario, design):
                                     # Save the anomaly metrics
                                     if shap_image_paths:
                                         metrics = AnomalyMetric.objects.filter(
-                                            detector=anomaly_detector,
-                                            execution=anomaly_detector.execution,
+                                            scenario_model=scenario_model,
+                                            execution=scenario_model.execution,
                                         )
 
                                 # Case model connected is classification or regression model
@@ -1610,8 +1590,8 @@ def execute_scenario(anomaly_detector, scenario, design):
 
                                             # Get or create the classification metric
                                             metric, created = ClassificationMetric.objects.get_or_create(
-                                                detector=anomaly_detector,
-                                                execution=anomaly_detector.execution,
+                                                scenario_model=scenario_model,
+                                                execution=scenario_model.execution,
                                                 model_name=model_type,
                                                 defaults={"global_shap_images": shap_image_paths}
                                             )
@@ -1627,8 +1607,8 @@ def execute_scenario(anomaly_detector, scenario, design):
 
                                             # Get or create the regression metric
                                             metric, created = RegressionMetric.objects.get_or_create(
-                                                detector=anomaly_detector,
-                                                execution=anomaly_detector.execution,
+                                                scenario_model=scenario_model,
+                                                execution=scenario_model.execution,
                                                 model_name=model_type,
                                                 defaults={"global_shap_images": shap_image_paths}
                                             )
@@ -1687,8 +1667,8 @@ def execute_scenario(anomaly_detector, scenario, design):
                             lime_image_path = save_lime_bar_global(mean_weights, scenario.uuid)
 
                             metrics = AnomalyMetric.objects.filter(
-                                detector=anomaly_detector,
-                                execution=anomaly_detector.execution,
+                                scenario_model=scenario_model,
+                                execution=scenario_model.execution,
                             )
 
                             for metric in metrics:
@@ -1763,8 +1743,8 @@ def play_scenario_production_by_uuid(request, uuid):
         logger.info(f"[PRODUCTION EXECUTION] Analysis mode detected: {analysis_mode}")
 
         # Build pipelines from the design
-        anomaly_detector = AnomalyDetector.objects.get(scenario=scenario)
-        execution = anomaly_detector.execution
+        scenario_model = ScenarioModel.objects.get(scenario=scenario)
+        execution = scenario_model.execution
         base_path = os.path.join(settings.MEDIA_ROOT, 'models_storage')
         pipelines = build_pipelines_from_design(design, scenario.uuid, config, base_path)
 
@@ -1772,45 +1752,88 @@ def play_scenario_production_by_uuid(request, uuid):
             logger.warning(f"[PRODUCTION EXECUTION] No pipelines found for scenario UUID: {uuid}")
             return JsonResponse({'error': 'No pipelines found for this scenario.'}, status=400)
 
-        def capture_and_predict_streaming(uuid):
-            """
-            Captures packets in real-time and performs anomaly detection.
-            This function runs in a separate thread to avoid blocking the main thread.
+        ssh = SSHConfig(username=host_username, host="host.docker.internal",
+                    tshark_path=tshark_path, interface=interface, sudo=True)
+        cap = CaptureConfig(mode=analysis_mode, run_env="docker")
 
-            Args:
-                uuid (str): The UUID of the scenario being processed.
-            """
+        def on_anomaly(evt):
+            logger.info("[ANOMALY EVENT RAW] %s", evt)
 
-            logger.info(f"[PRODUCTION EXECUTION] Starting live capture for scenario UUID: {uuid}")
-
-            # Prepare the SSH command to run tshark
-            ssh_command = [
-                "ssh", f"{host_username}@host.docker.internal",
-                f"sudo -n {tshark_path} -l -i {interface} -T ek"
-            ]
+            # clean_for_json may not always be available (e.g., during tests)
+            try:
+                from .utils import clean_for_json
+            except Exception:
+                def clean_for_json(x): return x
 
             try:
-                logger.info(f"[PRODUCTION EXECUTION] Launching SSH capture with command: {' '.join(ssh_command)}")
-                proc = subprocess.Popen(ssh_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)
+                # 1) Unwrap kwargs if the event follows {'kwargs': {...}}
+                payload = evt.get('kwargs', evt) if isinstance(evt, dict) else evt
 
-                if analysis_mode == "packet":
-                    logger.info("[PRODUCTION EXECUTION] Packet mode selected")
-                    handle_packet_prediction(proc, pipelines, anomaly_detector, design, config, execution, uuid, scenario)
-                else:
-                    logger.info("[PRODUCTION EXECUTION] Flow mode selected")
-                    handle_flow_prediction(proc, pipelines, anomaly_detector, design, config, execution, uuid, scenario)
+                # 2) Helper that works for both dicts and objects
+                def getv(obj, *names, default=None):
+                    for name in names:
+                        if isinstance(obj, dict):
+                            if name in obj:
+                                return obj[name]
+                        else:
+                            if hasattr(obj, name):
+                                return getattr(obj, name)
+                    return default
 
-            except Exception as e:
-                logger.error(f"[PRODUCTION EXECUTION] FATAL ERROR during live capture: {e}")
+                model_name         = getv(payload, 'model_name')
+                feature_name       = getv(payload, 'feature_name')
+                feature_values     = getv(payload, 'feature_values', 'features')
+                anomaly_desc       = getv(payload, 'anomaly_description', 'anomalies')
+                anomaly_details    = getv(payload, 'anomaly_details', 'details')
+                global_shap_images = getv(payload, 'global_shap_images', default=[]) or []
+                local_shap_images  = getv(payload, 'local_shap_images',  default=[]) or []
+                global_lime_images = getv(payload, 'global_lime_images', default=[]) or []
+                local_lime_images  = getv(payload, 'local_lime_images',  default=[]) or []
 
-            finally:
-                proc.terminate()
-                logger.info("[PRODUCTION EXECUTION] Live capture stopped.")
+                # 3) Persist using your existing context vars
+                save_anomaly_metrics(
+                    scenario_model=scenario_model,              # captured from outer scope
+                    model_name=model_name,
+                    feature_name=feature_name,
+                    feature_values=clean_for_json(feature_values),
+                    anomalies=anomaly_desc,                 # note: maps from 'anomalies' if needed
+                    execution=execution,                    # captured from outer scope
+                    production=True,
+                    anomaly_details=anomaly_details,
+                    global_shap_images=global_shap_images,
+                    local_shap_images=local_shap_images,
+                    global_lime_images=global_lime_images,
+                    local_lime_images=local_lime_images
+                )
 
-        # Launch background thread for real-time processing
-        thread_controls[uuid] = True
-        thread = threading.Thread(target=capture_and_predict_streaming, args=(uuid,), daemon=True)
-        thread.start()
+                logger.info("[ANOMALY EVENT SAVED] model=%s feature=%s", model_name, feature_name)
+
+            except Exception:
+                # This will show you *why* saving failed (types, nulls, etc.)
+                logger.exception("Error in on_anomaly callback")
+
+        def on_status(msg):
+            logger.info(f"[STATUS] {msg}")
+
+        def on_error(err):
+            logger.error(f"[ERROR] {err}")
+
+        handle = run_live_production(
+            ssh=ssh,
+            capture=cap,
+            pipelines=pipelines,
+            scenario_model=scenario_model,
+            design=design,
+            config=config,
+            execution=execution,
+            uuid=str(uuid),
+            scenario=scenario,
+            on_anomaly=on_anomaly,
+            on_status=on_status,
+            on_error=on_error,
+        )
+
+        production_handles[uuid] = handle
 
         # Return success response
         return JsonResponse({'message': 'Real-time capture started'}, status=200)
@@ -1828,20 +1851,22 @@ def play_scenario_production_by_uuid(request, uuid):
 @permission_classes([IsAuthenticated])
 def stop_scenario_production_by_uuid(request, uuid):
     """
-    Stops real-time production capture for a given scenario UUID by
-    setting the thread control flag to False.
-
-    Returns:
-        - 200 OK if stopped successfully.
-        - 500 Internal Server Error on failure.
+    Para la captura en vivo de un escenario dado.
     """
+
+    handle = production_handles.get(uuid)
+    if not handle:
+        return JsonResponse({"error": "No active capture for this UUID"}, status=status.HTTP_404_NOT_FOUND)
+
     try:
-        thread_controls[uuid] = False
-        logger.info(f"[STOP PRODUCTION] Stopping production for scenario UUID: {uuid}")
-        return JsonResponse({'message': 'Capture stopped'}, status=status.HTTP_200_OK)
+        handle.stop()
+        handle.join(timeout=2.0)
     except Exception as e:
-        logger.error(f"[STOP PRODUCTION] Error stopping capture for UUID {uuid}: {str(e)}")
-        return JsonResponse({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return JsonResponse({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    finally:
+        production_handles.pop(uuid, None)
+
+    return JsonResponse({"message": f"Capture {uuid} stopped"})
 
 
 @api_view(['DELETE'])
@@ -1856,7 +1881,7 @@ def delete_anomaly(request, uuid, anomaly_id):
 
     Returns:
         - 204 No Content if successfully deleted.
-        - 404 Not Found if scenario, detector, or anomaly does not exist.
+        - 404 Not Found if scenario, scenario model, or anomaly does not exist.
         - 500 Internal Server Error on failure.
     """
 
@@ -1864,10 +1889,10 @@ def delete_anomaly(request, uuid, anomaly_id):
     user = request.user
 
     try:
-        # Retrieve the scenario, detector, and anomaly
+        # Retrieve the scenario, scenario model, and anomaly
         scenario = Scenario.objects.get(uuid=uuid, user=user.id)
-        detector = AnomalyDetector.objects.get(scenario=scenario)
-        anomaly = AnomalyMetric.objects.get(id=anomaly_id, detector=detector)
+        scenario_model = ScenarioModel.objects.get(scenario=scenario)
+        anomaly = AnomalyMetric.objects.get(id=anomaly_id, scenario_model=scenario_model)
 
         local_shap_images = anomaly.local_shap_images or []
 
@@ -1897,10 +1922,10 @@ def delete_anomaly(request, uuid, anomaly_id):
         logger.warning(f"[DELETE ANOMALY] Scenario with UUID {uuid} not found or permission denied.")
         return JsonResponse({'error': 'Scenario not found or permission denied.'}, status=404)
 
-    # Return error if detector does not exist
-    except AnomalyDetector.DoesNotExist:
-        logger.warning(f"[DELETE ANOMALY] Anomaly detector not found for scenario UUID: {uuid}")
-        return JsonResponse({'error': 'Anomaly detector not found.'}, status=404)
+    # Return error if scenario model does not exist
+    except ScenarioModel.DoesNotExist:
+        logger.warning(f"[DELETE ANOMALY] Scenario model not found for scenario UUID: {uuid}")
+        return JsonResponse({'error': 'Scenario model not found.'}, status=404)
 
     # Return error if anomaly does not exist
     except AnomalyMetric.DoesNotExist:

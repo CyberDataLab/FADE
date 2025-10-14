@@ -1,5 +1,4 @@
 #!/bin/bash
-
 MODE="cpu"
 
 while [[ "$#" -gt 0 ]]; do
@@ -19,4 +18,10 @@ HOST_OS=$(uname)
 echo "Detected host OS: $HOST_OS"
 echo "Starting platform in mode: $MODE"
 
-HOST_OS=$HOST_OS EXECUTION_MODE=$MODE docker-compose -f docker-compose.$MODE.yml up --build
+GPU_FLAG=""
+if [[ "$MODE" == "gpu" ]]; then
+  GPU_FLAG="--gpus all"        
+fi
+
+HOST_OS=$HOST_OS EXECUTION_MODE=$MODE \
+  docker-compose -f docker-compose.$MODE.yml up --build $GPU_FLAG

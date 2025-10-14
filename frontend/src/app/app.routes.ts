@@ -3,16 +3,16 @@ import { RouterModule, Routes } from '@angular/router';
 import { LoginComponent } from './Authentication/login/login.component';
 import { RegisterComponent } from './Authentication/register/register.component';
 import { DashboardComponent } from './Windows/dashboard/dashboard.component';
-import { AnomalyDetectorComponent } from './Windows/anomaly-detector/anomaly-detector.component';
+import { ScenariosComponent } from './Windows/scenarios/scenarios.component';
 import { PoliciesComponent } from './Windows/policies/policies.component';
 import { OptionsComponent } from './Windows/options/options.component';
 import { UserComponent } from './Windows/user/user.component';
 import { ResetPasswordComponent } from './Authentication/reset-password/reset-password.component';
 import { SendEmailComponent } from './Authentication/send-email/send-email.component';
-import { MetricsComponent } from './Windows/anomaly-detector/metrics/metrics.component';
-import { TimelineADComponent } from './Windows/anomaly-detector/timeline-ad/timeline-ad.component';
-import { NewScenarioComponent } from './Windows/anomaly-detector/new-scenario/new-scenario.component';
-import { ProductionComponent } from './Windows/anomaly-detector/production/production.component';
+import { MetricsComponent } from './Windows/scenarios/metrics/metrics.component';
+import { TimelineADComponent } from './Windows/scenarios/timeline-ad/timeline-ad.component';
+import { NewScenarioComponent } from './Windows/scenarios/new-scenario/new-scenario.component';
+import { ProductionComponent } from './Windows/scenarios/production/production.component';
 
 export const routes: Routes = [
     { path: '', redirectTo: '/login', pathMatch: 'full' },
@@ -22,10 +22,10 @@ export const routes: Routes = [
       path: 'dashboard',
       component: DashboardComponent,
       children: [
-        { path: '', redirectTo: 'anomaly-detector', pathMatch: 'full' },
+        { path: '', redirectTo: 'scenarios', pathMatch: 'full' },
         {
-          path: 'anomaly-detector',
-          component: AnomalyDetectorComponent,
+          path: 'scenarios',
+          component: ScenariosComponent,
           children: [
             { path: ':id/timeline-ad', component: TimelineADComponent },
             { path: ':id/production', component: ProductionComponent },

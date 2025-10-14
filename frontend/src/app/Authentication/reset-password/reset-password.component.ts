@@ -7,7 +7,8 @@ import { RouterModule } from '@angular/router';
 
 // Application-specific models and services
 import { UserPatch } from '../../DTOs/UserPatch';
-import { UserService } from '../../User/user.service';
+import { UserService } from '../../Core/services/user.service';
+import { ThemeToggleComponent } from '../../Theme/theme-toggle/theme-toggle.component';
 
 /**
  * @summary Manages the password reset functionality.
@@ -20,7 +21,8 @@ import { UserService } from '../../User/user.service';
   imports: [
     CommonModule,
     FormsModule,
-    RouterModule
+    RouterModule,
+    ThemeToggleComponent
   ],
   templateUrl: './reset-password.component.html',
   styleUrl: './reset-password.component.css'

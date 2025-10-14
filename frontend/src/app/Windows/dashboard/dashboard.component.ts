@@ -5,9 +5,10 @@ import { Router, RouterModule, NavigationEnd } from '@angular/router';
 import { filter, Subscription } from 'rxjs';
 
 // Application-specific services
-import { AuthenticationService } from '../../Authentication/authentication.service';
-import { ScenarioService } from '../scenario.service';
-import { ToolbarService } from '../anomaly-detector/new-scenario/toolbar.service';
+import { AuthenticationService } from '../../Core/services/authentication.service';
+import { ScenarioService } from '../../Core/services/scenario.service';
+import { ToolbarService } from '../../Core/services/toolbar.service';
+import { ThemeToggleComponent } from '../../Theme/theme-toggle/theme-toggle.component';
 
 /**
  * @summary Main dashboard container for routing and state management.
@@ -17,7 +18,8 @@ import { ToolbarService } from '../anomaly-detector/new-scenario/toolbar.service
  */
 @Component({
     selector: 'app-dashboard',
-    imports: [CommonModule, RouterModule],
+    standalone: true,
+    imports: [CommonModule, RouterModule, ThemeToggleComponent],
     templateUrl: './dashboard.component.html',
     styleUrl: './dashboard.component.css'
 })
@@ -87,7 +89,7 @@ export class DashboardComponent {
   /**
    * @summary Navigates to a dashboard subpath and updates selection.
    * 
-   * @param path Relative dashboard route (e.g., "anomaly-detector")
+   * @param path Relative dashboard route (e.g., "scenarios")
    */
   navigateTo(path: string): void {
     this.selectedOption = path;  
@@ -113,17 +115,19 @@ export class DashboardComponent {
 
   /**
    * @summary Determines if the user is editing or creating a new scenario.
+   * 
+   * BORRAR LO DE EDIT SCENARIO
    */
   isNewScenario(): boolean {
-    return this.router.url.includes('/anomaly-detector/new-scenario') || 
-           this.router.url.includes('/anomaly-detector/edit-scenario');
+    return this.router.url.includes('/scenarios/new-scenario') || 
+           this.router.url.includes('/scenarios/edit-scenario');
   }
 
   /**
    * @summary Determines if the user is editing an existing scenario.
    */
   isEditScenario(): boolean {
-    return this.router.url.includes('/anomaly-detector/edit-scenario');
+    return this.router.url.includes('/scenarios/edit-scenario');
   }
 
   /**
@@ -157,24 +161,7 @@ export class DashboardComponent {
    * @summary Handles logic to compute and navigate to the previous URL.
    */
   private navigateBack() {
-    const currentUrl = this.router.url;
-    const urlParts = currentUrl.split('/');
-
-    // For deeper routes, remove last segments
-    if (urlParts.length > 3) {
-      if (this.isEditScenario() || this.isFinishedScenario()) {
-        urlParts.pop();
-      }
-      urlParts.pop();
-      const newUrl = urlParts.join('/');
-      this.router.routeReuseStrategy.shouldReuseRoute = () => false;
-      this.router.navigateByUrl(newUrl);
-    } else {
-      // Default fallback to main dashboard
-      this.router.routeReuseStrategy.shouldReuseRoute = () => false;
-      this.router.navigate(['/dashboard']);
-      this.selectedOption = '';
-    }
+    this.router.navigate(['/dashboard/scenarios']);
   }
 
   /**

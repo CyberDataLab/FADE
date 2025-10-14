@@ -17,8 +17,9 @@
 
 4. To start the docker-compose.yml, run the following command in the project root directory:
    ```sh
-   docker-compose up --build
+   ./start.sh --mode <mode>   
    ```
+   Replace <mode> with cpu or gpu.
 
 5. Once the containers for the frontend, backend, and database  are up and running, run the following command to check the container names:
    ```sh

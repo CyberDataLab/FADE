@@ -1,0 +1,448 @@
+/* Reset margins and set base layout full screen with scroll support */
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  font-family: "Inter", sans-serif;
+  background: linear-gradient(135deg, #e9f1f7, #f6f9fc);
+  color: #1e2a33;
+  overflow: hidden;
+}
+
+/* Apply box-sizing to all elements */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Main application container with sidebar and workspace */
+.app-container {
+  display: flex;
+  flex-direction: row;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+/* Sidebar container for draggable elements */
+.design-container {
+  width: 250px;
+  background: linear-gradient(160deg, var(--blue-100) 0%, var(--blue-200) 100%);
+  background-clip: padding-box;
+  color: var(--text);
+  height: calc(100vh - 60px);
+  max-height: 100%;
+  overflow: auto;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  position: relative;  
+  top: 60px;
+  left: 0;
+  overflow-y: auto;
+  border: 1px solid rgba(255,255,255,0.25);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  border-radius: 18px;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.25);
+}
+
+
+/* Section block inside sidebar */
+.section {
+  margin: 10px 0;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+/* Section header with icon and label */
+.section-header {
+  padding: 10px;
+  background: linear-gradient(135deg, var(--blue-200), var(--blue-400));
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: all 0.3s ease;
+}
+
+
+/* Hover effect for section header */
+.section-header:hover,
+.sub-category-header:hover {
+  background: linear-gradient(135deg, var(--blue-300), var(--blue-500));
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(46, 121, 255, 0.3);
+}
+
+.section-header i {
+  font-size: 20px;
+}
+
+.section-header span,
+.sub-category-header span {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--blue-700);
+  letter-spacing: 0.3px;
+}
+
+.sub-category {
+  margin: 5px 0;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+/* Header for subcategories */
+
+.sub-category-header i {
+  font-size: 18px;
+  margin-left: 10px;
+}
+
+/* Wrapper for options inside a section */
+.sub-section {
+  padding: 10px 0;
+  background-color: #3d4a5bd0;
+  border-radius: 5px;
+}
+
+/* Grid layout for element options */
+.option-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  justify-content: center;
+  padding: 10px 0;
+}
+
+/* Style for each draggable option (with Angular deep styling) */
+:host ::ng-deep .option {
+  display: flex !important;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 70px;
+  height: 80px;
+  color: var(--text);
+  background: rgba(255,255,255,0.15);
+  border-radius: 12px;
+  padding: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease-in-out;
+}
+
+:host ::ng-deep .option:hover {
+  background: var(--blue-100);
+  color: var(--blue-700);
+  transform: scale(1.05);
+  box-shadow: 0 4px 14px rgba(46, 121, 255, 0.25);
+}
+
+:host ::ng-deep .option i {
+  font-size: 13px;
+  margin-bottom: 20px;
+}
+
+:host ::ng-deep .option i.fa {
+  font-size: 18px; 
+  margin-bottom: 10px; 
+}
+
+:host ::ng-deep .option i.fas {
+  font-size: 18px; 
+  margin-bottom: 10px; 
+}
+
+:host ::ng-deep .option span {
+  font-size: 11px;
+  text-align: center;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
+}
+
+/* Active state for selected element */
+:host ::ng-deep .option.active {
+  background-color: #24313c;
+}
+
+/* Main working canvas area */
+.workspace {
+  flex-grow: 1;
+  position: relative;
+  background-color: transparent;
+  overflow: visible;
+  margin: 0;
+  padding: 0;
+  height: calc(100vh - 60px);
+}
+
+/* Grid-style drop area for elements */
+.drop-area {
+  width: 100%;
+  height: calc(100vh - 60px);
+  border: 2px dashed #ccc;
+  border-radius: 0;
+  background-image: linear-gradient(to right, rgba(0, 0, 0, 0.15) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(0, 0, 0, 0.15) 1px, transparent 1px);
+  background-size: 20px 20px;
+  background-color: rgba(255,255,255,0.6);
+  margin: 0;
+  padding: 0;
+  top: 60px;
+  box-sizing: border-box;
+  position: absolute;
+  z-index: 1; 
+}
+
+/* Draggable element inside drop area */
+.drop-area .draggable {
+  position: absolute;
+  color: white;
+  text-align: center;
+  cursor: pointer;
+}
+
+
+.drop-area * {
+  color:white;
+}
+
+/* Style for visual node elements */
+.workspace-element {
+  position: relative;
+  padding: 10px;
+  margin: 0; 
+  background-color: #4a5c70;
+  color: white;
+  border-radius: 5px;
+  text-align: center;
+  cursor: pointer;
+  z-index: 1;
+}
+
+/* Selected element highlight */
+::ng-deep .selected {
+  border: 2px dashed rgb(255, 255, 255);
+  background-color: #6a7d87;
+}
+
+/* Drag selection box styling */
+#selection-box {
+  position: absolute;
+  z-index: 1000;
+  border: 2px dashed #4a5c70;
+  background-color: rgba(74, 92, 112, 0.3);
+  pointer-events: none;
+}
+
+/* Panel for node configuration */
+.config-container {
+  width: 400px;
+  padding: 10px;
+  background: linear-gradient(160deg, var(--blue-100) 0%, var(--blue-200) 100%);
+  color: var(--text);
+  position: relative;
+  top: 60px; 
+  right: 0; 
+  height: calc(100vh - 60px);
+  z-index: 10;
+  box-sizing: border-box;
+  display: none; 
+  transition: transform 0.3s ease-in-out; 
+  overflow-y: auto;
+  border: 1px solid var(--card-border);
+  backdrop-filter: blur(18px) saturate(160%);
+  border: 1px solid rgba(255,255,255,0.25);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  border-radius: 18px;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.25);
+  padding-top: 50px;
+}
+
+/* Show the configuration panel */
+.config-container.show {
+  display: block; 
+}
+
+/* Close button inside the config panel */
+.config-container .close-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 32px; 
+  height: 32px;
+  margin-top: 10px;
+  margin-right: 10px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,.65);
+  background: color-mix(in oklab, #fff 75%, var(--blue-50) 25%);
+  backdrop-filter: blur(16px) saturate(120%);
+  -webkit-backdrop-filter: blur(16px) saturate(120%);
+  color: var(--blue-600);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 8px 18px rgba(22,36,80,.12), 0 2px 6px rgba(22,36,80,.06);
+  transition: transform .08s ease, box-shadow .2s ease, background .2s ease;
+  float: right;
+}
+
+.config-container .close-btn:hover i { font-size: 18px; line-height: 1; }
+
+.config-container .close-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 22px rgba(28, 70, 170, .16), 0 3px 10px rgba(28, 70, 170, .08);
+}
+
+/* Style for SVG layer used for connections */
+svg {
+  z-index: -1;
+  pointer-events: none;
+  overflow: visible;
+}
+
+/* Icon inside node for config button */
+:host ::ng-deep .gear-icon {
+  position: absolute;
+  font-size: 15px !important;
+  right: 3px;
+  top: 3px;
+  color: white;  
+  cursor: pointer;
+  display: show;
+  z-index: 2;
+}
+
+/* Visual config panel group sections */
+.sub-section {
+  padding: 10px 0;
+  background-color: #4a5c7063;
+  border-radius: 5px;
+}
+
+/* Grid layout for selectable CSV columns */
+.csv-columns-container {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 15px;
+  padding: 10px;
+  border-radius: 4px;
+  margin-top: 10px;
+}
+
+.csv-columns-container .column-item {
+  padding: 12px 16px;
+  border-radius: 12px;
+  text-align: center;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  color: var(--blue-700);
+  font-weight: 500;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+/* Hover con efecto brillante */
+.csv-columns-container .column-item:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 6px 18px rgba(46,121,255,0.25);
+  color: var(--blue-600);
+}
+
+/* Estado seleccionado */
+.csv-columns-container .column-item.selected {
+  background: linear-gradient(135deg, var(--blue-200), var(--blue-400));
+  color: var(--text);
+  box-shadow: 0 6px 20px rgba(46, 121, 255, 0.35);
+}
+
+/* Grid container for metrics */
+.metrics-container {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 15px;
+  padding: 10px;
+  border-radius: 4px;
+  margin-top: 10px;
+}
+
+.metric-item {
+  padding: 8px 12px;
+  border-radius: 4px;
+  background-color: #f0f0f0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid #ddd;
+}
+
+.metrics-container .metric-item {
+  padding: 8px 12px;
+  background: #f5f5f5;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.2s;
+}
+
+/* Selected metric visual style */
+.metrics-container .metric-item.selected {
+  background-color: #7690ad97;
+  box-shadow: 0 2px 4px rgba(33, 150, 243, 0.2);
+}
+
+/* Grouped config property input with label */
+.config-property-group {
+  display: flex;
+  justify-content: space-between;
+  margin: 15px 0;
+  align-items: center;
+}
+
+.config-property-group label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #4a5c70; /* gris medio */
+  letter-spacing: 0.2px;
+}
+
+/* Inputs y selects */
+.config-property-group input,
+.config-property-group select {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0,0,0,0.1);
+  border-radius: 8px;
+  transition: border 0.2s ease, box-shadow 0.2s ease;
+}
+
+.config-property-group input:focus,
+.config-property-group select:focus {
+  border: 1px solid var(--blue-400);
+  box-shadow: 0 0 6px rgba(46, 121, 255, 0.25);
+  outline: none;
+}
+
+.config-container h2,
+.config-container h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--blue-700);
+  margin-bottom: 16px;
+  letter-spacing: 0.4px;
+}

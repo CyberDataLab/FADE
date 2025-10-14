@@ -1,0 +1,8 @@
+pandas>=1.1.0
+scikit-learn>=1.0.0
+shap
+lime
+tensorflow
+matplotlib
+psutil
+numpy

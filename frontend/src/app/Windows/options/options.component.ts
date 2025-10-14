@@ -4,8 +4,9 @@ import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { PLATFORM_ID } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
+
 // Application-specific services
-import { SystemInfoService } from './system-info.service';
+import { SystemInfoService } from '../../Core/services/system-info.service';
 
 /**
  * @summary Component for managing system configuration options.

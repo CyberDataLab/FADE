@@ -1,0 +1,317 @@
+/* ============================================================
+   Production — Light Blue theme (misma lógica, nuevo aspecto)
+   ============================================================ */
+
+/* Botón genérico */
+.button{
+  display: inline-grid;
+  place-items: center;
+  width: 48px; height: 48px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.65);
+  background: color-mix(in oklab, #fff 75%, var(--blue-50) 25%);
+  backdrop-filter: blur(16px) saturate(120%);
+  -webkit-backdrop-filter: blur(16px) saturate(120%);
+  color: var(--blue-600);
+  cursor: pointer;
+  box-shadow: 0 14px 28px rgba(22,36,80,.12), 0 2px 6px rgba(22,36,80,.06);
+  transition: transform .08s ease, box-shadow .2s ease, background .2s ease;
+}
+.button i { font-size: 18px; line-height: 1; }
+.button:hover{
+  transform: translateY(-2px);
+  box-shadow: 0 18px 34px rgba(28, 70, 170, .16), 0 3px 10px rgba(28, 70, 170, .08);
+}
+
+/* Contenedor de botones flotante */
+.button-container{
+  position: fixed;
+  z-index: 20;
+  right: clamp(8px, 2vw, 16px);  /* siempre visible sin provocar scroll */
+  bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Contenedor de tabla */
+.table-container {
+  width: 100%;
+  height: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  box-shadow: 0 16px 40px rgba(36,87,255,.10);
+}
+
+/* Tabla */
+.scenario-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 16px;
+}
+
+.scenario-table th, .scenario-table td {
+  padding: 12px;
+  text-align: left;
+  color: var(--text);
+  overflow: visible;
+}
+
+.scenario-table thead,
+.scenario-table tbody tr {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+}
+
+.scenario-table .empty-row {
+  text-align: center;
+  font-style: italic;
+  color: var(--blue-700);
+  padding: 20px;
+}
+
+.scenario-table th {
+  background: linear-gradient(180deg, var(--blue-500), var(--blue-600));
+  color: white;
+  font-weight: 600;
+}
+
+.scenario-table th:nth-child(1),
+.scenario-table td:nth-child(1) {
+  width: 10%;   /* ID */
+}
+
+.scenario-table th:nth-child(2),
+.scenario-table td:nth-child(2) {
+  width: 75%;   /* Name */
+}
+
+.scenario-table th:nth-child(3),
+.scenario-table td:nth-child(3) {
+  width: 20%;   /* Status */
+}
+
+/* Líneas entre filas */
+.scenario-table tbody tr:not(:last-child) td {
+  border-bottom: 1px solid var(--blue-400);
+}
+
+.scenario-table tbody tr:hover td {
+  background: color-mix(in oklab, var(--blue-500) 10%, white);
+  transition: background-color 0.2s ease;
+}
+
+.empty-row{
+  text-align: center;
+  font-style: italic;
+  color: #9aa4b2;
+  height: 54px;
+}
+
+/* Celda de anomalía */
+.anomaly-cell {
+  position: relative;
+  max-width: 100%;
+  overflow: visible;
+  cursor: pointer;
+}
+
+/* Overlay de imágenes en hover (mismo fixed que antes) */
+.hover-images {
+  position: fixed;       /* mantiene el comportamiento original */
+  z-index: 9999;
+  background: var(--field-bg);
+  border: 1px solid var(--field-border);
+  padding: 10px;
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.18);
+  white-space: normal;
+  max-width: 1000px;
+  display: none;
+  flex-direction: row;
+}
+
+.anomaly-cell:hover .hover-images {
+  display: flex;
+  flex-direction: row;
+  top: 100%;
+}
+
+.anomaly-cell.hover-up .hover-images {
+  bottom: 100%;
+  top: auto;
+}
+
+/* Imágenes preview */
+.hover-images img {
+  width: 480px;
+  height: 360px;
+  object-fit: contain;
+  margin-right: 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(0,0,0,.08);
+  background: #fff;
+  padding: 6px;
+  box-shadow: 0 6px 18px rgba(0,0,0,.08);
+  cursor: zoom-in;
+}
+
+/* Modal */
+.image-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 13, 22, .76);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+.image-modal img {
+  max-width: 90%;
+  max-height: 90%;
+  border-radius: 12px;
+  box-shadow: 0 0 20px rgba(255,255,255,.12);
+  border: 2px solid #fff;
+  background: #fff;
+  padding: 12px;
+}
+.close-btn {
+  position: fixed;
+  top: 20px;
+  right: 30px;
+  background: none;
+  border: none;
+  font-size: 32px;
+  color: #fff;
+  cursor: pointer;
+  z-index: 2100;
+}
+
+/* Texto de detalles */
+.anomaly-details {
+  background: var(--blue-100);
+  padding: 10px;
+  border-radius: 10px;
+  font-family: monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 400px;
+  overflow: auto;
+  width: 350px;
+  border: 1px solid var(--field-border);
+}
+
+.action-buttons {
+  position: relative;
+  overflow: visible;                  /* so the popover can overflow the cell */
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: nowrap;
+}
+
+.default-button{
+  display: inline-grid;
+  place-items: center;
+  min-width: 38px;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,.70);
+  background: linear-gradient(180deg, #f7faff, #eaf1ff);
+  color: var(--blue-600);
+  cursor: pointer;
+  transition: transform .06s ease, box-shadow .2s ease, background .2s ease;
+  box-shadow: 0 6px 16px rgba(22,36,80,.10), inset 0 1px 0 rgba(255,255,255,.35);
+}
+.default-button i{ font-size: 14px; }
+.default-button:hover{
+  transform: translateY(-1px);
+  background: linear-gradient(180deg, #ffffff, #edf3ff);
+  box-shadow: 0 10px 22px rgba(28, 70, 170, .14), inset 0 1px 0 rgba(255,255,255,.45);
+}
+.default-button:focus-visible{
+  outline: none;
+  box-shadow: 0 0 0 4px var(--ring), 0 6px 16px rgba(22,36,80,.10);
+}
+.delete-button{ color: var(--danger); }
+
+.dropdown {
+  position: relative;                 /* positioning context for the popover */
+}
+
+.more-button {
+  /* already inherits .default-button look; optional tighter min-width */
+  min-width: 38px;
+}
+
+/* Hidden by default; shown when .dropdown has .open (Angular toggles it) */
+.dropdown .menu {
+  position: absolute;
+  top: calc(100% + 10px);             /* below the button */
+  right: 0;
+  min-width: 220px;
+  padding: 8px;
+  margin: 0;
+  list-style: none;
+  border-radius: 12px;
+  border: 1px solid var(--field-border);
+  background: color-mix(in oklab, #fff 82%, var(--blue-50) 18%);
+  backdrop-filter: blur(16px) saturate(120%);
+  -webkit-backdrop-filter: blur(16px) saturate(120%);
+  box-shadow: 0 18px 34px rgba(28,70,170,.18), 0 3px 10px rgba(28,70,170,.10);
+  z-index: 3000;                      /* above table content */
+  display: none;                      /* prevent cell growth */
+  white-space: nowrap;                /* keep items on one line */
+}
+
+/* Show when Angular adds .open */
+.dropdown.open .menu { display: block; }
+
+/* “Drop up” variant (you already toggle .drop-up in the template) */
+.dropdown.drop-up .menu {
+  bottom: calc(100% + 10px);
+  top: auto;
+}
+
+/* Tiny arrow */
+.dropdown .menu::after {
+  content: "";
+  position: absolute;
+  right: 14px;
+  top: -8px;
+  width: 12px; height: 12px;
+  transform: rotate(45deg);
+  background: inherit;
+  border-left: 1px solid var(--field-border);
+  border-top: 1px solid var(--field-border);
+  filter: drop-shadow(0 2px 2px rgba(0,0,0,.06));
+}
+.dropdown.drop-up .menu::after {
+  top: auto; bottom: -8px;
+  border-left: none; border-top: none;
+  border-right: 1px solid var(--field-border);
+  border-bottom: 1px solid var(--field-border);
+}
+
+/* Items */
+.menu-item {
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  color: var(--blue-700);
+  transition: background .15s ease, transform .04s ease;
+  cursor: pointer;
+}
+.menu-item:hover {
+  background: color-mix(in oklab, var(--blue-500) 12%, #fff);
+}
+.menu-item:active {
+  transform: translateY(1px);
+}

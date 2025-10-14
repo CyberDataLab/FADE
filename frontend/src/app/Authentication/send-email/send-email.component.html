@@ -1,4 +1,5 @@
 <!-- Send email modal dialog container -->
+<app-theme-toggle class="theme-toggle-fixed"></app-theme-toggle>
 <div class="modal-dialog align-middle send-email-modal" role="document">
   <div class="modal-content">
 
@@ -8,8 +9,17 @@
     </div>
     
     <!-- Email input field -->
-    <div class="form-group">
-      <input type="text" [(ngModel)]="userPatchDTO.email" name="email" class="form-control send-email-input" #email="ngModel" placeholder="Email" id="recipient-name" />
+    <div class="form-group position-relative">
+      <i class="fas fa-envelope input-icon" aria-hidden="true"></i>
+      <input
+        type="text"
+        [(ngModel)]="userPatchDTO.email"
+        name="email"
+        class="form-control send-email-input with-icon"
+        #email="ngModel"
+        placeholder="Email"
+        id="recipient-name"
+      />
       
       <!-- Error message: field is empty -->
       <ng-container *ngIf="emailError; else emailValid">

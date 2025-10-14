@@ -16,6 +16,9 @@
     
     <!-- Right side of the top bar: logout button -->
     <div class="logout-container">
+
+      <app-theme-toggle class="topbar-theme-toggle"></app-theme-toggle>
+      
       <button class="logout-btn" (click)="logout()">
         <i class="fa fa-sign-out"></i>
       </button>
@@ -26,11 +29,11 @@
   <ng-container *ngIf="!isNewScenario()">
     <div class="sidebar">
 
-      <!-- Navigation option: Anomaly Detector -->
+      <!-- Navigation option: Scenarios -->
       <div class="option" 
-           (click)="navigateTo('anomaly-detector')" 
-           [ngClass]="{'selected': isSelected('anomaly-detector')}">
-        Anomaly Detector
+           (click)="navigateTo('scenarios')" 
+           [ngClass]="{'selected': isSelected('scenarios')}">
+        Scenarios
       </div>
 
       <!-- Navigation option: Policies -->

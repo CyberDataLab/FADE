@@ -1,4 +1,5 @@
 <!-- Login modal dialog container -->
+<app-theme-toggle class="theme-toggle-fixed"></app-theme-toggle>
 <div class="modal-dialog align-middle login-modal" role="document">
   <div class="modal-content">
 
@@ -12,34 +13,34 @@
       <form (keydown)="keyDownFunction($event)">
         
         <!-- Username input field -->
-        <div class="form-group">
+        <div class="form-group position-relative">
+          <i class="fas fa-user input-icon"></i>
           <input
             type="text"
             [(ngModel)]="userLoginDTO.username"
             name="username"
-            class="form-control login-input"
+            class="form-control login-input with-icon"
             #username="ngModel"
             placeholder="Username"
             id="recipient-name"
           />
-          <!-- Error message for empty username -->
           <ng-container *ngIf="usernameError">
             <p class="error-message"><small>*Insert username</small></p>
           </ng-container>
-        </div>
+        </div>        
 
         <!-- Password input field with toggle visibility button -->
         <div class="form-group position-relative">
+          <i class="fas fa-lock input-icon"></i>
           <input
             [type]="showPassword ? 'text' : 'password'"
             [(ngModel)]="userLoginDTO.password"
             name="password"
-            class="form-control login-input"
+            class="form-control login-input with-icon"
             placeholder="Password"
             id="recipient-name"
           />
-
-          <!-- Toggle password visibility -->
+        
           <button
             type="button"
             (click)="togglePasswordVisibility()"
@@ -47,12 +48,12 @@
           >
             <i [ngClass]="showPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
           </button>
-
-          <!-- Error message for empty password -->
+        
           <ng-container *ngIf="passwordError">
             <p class="error-message"><small>*Insert password</small></p>
           </ng-container>
         </div>
+        
       </form>
     </div>
 

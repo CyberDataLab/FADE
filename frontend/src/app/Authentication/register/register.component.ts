@@ -7,8 +7,9 @@ import { RouterModule } from '@angular/router';
 
 // Application-specific models and services
 import { UserRegister } from '../../DTOs/UserRegister';
-import { AuthenticationService } from '../authentication.service';
-import { UserService } from '../../User/user.service';
+import { AuthenticationService } from '../../Core/services/authentication.service';
+import { UserService } from '../../Core/services/user.service';
+import { ThemeToggleComponent } from '../../Theme/theme-toggle/theme-toggle.component';
 
 /**
  * @summary Manages user registration via form input.
@@ -21,7 +22,8 @@ import { UserService } from '../../User/user.service';
   imports: [
     CommonModule,
     FormsModule,
-    RouterModule
+    RouterModule,
+    ThemeToggleComponent
   ],
   templateUrl: './register.component.html',
   styleUrl: './register.component.css'

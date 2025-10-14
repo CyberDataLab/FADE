@@ -238,6 +238,30 @@ def import_class(full_class_name):
     # Retrieve and return the class from the module
     return getattr(module, class_name)
 
+def clean_for_json(obj):
+    """
+    Recursively clean an object to ensure it's safe for JSON serialization.
+    
+    - Replaces NaN and infinite floats with 0.0
+    - Replaces None with 0.0
+    - Handles nested dictionaries recursively
+
+    Parameters:
+        obj (Any): The input object to clean (can be dict, float, None, or any other type)
+
+    Returns:
+        Any: The cleaned object, safe for JSON serialization.
+    """
+
+    # If the object is a dictionary, clean each key-value pair recursively
+    if isinstance(obj, dict):
+        return {k: clean_for_json(v) for k, v in obj.items()}
+    elif isinstance(obj, float):
+        if np.isnan(obj) or np.isinf(obj):
+            return 0.0
+    elif obj is None:
+        return 0.0 
+    return obj
 
 def build_neural_network(input_shape, model_type, parameters):
     """
@@ -746,22 +770,22 @@ def calculate_regression_metrics(y_true, y_pred, metrics_config):
     
     return metrics
 
-def save_classification_metrics(detector, model_name, metrics, execution):
+def save_classification_metrics(scenario_model, model_name, metrics, execution):
     """
     Persists classification metrics to the database for a given model and execution.
 
     Args:
-        detector (Detector): The detector instance associated with the metrics.
+        scenario_model (ScenarioModel): The scenario model instance associated with the metrics.
         model_name (str): Name of the model used for prediction.
         metrics (dict): Dictionary containing calculated classification metrics.
-        execution (Execution): The execution record tied to this metric entry.
+        execution (integer): The execution record tied to this metric entry.
 
     Returns:
         None
     """
 
     ClassificationMetric.objects.create(
-        detector=detector,
+        scenario_model=scenario_model,
         execution=execution,
         model_name=model_name,
         accuracy=metrics.get("accuracy"),
@@ -771,21 +795,21 @@ def save_classification_metrics(detector, model_name, metrics, execution):
         confusion_matrix=json.dumps(metrics.get("confusion_matrix")),
     )
 
-def save_regression_metrics(detector, model_name, metrics, execution):
+def save_regression_metrics(scenario_model, model_name, metrics, execution):
     """
     Persists regression metrics to the database for a given model and execution.
 
     Args:
-        detector (Detector): The detector instance associated with the metrics.
+        scenario_model (ScenarioModel): The scenario model instance associated with the metrics.
         model_name (str): Name of the model used for prediction.
         metrics (dict): Dictionary containing calculated regression metrics.
-        execution (Execution): The execution record tied to this metric entry.
+        execution (integer): The execution record tied to this metric entry.
 
     Returns:
         None
     """
     RegressionMetric.objects.create(
-        detector=detector,
+        scenario_model=scenario_model,
         execution=execution,
         model_name=model_name,
         mse=metrics.get("mse"),
@@ -795,7 +819,7 @@ def save_regression_metrics(detector, model_name, metrics, execution):
         msle=metrics.get("msle"),
     )
 
-def save_anomaly_metrics(detector, model_name, feature_name, feature_values, anomalies, execution, production, anomaly_details=None, global_shap_images=None, local_shap_images=None, global_lime_images=None, local_lime_images=None
+def save_anomaly_metrics(scenario_model, model_name, feature_name, feature_values, anomalies, execution, production, anomaly_details=None, global_shap_images=None, local_shap_images=None, global_lime_images=None, local_lime_images=None
 ):
     """
     Persists anomaly detection metrics and metadata to the database.
@@ -804,12 +828,12 @@ def save_anomaly_metrics(detector, model_name, feature_name, feature_values, ano
     explainability images, and whether the execution occurred in production mode.
 
     Args:
-        detector (Detector): The detector instance associated with the anomalies.
+        scenario_model (ScenarioModel): The scenario model instance associated with the anomalies.
         model_name (str): Name of the anomaly detection model used.
         feature_name (str): The name of the feature being monitored.
         feature_values (list or array): Values of the feature during detection.
         anomalies (list): Indices or positions of detected anomalies.
-        execution (Execution): The execution record tied to this detection.
+        execution (integer): The execution record tied to this detection.
         production (bool): Indicates if this was a production execution.
         anomaly_details (Any, optional): Additional anomaly info (e.g., packet data or text).
         global_shap_images (list, optional): List of SHAP global explanation image paths or URLs.
@@ -834,7 +858,7 @@ def save_anomaly_metrics(detector, model_name, feature_name, feature_values, ano
     }
 
     AnomalyMetric.objects.create(
-        detector=detector,
+        scenario_model=scenario_model,
         model_name=model_name,
         feature_name=feature_name,
         anomalies=anomaly_payload,
@@ -1354,7 +1378,7 @@ def build_pipelines_from_design(design, scenario_uuid, config, base_path):
 
     return pipelines
 
-def handle_packet_prediction(proc, pipelines, anomaly_detector, design, config, execution, uuid, scenario):
+def handle_packet_prediction(proc, pipelines, scenario_model, design, config, execution, uuid, scenario):
     """
     Processes packets in real time from a subprocess and detects anomalies.
     If anomalies are found, they are explained using SHAP or LIME (if configured)
@@ -1363,7 +1387,7 @@ def handle_packet_prediction(proc, pipelines, anomaly_detector, design, config, 
     Args:
         proc (subprocess.Popen): Running packet capture process.
         pipelines (list): List of (element_id, model, preprocessing steps, X_train).
-        anomaly_detector: Detector instance to associate with anomaly metrics.
+        scenario_model: Scenario model instance to associate with anomaly metrics.
         design (dict): Visual scenario design with elements and connections.
         config (dict): System configuration (e.g., config.json).
         execution: Execution context for the current detection run.
@@ -1372,7 +1396,7 @@ def handle_packet_prediction(proc, pipelines, anomaly_detector, design, config, 
     """
 
     # Initialize counters and mappings
-    image_counter = get_next_anomaly_index(anomaly_detector)
+    image_counter = get_next_anomaly_index(scenario_model)
     elements_map = {e["id"]: e for e in design["elements"]}
     connections = design["connections"]
 
@@ -1546,7 +1570,7 @@ def handle_packet_prediction(proc, pipelines, anomaly_detector, design, config, 
                             logger.info("[HANDLE PACKET] Description: %s", anomaly_description)
 
                             save_anomaly_metrics(
-                                detector=anomaly_detector,
+                                scenario_model=scenario_model,
                                 model_name=model_instance.__class__.__name__,
                                 feature_name="",
                                 feature_values="",
@@ -1583,31 +1607,6 @@ def handle_packet_prediction(proc, pipelines, anomaly_detector, design, config, 
                                 # Prepare input data and isolate anomalous rows
                                 input_data = df_proc.drop(columns=["anomaly"])
                                 anomalous_data = df_anomalous.drop(columns=["anomaly"])
-
-                                def clean_for_json(obj):
-                                    """
-                                    Recursively clean an object to ensure it's safe for JSON serialization.
-                                    
-                                    - Replaces NaN and infinite floats with 0.0
-                                    - Replaces None with 0.0
-                                    - Handles nested dictionaries recursively
-
-                                    Parameters:
-                                        obj (Any): The input object to clean (can be dict, float, None, or any other type)
-
-                                    Returns:
-                                        Any: The cleaned object, safe for JSON serialization.
-                                    """
-
-                                    # If the object is a dictionary, clean each key-value pair recursively
-                                    if isinstance(obj, dict):
-                                        return {k: clean_for_json(v) for k, v in obj.items()}
-                                    elif isinstance(obj, float):
-                                        if np.isnan(obj) or np.isinf(obj):
-                                            return 0.0
-                                    elif obj is None:
-                                        return 0.0 
-                                    return obj
 
                                 for i, row in anomalous_data.iterrows():
                                     row_df = row.to_frame().T 
@@ -1732,7 +1731,7 @@ def handle_packet_prediction(proc, pipelines, anomaly_detector, design, config, 
 
                                         # Save the anomaly metrics with SHAP explanations
                                         save_anomaly_metrics(
-                                            detector=anomaly_detector,
+                                            scenario_model=scenario_model,
                                             model_name=model_instance.__class__.__name__,
                                             feature_name=feature_name,
                                             feature_values=clean_for_json(feature_values),
@@ -1840,7 +1839,7 @@ def handle_packet_prediction(proc, pipelines, anomaly_detector, design, config, 
 
                                         # Save the anomaly metrics with LIME explanations
                                         save_anomaly_metrics(
-                                            detector=anomaly_detector,
+                                            scenario_model=scenario_model,
                                             model_name=model_instance.__class__.__name__,
                                             feature_name=feature_name,
                                             feature_values=clean_for_json(feature_values),
@@ -1866,7 +1865,7 @@ def handle_packet_prediction(proc, pipelines, anomaly_detector, design, config, 
             logger.error(f"[HANDLE PACKET] Error processing line: {line.strip()} - {e}")
             continue
 
-def handle_flow_prediction(proc, pipelines, anomaly_detector, design, config, execution, uuid, scenario):
+def handle_flow_prediction(proc, pipelines, scenario_model, design, config, execution, uuid, scenario):
     """
     Handle real-time prediction on network flows extracted from packet captures.
     This function processes packets grouped into flows, applies preprocessing steps,
@@ -1876,7 +1875,7 @@ def handle_flow_prediction(proc, pipelines, anomaly_detector, design, config, ex
     Args:
         proc: The subprocess capturing the traffic.
         pipelines: List of tuples (element_id, model, steps, X_train).
-        anomaly_detector: The Django model instance for storing metrics.
+        scenario_model: The Django model instance for storing metrics.
         design: The visual scenario configuration (nodes and connections).
         config: The backend config.json loaded object.
         execution: The Execution object linked to this run.
@@ -1884,7 +1883,7 @@ def handle_flow_prediction(proc, pipelines, anomaly_detector, design, config, ex
         scenario: The Scenario object with scenario metadata.
     """
 
-    image_counter = get_next_anomaly_index(anomaly_detector)
+    image_counter = get_next_anomaly_index(scenario_model)
     elements_map = {e["id"]: e for e in design["elements"]}
     connections = design["connections"]
 
@@ -2105,7 +2104,7 @@ def handle_flow_prediction(proc, pipelines, anomaly_detector, design, config, ex
                             logger.info("[HANDLE FLOW] Description: %s", anomaly_description)
 
                             save_anomaly_metrics(
-                                detector=anomaly_detector,
+                                scenario_model=scenario_model,
                                 model_name=model_instance.__class__.__name__,
                                 feature_name="",
                                 feature_values="",
@@ -2294,7 +2293,7 @@ def handle_flow_prediction(proc, pipelines, anomaly_detector, design, config, ex
 
                                         # Save the anomaly metrics with SHAP explanations
                                         save_anomaly_metrics(
-                                            detector=anomaly_detector,
+                                            scenario_model=scenario_model,
                                             model_name=model_instance.__class__.__name__,
                                             feature_name=feature_name,
                                             feature_values=clean_for_json(feature_values),
@@ -2399,7 +2398,7 @@ def handle_flow_prediction(proc, pipelines, anomaly_detector, design, config, ex
 
                                         # Save the anomaly metrics with LIME explanations
                                         save_anomaly_metrics(
-                                            detector=anomaly_detector,
+                                            scenario_model=scenario_model,
                                             model_name=model_instance.__class__.__name__,
                                             feature_name=feature_name,
                                             feature_values=clean_for_json(feature_values),
@@ -2417,26 +2416,26 @@ def handle_flow_prediction(proc, pipelines, anomaly_detector, design, config, ex
                                         image_counter += 1
 
                                     else:
-                                        logger.warning(f"[HANDLE FLOW ]Explainability node not supported yet: {el_type}")
+                                        logger.warning(f"[HANDLE FLOW]Explainability node not supported yet: {el_type}")
                     except Exception as e:
                         logger.warning(f"[HANDLE FLOW] Could not interpret with dynamic explainer: {e}")
 
 
-def get_next_anomaly_index(anomaly_detector):
+def get_next_anomaly_index(scenario_model):
     """
     Get the next available index for anomaly identification based on how many
-    anomaly records have already been stored in production for the given detector.
+    anomaly records have already been stored in production for the given scenario model.
 
     Args:
-        anomaly_detector: The anomaly detector instance associated with the execution.
+        scenario_model: The scenario model instance associated with the execution.
 
     Returns:
         int: The next sequential anomaly index.
     """
-    # Count all existing anomalies for the current detector and execution in production mode
+    # Count all existing anomalies for the current scenario model and execution in production mode
     current = AnomalyMetric.objects.filter(
-        detector=anomaly_detector,
-        execution=anomaly_detector.execution,
+        scenario_model=scenario_model,
+        execution=scenario_model.execution,
         production=True
     ).count()
 
