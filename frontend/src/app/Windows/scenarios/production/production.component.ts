@@ -1,5 +1,6 @@
 // Angular core and common modules
 import { Component, OnInit, Inject, PLATFORM_ID, HostListener } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { interval,Subscription } from 'rxjs';
@@ -19,7 +20,7 @@ import { PoliciesService, PolicyPayload } from '../../../Core/services/policies.
  */
 @Component({
   selector: 'app-production',
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './production.component.html',
   styleUrl: './production.component.css'
 })
@@ -50,6 +51,9 @@ export class ProductionComponent implements OnInit{
 
   /** @summary Direction to show dropdown menus (up/down) based on index */
   dropdownDirection: Record<number, 'up' | 'down'> = {};  
+
+  /** @summary Current view mode: 'syscalls' or 'network' */
+  mode: 'syscalls' | 'network' = 'syscalls'; // sin persistencia
 
   /**
    * @summary Injects dependencies for routing and data services.
@@ -82,6 +86,10 @@ export class ProductionComponent implements OnInit{
     if (this.refreshSubscription) {
       this.refreshSubscription.unsubscribe();
     }
+  }
+
+  onModeChange(): void {
+    this.loadProductionAnomalies();
   }
 
   /**
@@ -150,7 +158,7 @@ export class ProductionComponent implements OnInit{
    * @summary Starts the scenario playback and activates data refresh loop.
    */
   play() {
-    this.scenarioService.playProduction(this.uuid).subscribe({
+    this.scenarioService.playProduction(this.uuid, this.mode).subscribe({
       next: () => {
         this.isPlaying = true;
   
@@ -504,9 +512,4 @@ export class ProductionComponent implements OnInit{
   onDocClick(ev: MouseEvent) {
     if (this.dropdownOpenIndex !== null) this.dropdownOpenIndex = null;
   }
-
-
-
-  
-
 }

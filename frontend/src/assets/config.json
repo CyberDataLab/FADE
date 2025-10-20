@@ -41,6 +41,27 @@
               "options": ["packet", "flow"]
             }
           ]
+        },
+        {
+          "type": "Log",
+          "displayName": "Log File",
+          "icon": "fa fa-file-lines",
+          "category": "data_source",
+          "properties": [
+            {
+              "name": "logFileName",
+              "type": "file",
+              "label": "Log File",
+              "accept": ".log"
+            },
+            {
+              "name": "operatingSystem",
+              "type": "select",
+              "label": "Operating System",
+              "default": "macOS",
+              "options": ["macOS", "linux"]
+            }
+          ]
         }
       ]
     },

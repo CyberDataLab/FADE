@@ -175,7 +175,7 @@ export class ScenarioService {
    * 
    * @returns Observable with backend response
    */
-  saveScenario(name: string, design: any, csvFiles?: File[], networkFiles?: File[]): Observable<any> {
+  saveScenario(name: string, design: any, csvFiles?: File[], networkFiles?: File[], logFiles?: File[]): Observable<any> {
     if (isPlatformBrowser(this.platformId)) {
       const formData = new FormData();
       formData.append('name', name);
@@ -192,6 +192,13 @@ export class ScenarioService {
       if (networkFiles && networkFiles.length > 0) {
         networkFiles.forEach(file => {
           formData.append('network_files', file);
+        });
+      }
+
+      // Append log files to FormData if provided
+      if (logFiles && logFiles.length > 0) {
+        logFiles.forEach(file => {
+          formData.append('log_files', file);
         });
       }
     
@@ -213,7 +220,7 @@ export class ScenarioService {
    * 
    * @returns Observable with response
    */
-  editScenario(uuid: string, design: any, csvFiles?: File[], networkFiles?: File[]): Observable<any> {
+  editScenario(uuid: string, design: any, csvFiles?: File[], networkFiles?: File[], logFiles?: File[]): Observable<any> {
     if (isPlatformBrowser(this.platformId)) {
       const formData = new FormData();
       formData.append('design', JSON.stringify(design));
@@ -226,6 +233,11 @@ export class ScenarioService {
       // Append network files to FormData if provided
       if (networkFiles && networkFiles.length > 0) {
         networkFiles.forEach(file => formData.append('network_files', file));
+      }
+
+      // Append log files to FormData if provided
+      if (logFiles && logFiles.length > 0) {
+        logFiles.forEach(file => formData.append('log_files', file));
       }
   
       return this.handleRequest(this.http.put(`${this.apiUrl}put/${uuid}/`, formData, {
@@ -361,10 +373,10 @@ export class ScenarioService {
    * 
    * @returns Observable with production execution result
    */
-  playProduction(uuid: string): Observable<any> {
+  playProduction(uuid: string, mode: string): Observable<any> {
     if (isPlatformBrowser(this.platformId)) {
       return this.handleRequest(
-        this.http.post(`${this.apiUrl}${uuid}/play-production/`, {}, { headers: this.getAuthHeaders() })
+        this.http.post(`${this.apiUrl}${uuid}/play-production/`, {mode}, { headers: this.getAuthHeaders() })
       );
     }
     return EMPTY;

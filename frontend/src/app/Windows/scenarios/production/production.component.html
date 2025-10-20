@@ -9,6 +9,18 @@
 
 <!-- Main content container -->
 <div class="content">
+  <div class="content-header">
+    <label for="modeSelect" class="content-label">Mode:</label>
+    <select id="modeSelect"
+        name="mode"                         
+        [(ngModel)]="mode"
+        (change)="onModeChange()"
+        class="mode-select">
+      <option value="syscalls">Syscalls</option>
+      <option value="network">Network traffic</option>
+    </select>
+  </div>
+
   <div class="table-container">
 
     <!-- Table showing list of detected anomalies -->

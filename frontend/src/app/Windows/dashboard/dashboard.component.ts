@@ -161,7 +161,15 @@ export class DashboardComponent {
    * @summary Handles logic to compute and navigate to the previous URL.
    */
   private navigateBack() {
-    this.router.navigate(['/dashboard/scenarios']);
+    const original = this.router.routeReuseStrategy.shouldReuseRoute;
+    // Desactiva la reutilización SOLO para esta navegación
+    this.router.routeReuseStrategy.shouldReuseRoute = () => false;
+  
+    this.router.navigate(['/dashboard/scenarios'])
+      .finally(() => {
+        // Restaura el comportamiento original
+        this.router.routeReuseStrategy.shouldReuseRoute = original;
+      });
   }
 
   /**

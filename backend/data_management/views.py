@@ -43,6 +43,7 @@ def create_scenario(request):
     Expects (multipart/form-data):
         - csv_files: List of CSV files.
         - network_files: List of PCAP files.
+        - log_files: List of Log files.
         - Additional scenario metadata fields (e.g., name, description, etc.) as part of the form data.
 
     Behavior:
@@ -51,6 +52,9 @@ def create_scenario(request):
             - If it already exists in the database (by name), increments reference count.
             - If new, counts its entries, stores its content, and saves it.
         - For each PCAP file:
+            - If it already exists in the database (by name), increments reference count.
+            - If new, stores its binary content and saves it.
+        - For each Log file:
             - If it already exists in the database (by name), increments reference count.
             - If new, stores its binary content and saves it.
         - Links all uploaded files to the created scenario.
@@ -72,14 +76,16 @@ def create_scenario(request):
     # Get the uploaded files from the request
     csv_files = request.FILES.getlist('csv_files')
     network_files = request.FILES.getlist('network_files')
+    log_files = request.FILES.getlist('log_files')
 
     logger.info(f"[CREATE SCENARIO] CSV files received: {[f.name for f in csv_files]}")
     logger.info(f"[CREATE SCENARIO] PCAP files received: {[f.name for f in network_files]}")
+    logger.info(f"[CREATE SCENARIO] Log files received: {[f.name for f in log_files]}")
 
     # Check if at least one CSV or PCAP file is provided
-    if not csv_files and not network_files:
+    if not csv_files and not network_files and not log_files:
         # Return an error response if no files are provided
-        return JsonResponse({"error": "At least one CSV or PCAP file is required."}, status=status.HTTP_400_BAD_REQUEST)
+        return JsonResponse({"error": "At least one CSV, PCAP or Log file is required."}, status=status.HTTP_400_BAD_REQUEST)
 
     saved_files = []
 
@@ -138,6 +144,31 @@ def create_scenario(request):
                 )
                 saved_files.append(new_file)
                 logger.info(f"[CREATE SCENARIO] New PCAP file saved: {network_file.name}")
+
+        for log_file in log_files:
+
+            # Check if the file already exists in the database
+            existing_file = File.objects.filter(name=log_file.name).first()
+
+            # If it exists, increment the reference count
+            if existing_file:
+                existing_file.references += 1
+                existing_file.save()
+                saved_files.append(existing_file)
+                logger.info(f"[CREATE SCENARIO] Existing Log file found: {log_file.name} (references updated to {existing_file.references})")
+            
+            # If it does not exist, read the content, count entries, and save it
+            else:
+                log_content = log_file.read()
+                new_file = File.objects.create(
+                    name=log_file.name,
+                    file_type='log',
+                    entry_count=0,
+                    content=ContentFile(log_content, name=log_file.name),
+                    references=1
+                )
+                saved_files.append(new_file)
+                logger.info(f"[CREATE SCENARIO] New PCAP file saved: {log_file.name}")
 
     except Exception as e:
         # Return an error response if there is an issue processing the files
@@ -513,6 +544,7 @@ def put_scenario_by_uuid(request, uuid):
         design_json = request.POST.get('design')
         csv_files = request.FILES.getlist('csv_files')
         network_files = request.FILES.getlist('network_files')
+        log_files = request.FILES.getlist('log_files')
 
         # Return error if design field is missing
         if not design_json:
@@ -541,6 +573,10 @@ def put_scenario_by_uuid(request, uuid):
                 net_name = element.get("parameters", {}).get("networkFileName")
                 if net_name:
                     referenced_file_names.add(net_name)
+            elif element.get("type") == "Log":
+                log_name = element.get("parameters", {}).get("logFileName")
+                if log_name:
+                    referenced_file_names.add(log_name)
 
         # Fetch all referenced files from the database
         referenced_files = list(File.objects.filter(name__in=referenced_file_names))
@@ -600,6 +636,32 @@ def put_scenario_by_uuid(request, uuid):
                 )
                 updated_files.append(new_file)
                 logger.info(f"[UPDATE SCENARIO] New PCAP file saved: {network_file.name}")
+
+        # Process the uploaded Log files
+        for log_file in log_files:
+
+            # Check if the file already exists in the database
+            existing = File.objects.filter(name=log_file.name).first()
+
+            # If it exists, increment the reference count
+            if existing:
+                existing.references += 1
+                existing.save()
+                updated_files.append(existing)
+                logger.info(f"[UPDATE SCENARIO] Existing Log file found: {log_file.name} (references updated to {existing.references})")
+
+            # If it does not exist, read the content and save it
+            else:
+                log_content = log_file.read()
+                new_file = File.objects.create(
+                    name=log_file.name,
+                    file_type='log',
+                    entry_count=0,
+                    content=ContentFile(log_content, name=log_file.name),
+                    references=1
+                )
+                updated_files.append(new_file)
+                logger.info(f"[UPDATE SCENARIO] New Log file saved: {log_file.name}")
 
         # Combine referenced files and updated files
         all_files_to_keep = {f.name: f for f in referenced_files + updated_files}
@@ -970,6 +1032,63 @@ def execute_scenario(scenario_model, scenario, design):
 
                 # Store the DataFrame in the data storage
                 data_storage[element_id] = df
+
+
+
+
+
+
+
+            elif el_type == "Log":
+                logger.info("[EXECUTE SCENARIO] Processing Log element")
+
+                # Get the network file name from parameters
+                log_file_name = params.get("logFileName")
+
+                logger.info(f"[EXECUTE SCENARIO] Log file name: {log_file_name}")
+
+                # Get the analysis mode from parameters, defaulting to "flow"
+                operating_system = params.get("operating_system", "macOS")
+
+                logger.info(f"[EXECUTE SCENARIO] Operating system : {operating_system}")
+                logger.info(f"[EXECUTE SCENARIO] Log file name: {log_file_name}")
+
+                # Check if the file exists in the database
+                try:
+                    file = File.objects.get(name=log_file_name)
+                    with open(file.content.path, 'rb') as f:
+                        # Extract features from the PCAP file based on the analysis mode
+                        if operating_system == "macOS":
+                            logger.info("[EXECUTE SCENARIO] Extracting features from MacOS syscalls")
+                            df = extract_features_syscalls_macOS(f)
+                        else:
+                            logger.info("[EXECUTE SCENARIO] Extracting features from Linux syscalls")
+                            df = extract_features_syscalls_linux(f)
+                    logger.info(f"[EXECUTE SCENARIO] Extracted DataFrame: {df.head()}")
+                
+                # Handle errors when loading the PCAP file
+                except Exception as e:
+                    return {"error": f"Error loading PCAP: {str(e)}"}
+
+                # Check if the DataFrame is empty
+                if df.empty:
+                    return {"error": "The PCAP file does not contain usable data"}
+
+                # Store the DataFrame in the data storage
+                data_storage[element_id] = df
+
+
+
+
+
+
+
+
+
+
+
+
+
 
             # Case element type is ClassificationModel or RegressionModel
             elif el_type in ["ClassificationMonitor", "RegressionMonitor"]:
@@ -1713,6 +1832,10 @@ def play_scenario_production_by_uuid(request, uuid):
 
     # Get the user from the request
     user = request.user
+
+    # Get the production mode from the request data
+    #mode = request.data.get('mode')
+
     try:
         try:
             # Load user-specific system configuration

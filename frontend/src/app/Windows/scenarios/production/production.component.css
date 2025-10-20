@@ -315,3 +315,55 @@
 .menu-item:active {
   transform: translateY(1px);
 }
+
+.content-header.left-aligned {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  width: 100%;
+  margin: 10px 0 16px 0; /* separación respecto a la tabla */
+  padding-left: 12px;    /* un pequeño margen izquierdo */
+}
+
+/* Bloque interno del selector */
+.mode-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Estilos del texto y del select */
+.content-label {
+  font-weight: 600;
+  color: #1f2d3d;
+}
+
+.mode-select {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid #dbe2ef;
+  outline: none;
+  background-color: white;
+  cursor: pointer;
+}
+
+
+.content-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;              /* separa selector y tabla */
+}
+
+.content-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;    /* evita salto de línea en "Mode:" */
+  margin: 0;              /* quita márgenes si tenías antes */
+  flex: 0 0 auto;         /* ancho ajustado al contenido */
+}
+
+.table-container {
+  flex: 1 1 auto;         /* la tabla ocupa el resto del ancho */
+  min-width: 0;           /* evita desbordes */
+}

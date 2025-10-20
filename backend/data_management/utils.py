@@ -1,6 +1,9 @@
 import json
 import pandas as pd
 import numpy as np
+import io
+import re
+from datetime import datetime
 import time
 from collections import defaultdict
 import logging
@@ -57,6 +60,50 @@ PROTOCOL_MAP = {
 
 # Reverse mapping: from protocol name to number
 PROTOCOL_REVERSE_MAP = {v: int(k) for k, v in PROTOCOL_MAP.items()}
+
+PROCESS_PROFILE_MAP = {
+    "bash": "interactive",
+    "zsh": "interactive",
+    "sh": "interactive",
+    "python": "script",
+    "python3": "script",
+    "curl": "networking",
+    "ssh": "remote",
+    "vim": "editor",
+    "Finder": "ui",
+    "Safari": "ui",
+    "Mail": "ui",
+    # por defecto -> "generic"
+}
+
+CATEGORY_MAP = {
+    # FS
+    "open": "fs", "openat": "fs", "close": "fs", "read": "fs", "write": "fs",
+    "stat": "fs", "lstat": "fs", "fstat": "fs", "unlink": "fs", "rename": "fs",
+    "mkdir": "fs", "rmdir": "fs", "link": "fs", "symlink": "fs", "creat": "fs",
+    "readlink": "fs", "chmod": "fs", "fchmod": "fs", "truncate": "fs", "ftruncate": "fs",
+    # NET
+    "socket": "net", "connect": "net", "accept": "net", "sendto": "net", "recvfrom": "net",
+    "sendmsg": "net", "recvmsg": "net", "bind": "net", "listen": "net", "getsockname": "net",
+    "getpeername": "net", "shutdown": "net", "getsockopt": "net", "setsockopt": "net",
+    # PROC
+    "fork": "proc", "vfork": "proc", "execve": "proc", "exit": "proc", "wait4": "proc", "kill": "proc",
+    # MEM
+    "mmap": "mem", "munmap": "mem", "mprotect": "mem", "brk": "mem", "mremap": "mem", "msync": "mem",
+    # TIME
+    "gettimeofday": "time", "nanosleep": "time", "clock_gettime": "time",
+}
+
+_KDUMP_CALL_RE = re.compile(
+    r"""^\s*
+        (?P<pid>\d+)\s+                      # PID
+        (?P<proc>[A-Za-z0-9_\-\.]+)          # proceso (puede llevar .hilo)
+        (?::)?\s*                            # ':' opcional
+        (?P<ts>\d{10}(?:\.\d+)?)\s+          # timestamp epoch
+        CALL\s+(?P<sys>\w+)                  # nombre de syscall
+        """,
+    re.VERBOSE
+)
 
 def load_config():
     """
@@ -2441,3 +2488,236 @@ def get_next_anomaly_index(scenario_model):
 
     # Return the next available index
     return current + 1
+
+def _clean_json_values(values):
+    """
+    Convierte un array/lista a una lista JSON-segura:
+    - ±inf -> NaN -> None
+    - NaN -> None
+    - numpy.* -> tipos nativos (float/int/bool/str)
+    """
+    # Acepta list/ndarray/Series
+    s = pd.Series(values, copy=False)
+
+    # Sustituir ±inf por NaN
+    s = s.replace([np.inf, -np.inf], np.nan)
+
+    cleaned = []
+    for x in s.tolist():
+        if pd.isna(x):
+            cleaned.append(None)
+        elif isinstance(x, (np.floating, float)):
+            cleaned.append(float(x))
+        elif isinstance(x, (np.integer, int)):
+            cleaned.append(int(x))
+        elif isinstance(x, (np.bool_, bool)):
+            cleaned.append(bool(x))
+        elif isinstance(x, (str,)):
+            cleaned.append(x)
+        else:
+            # Último recurso: convertir a string para no romper JSON
+            cleaned.append(str(x))
+    return cleaned
+
+
+def _process_profile_from_name(proc_name: str) -> str:
+    return PROCESS_PROFILE_MAP.get(proc_name, "generic")
+
+def _category_from_syscall(sc: str) -> str:
+    return CATEGORY_MAP.get(sc, "other")
+
+def extract_features_syscalls_macOS(file_obj) -> pd.DataFrame:
+    """
+    Lee un log de syscalls (salida de `kdump -T`) desde un file-like object (binario o texto)
+    y devuelve un DataFrame con las 9 features requeridas.
+
+    Espera líneas 'CALL ...' con timestamp epoch. Si no hay timestamp, genera uno relativo.
+    """
+    # Asegurar lectura en texto aunque venga 'rb'
+    if isinstance(file_obj, io.BufferedReader) or "b" in getattr(file_obj, "mode", ""):
+        stream = io.TextIOWrapper(file_obj, encoding="utf-8", errors="ignore")
+        need_detach = True
+    else:
+        stream = file_obj
+        need_detach = False
+
+    rows = []
+    first_seen_time = None
+    fallback_start = time.time()
+
+    try:
+        for raw in stream:
+            line = raw.rstrip("\n")
+            m = _KDUMP_CALL_RE.match(line)
+            if not m:
+                # ignorar líneas RET u otros eventos
+                continue
+
+            pid = int(m.group("pid"))
+            proc = m.group("proc")
+            sysc = m.group("sys").lower()
+            ts_raw = m.group("ts")
+
+            if ts_raw:
+                ts_epoch = float(ts_raw)
+            else:
+                # muy raro en -T; fallback relativo si faltara
+                now = time.time()
+                if first_seen_time is None:
+                    first_seen_time = now
+                ts_epoch = fallback_start + (now - first_seen_time)
+
+            rows.append({
+                "timestamp_epoch": ts_epoch,
+                "pid": pid,
+                "process_name": proc,
+                "syscall_name": sysc,
+            })
+    finally:
+        # Evitar cerrar el file_obj original si nos lo pasan abierto por Django
+        if need_detach:
+            try:
+                stream.detach()
+            except Exception:
+                pass
+
+    if not rows:
+        # DataFrame vacío con columnas esperadas
+        return pd.DataFrame(columns=[
+            "timestamp_epoch","pid","process_profile","syscall_name","category",
+            "seq_no_pid","inter_arrival_ms","hour_of_day","weekday"
+        ])
+
+    df = pd.DataFrame(rows)
+
+    # Enriquecimientos
+    df["process_profile"] = df["process_name"].apply(_process_profile_from_name)
+    df["category"] = df["syscall_name"].apply(_category_from_syscall)
+
+    # Orden estable por pid y tiempo
+    df = df.sort_values(["pid", "timestamp_epoch"], kind="stable").reset_index(drop=True)
+
+    # Secuencia por PID
+    df["seq_no_pid"] = df.groupby("pid").cumcount()
+
+    # Inter-arrival por PID (ms)
+    df["inter_arrival_ms"] = (
+        df.groupby("pid")["timestamp_epoch"].diff().fillna(0.0) * 1000.0
+    )
+
+    # Hora del día y día de la semana
+    df["hour_of_day"] = df["timestamp_epoch"].apply(lambda t: datetime.fromtimestamp(t).hour)
+    df["weekday"] = df["timestamp_epoch"].apply(lambda t: datetime.fromtimestamp(t).weekday())  # 0=Lunes
+
+    # Selección y orden final de columnas
+    df_final = df[[
+        "timestamp_epoch",
+        "pid",
+        "process_profile",
+        "syscall_name",
+        "category",
+        "seq_no_pid",
+        "inter_arrival_ms",
+        "hour_of_day",
+        "weekday",
+    ]].copy()
+
+    return df_final
+
+def extract_features_syscalls_linux(file_obj) -> pd.DataFrame:
+    """
+    Lee un log de syscalls (salida de `kdump -T`) desde un file-like object (binario o texto)
+    y devuelve un DataFrame con las 9 features requeridas.
+
+    Espera líneas 'CALL ...' con timestamp epoch. Si no hay timestamp, genera uno relativo.
+    """
+    # Asegurar lectura en texto aunque venga 'rb'
+    if isinstance(file_obj, io.BufferedReader) or "b" in getattr(file_obj, "mode", ""):
+        stream = io.TextIOWrapper(file_obj, encoding="utf-8", errors="ignore")
+        need_detach = True
+    else:
+        stream = file_obj
+        need_detach = False
+
+    rows = []
+    first_seen_time = None
+    fallback_start = time.time()
+
+    try:
+        for raw in stream:
+            line = raw.rstrip("\n")
+            m = _KDUMP_CALL_RE.match(line)
+            if not m:
+                # ignorar líneas RET u otros eventos
+                continue
+
+            pid = int(m.group("pid"))
+            proc = m.group("proc")
+            sysc = m.group("sys").lower()
+            ts_raw = m.group("ts")
+
+            if ts_raw:
+                ts_epoch = float(ts_raw)
+            else:
+                # muy raro en -T; fallback relativo si faltara
+                now = time.time()
+                if first_seen_time is None:
+                    first_seen_time = now
+                ts_epoch = fallback_start + (now - first_seen_time)
+
+            rows.append({
+                "timestamp_epoch": ts_epoch,
+                "pid": pid,
+                "process_name": proc,
+                "syscall_name": sysc,
+            })
+    finally:
+        # Evitar cerrar el file_obj original si nos lo pasan abierto por Django
+        if need_detach:
+            try:
+                stream.detach()
+            except Exception:
+                pass
+
+    if not rows:
+        # DataFrame vacío con columnas esperadas
+        return pd.DataFrame(columns=[
+            "timestamp_epoch","pid","process_profile","syscall_name","category",
+            "seq_no_pid","inter_arrival_ms","hour_of_day","weekday"
+        ])
+
+    df = pd.DataFrame(rows)
+
+    # Enriquecimientos
+    df["process_profile"] = df["process_name"].apply(_process_profile_from_name)
+    df["category"] = df["syscall_name"].apply(_category_from_syscall)
+
+    # Orden estable por pid y tiempo
+    df = df.sort_values(["pid", "timestamp_epoch"], kind="stable").reset_index(drop=True)
+
+    # Secuencia por PID
+    df["seq_no_pid"] = df.groupby("pid").cumcount()
+
+    # Inter-arrival por PID (ms)
+    df["inter_arrival_ms"] = (
+        df.groupby("pid")["timestamp_epoch"].diff().fillna(0.0) * 1000.0
+    )
+
+    # Hora del día y día de la semana
+    df["hour_of_day"] = df["timestamp_epoch"].apply(lambda t: datetime.fromtimestamp(t).hour)
+    df["weekday"] = df["timestamp_epoch"].apply(lambda t: datetime.fromtimestamp(t).weekday())  # 0=Lunes
+
+    # Selección y orden final de columnas
+    df_final = df[[
+        "timestamp_epoch",
+        "pid",
+        "process_profile",
+        "syscall_name",
+        "category",
+        "seq_no_pid",
+        "inter_arrival_ms",
+        "hour_of_day",
+        "weekday",
+    ]].copy()
+
+    return df_final

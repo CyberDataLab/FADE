@@ -105,6 +105,9 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
   /** @summary Files attached to Network input nodes */
   selectedNetworkFiles: File[] = [];
 
+  /** @summary Files attached to Log input nodes */
+  selectedLogFiles: File[] = [];
+
   /** @summary Stores parameters for each node by ID */
   private elementParameters: { [elementId: string]: any } = {};
 
@@ -113,6 +116,9 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
 
   /** @summary ID of the current Network node being configured */
   private currentNetworkElementId: string | null = null;
+
+  /** @summary ID of the current log node being configured */
+  private currentLogElementId: string | null = null;
 
   /** @summary Subscription to toolbar save events */
   private saveSub: Subscription | null = null;
@@ -780,12 +786,17 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
                 const file = input.files[0];
                 if (prop.name === 'networkFileName') {
                   this.onNetworkFileSelected(event);
+                  this.currentNetworkElementId = node.id;
+                }
+                if(prop.name === 'logFileName') {
+                  this.onLogFileSelected(event);
+                  this.currentLogElementId = node.id;
                 }
                 saveValue(file.name);
               }
             });
           }
-          this.currentNetworkElementId = node.id;
+          
           break;
         }
         
@@ -1538,6 +1549,66 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
   }
 
   /**
+   * @summary Handles the selection of a .log file from an input element.
+   * 
+   * Validates the file type, avoids duplicates, parses the file contents, and extracts
+   * column information and default class labels for further configuration.
+   * 
+   * Updates the `elementParameters` map with the file name and a default class list.
+   * 
+   * @param event The file selection event triggered by an input element
+   */
+  onLogFileSelected(event: Event): void {
+
+    // Extract the input element from the event
+    const input = event.target as HTMLInputElement;
+
+    // Proceed only if a file is selected
+    if (input && input.files) {
+      const file = input.files[0];
+
+      // Ensure the selected file has a .pcap extension
+      if (file && file.name.endsWith('.log')) {
+        const file = input.files[0];
+
+        // Prevent duplicate entries in the selected file list
+        const alreadyExists = this.selectedLogFiles.some(f => f.name === file.name);
+        if (!alreadyExists) {
+          this.selectedLogFiles.push(file);
+        }
+        
+        // Read the file contents as plain text
+        const reader = new FileReader();
+        reader.onload = (e: any) => {
+          const text = e.target.result;
+          const rows = text.split('\n');
+
+          // Ensure the file has at least one row (header)
+          if (rows.length < 1) return;
+          
+          // Parse and clean the header columns
+          const columns = rows[0].split(',').map((col: string) => col.trim().replace(/^"|"$/g, ''));
+  
+          // Identify the target element ID associated with this file
+          const elementId = this.currentLogElementId;
+
+          if (!elementId) return;
+          
+          // Update the internal parameter map with the file name and default class labels
+          this.elementParameters[elementId] = {
+            ...this.elementParameters[elementId],  // Preserve any existing config
+            logFileName: file.name,
+            classes: ['normal', 'anomaly']  // Default class labels for network data
+          };
+        };
+
+        // Trigger the file reading process
+        reader.readAsText(file);
+      }
+    }
+  }
+
+  /**
    * @summary Renders the UI to allow the user to select which classification or regression metrics to monitor.
    * 
    * Creates a toggle interface where each metric is displayed as a clickable element.
@@ -2065,7 +2136,8 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
           name,
           design,
           this.selectedCSVFiles || [],
-          this.selectedNetworkFiles || []
+          this.selectedNetworkFiles || [],
+          this.selectedLogFiles || []
         ).subscribe({
           next: (response: any) => {
 
@@ -2098,7 +2170,8 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
           this.scenarioId,
           design,
           this.selectedCSVFiles || [],
-          this.selectedNetworkFiles || []
+          this.selectedNetworkFiles || [],
+          this.selectedLogFiles || []
         ).subscribe({
           next: () => {
 
