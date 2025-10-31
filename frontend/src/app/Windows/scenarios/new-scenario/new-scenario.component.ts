@@ -105,8 +105,8 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
   /** @summary Files attached to Network input nodes */
   selectedNetworkFiles: File[] = [];
 
-  /** @summary Files attached to Log input nodes */
-  selectedLogFiles: File[] = [];
+  /** @summary Files attached to JSONL input nodes */
+  selectedJSONLFiles: File[] = [];
 
   /** @summary Stores parameters for each node by ID */
   private elementParameters: { [elementId: string]: any } = {};
@@ -117,8 +117,8 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
   /** @summary ID of the current Network node being configured */
   private currentNetworkElementId: string | null = null;
 
-  /** @summary ID of the current log node being configured */
-  private currentLogElementId: string | null = null;
+  /** @summary ID of the current JSONL node being configured */
+  private currentJSONLElementId: string | null = null;
 
   /** @summary Subscription to toolbar save events */
   private saveSub: Subscription | null = null;
@@ -788,9 +788,9 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
                   this.onNetworkFileSelected(event);
                   this.currentNetworkElementId = node.id;
                 }
-                if(prop.name === 'logFileName') {
-                  this.onLogFileSelected(event);
-                  this.currentLogElementId = node.id;
+                if(prop.name === 'jsonlFileName') {
+                  this.onJSONLFileSelected(event);
+                  this.currentJSONLElementId = node.id;
                 }
                 saveValue(file.name);
               }
@@ -1549,7 +1549,7 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
   }
 
   /**
-   * @summary Handles the selection of a .log file from an input element.
+   * @summary Handles the selection of a .jsonl file from an input element.
    * 
    * Validates the file type, avoids duplicates, parses the file contents, and extracts
    * column information and default class labels for further configuration.
@@ -1558,7 +1558,7 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
    * 
    * @param event The file selection event triggered by an input element
    */
-  onLogFileSelected(event: Event): void {
+  onJSONLFileSelected(event: Event): void {
 
     // Extract the input element from the event
     const input = event.target as HTMLInputElement;
@@ -1568,13 +1568,13 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
       const file = input.files[0];
 
       // Ensure the selected file has a .pcap extension
-      if (file && file.name.endsWith('.log')) {
+      if (file && file.name.endsWith('.jsonl')) {
         const file = input.files[0];
 
         // Prevent duplicate entries in the selected file list
-        const alreadyExists = this.selectedLogFiles.some(f => f.name === file.name);
+        const alreadyExists = this.selectedJSONLFiles.some(f => f.name === file.name);
         if (!alreadyExists) {
-          this.selectedLogFiles.push(file);
+          this.selectedJSONLFiles.push(file);
         }
         
         // Read the file contents as plain text
@@ -1590,14 +1590,14 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
           const columns = rows[0].split(',').map((col: string) => col.trim().replace(/^"|"$/g, ''));
   
           // Identify the target element ID associated with this file
-          const elementId = this.currentLogElementId;
+          const elementId = this.currentJSONLElementId;
 
           if (!elementId) return;
           
           // Update the internal parameter map with the file name and default class labels
           this.elementParameters[elementId] = {
             ...this.elementParameters[elementId],  // Preserve any existing config
-            logFileName: file.name,
+            jsonlFileName: file.name,
             classes: ['normal', 'anomaly']  // Default class labels for network data
           };
         };
@@ -2130,14 +2130,13 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
       const name = window.prompt('Please enter the name of the scenario:');
   
       if (name) {
-
         // Save the scenario via the service with name, design, and attached files
         this.scenarioService.saveScenario(
           name,
           design,
           this.selectedCSVFiles || [],
           this.selectedNetworkFiles || [],
-          this.selectedLogFiles || []
+          this.selectedJSONLFiles || []
         ).subscribe({
           next: (response: any) => {
 
@@ -2171,7 +2170,7 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
           design,
           this.selectedCSVFiles || [],
           this.selectedNetworkFiles || [],
-          this.selectedLogFiles || []
+          this.selectedJSONLFiles || []
         ).subscribe({
           next: () => {
 

@@ -43,23 +43,16 @@
           ]
         },
         {
-          "type": "Log",
-          "displayName": "Log File",
-          "icon": "fa fa-file-lines",
+          "type": "JSONL",
+          "displayName": "JSONL",
+          "icon": "fa-solid fa-code",
           "category": "data_source",
           "properties": [
             {
-              "name": "logFileName",
+              "name": "jsonlFileName",
               "type": "file",
-              "label": "Log File",
-              "accept": ".log"
-            },
-            {
-              "name": "operatingSystem",
-              "type": "select",
-              "label": "Operating System",
-              "default": "macOS",
-              "options": ["macOS", "linux"]
+              "label": "JSONL File",
+              "accept": ".jsonl"
             }
           ]
         }

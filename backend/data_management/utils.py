@@ -1,6 +1,11 @@
+from __future__ import annotations
 import json
 import pandas as pd
 import numpy as np
+import math
+import hashlib
+from dataclasses import dataclass, field
+from typing import Dict, Tuple, Optional, List
 import io
 import re
 from datetime import datetime
@@ -11,8 +16,6 @@ from .models import *
 from action_execution.policy_storage import load_alert_policies, delete_alert_policy
 
 from sklearn.metrics import f1_score, precision_score, recall_score, accuracy_score, confusion_matrix, mean_squared_error, mean_absolute_error, r2_score
-from tensorflow.keras import Sequential
-from tensorflow.keras.layers import Dense, Flatten, Dropout, Conv1D, Conv2D, MaxPooling1D, AveragePooling1D, MaxPooling2D, AveragePooling2D,SimpleRNN, LSTM, GRU
 
 from django.core.mail import send_mail
 from django.conf import settings
@@ -28,6 +31,9 @@ import pyshark
 
 from collections import defaultdict
 import joblib
+
+
+
 
 logger = logging.getLogger('backend')
 
@@ -60,50 +66,6 @@ PROTOCOL_MAP = {
 
 # Reverse mapping: from protocol name to number
 PROTOCOL_REVERSE_MAP = {v: int(k) for k, v in PROTOCOL_MAP.items()}
-
-PROCESS_PROFILE_MAP = {
-    "bash": "interactive",
-    "zsh": "interactive",
-    "sh": "interactive",
-    "python": "script",
-    "python3": "script",
-    "curl": "networking",
-    "ssh": "remote",
-    "vim": "editor",
-    "Finder": "ui",
-    "Safari": "ui",
-    "Mail": "ui",
-    # por defecto -> "generic"
-}
-
-CATEGORY_MAP = {
-    # FS
-    "open": "fs", "openat": "fs", "close": "fs", "read": "fs", "write": "fs",
-    "stat": "fs", "lstat": "fs", "fstat": "fs", "unlink": "fs", "rename": "fs",
-    "mkdir": "fs", "rmdir": "fs", "link": "fs", "symlink": "fs", "creat": "fs",
-    "readlink": "fs", "chmod": "fs", "fchmod": "fs", "truncate": "fs", "ftruncate": "fs",
-    # NET
-    "socket": "net", "connect": "net", "accept": "net", "sendto": "net", "recvfrom": "net",
-    "sendmsg": "net", "recvmsg": "net", "bind": "net", "listen": "net", "getsockname": "net",
-    "getpeername": "net", "shutdown": "net", "getsockopt": "net", "setsockopt": "net",
-    # PROC
-    "fork": "proc", "vfork": "proc", "execve": "proc", "exit": "proc", "wait4": "proc", "kill": "proc",
-    # MEM
-    "mmap": "mem", "munmap": "mem", "mprotect": "mem", "brk": "mem", "mremap": "mem", "msync": "mem",
-    # TIME
-    "gettimeofday": "time", "nanosleep": "time", "clock_gettime": "time",
-}
-
-_KDUMP_CALL_RE = re.compile(
-    r"""^\s*
-        (?P<pid>\d+)\s+                      # PID
-        (?P<proc>[A-Za-z0-9_\-\.]+)          # proceso (puede llevar .hilo)
-        (?::)?\s*                            # ':' opcional
-        (?P<ts>\d{10}(?:\.\d+)?)\s+          # timestamp epoch
-        CALL\s+(?P<sys>\w+)                  # nombre de syscall
-        """,
-    re.VERBOSE
-)
 
 def load_config():
     """
@@ -198,7 +160,7 @@ def validate_design(config, design):
         appears_in_end = element_id in end_ids
 
         # Source-only elements
-        if el_type in ["CSV", "Network"]:
+        if el_type in ["CSV", "Network", "JSONL"]:
             if not appears_in_start:
                 raise ValueError(f"{el_type} '{element_id}' must appear as startId.")
             if appears_in_end:
@@ -224,7 +186,7 @@ def validate_design(config, design):
         next_types = [elements[nid]["type"] for nid in next_ids if nid in elements]
 
         valid_next_types = set(processing_types + classification_types + regression_types + anomaly_types)
-        if el_type in ["CSV", "Network"]:
+        if el_type in ["CSV", "Network", "JSONL"]:
             if not any(nt in valid_next_types for nt in next_types):
                 raise ValueError(
                     f"After '{element_id}' ({el_type}) there must be a processing or model node "
@@ -330,6 +292,9 @@ def build_neural_network(input_shape, model_type, parameters):
     Raises:
         ValueError: If the provided model_type is not supported.
     """
+    from tensorflow.keras import Sequential
+    from tensorflow.keras.layers import Dense, Flatten, Dropout, Conv1D, Conv2D, MaxPooling1D, AveragePooling1D, MaxPooling2D, AveragePooling2D,SimpleRNN, LSTM, GRU
+
 
     model = Sequential()
     logger.info("[BUILD NN] Building neural network model: %s", model_type)
@@ -2520,204 +2485,349 @@ def _clean_json_values(values):
     return cleaned
 
 
-def _process_profile_from_name(proc_name: str) -> str:
-    return PROCESS_PROFILE_MAP.get(proc_name, "generic")
+# ----------------------------
+# Utilidades / helpers
+# ----------------------------
 
-def _category_from_syscall(sc: str) -> str:
-    return CATEGORY_MAP.get(sc, "other")
+def signed_hash(s: str, n_features: int) -> int:
+    """Hash determinista (MD5) a índice con signo (+/-1) para 'hashing trick'."""
+    h = hashlib.md5(s.encode('utf-8')).digest()
+    # Primeros 4 bytes → índice; siguiente 1 bit → signo
+    idx = int.from_bytes(h[:4], 'little', signed=False) % n_features
+    sign = 1 if (h[4] & 0x80) == 0 else -1
+    return idx * sign
 
-def extract_features_syscalls_macOS(file_obj) -> pd.DataFrame:
-    """
-    Lee un log de syscalls (salida de `kdump -T`) desde un file-like object (binario o texto)
-    y devuelve un DataFrame con las 9 features requeridas.
 
-    Espera líneas 'CALL ...' con timestamp epoch. Si no hay timestamp, genera uno relativo.
-    """
-    # Asegurar lectura en texto aunque venga 'rb'
-    if isinstance(file_obj, io.BufferedReader) or "b" in getattr(file_obj, "mode", ""):
-        stream = io.TextIOWrapper(file_obj, encoding="utf-8", errors="ignore")
-        need_detach = True
-    else:
-        stream = file_obj
-        need_detach = False
+def errno_bucket(ret: int) -> str:
+    """Mapeo grueso de errno a buckets semánticos; ret>=0 => OK."""
+    if ret is None or ret >= 0:
+        return "OK"
+    # errno negativo (convención Linux)
+    e = -int(ret)
+    # grupos muy comunes
+    perm = {1, 13, 126, 127}  # EPERM, EACCES, ...
+    notfound = {2, 3, 20, 107, 111, 113, 115, 121}  # ENOENT, ESRCH, ENOTDIR, ENOTCONN, ECONNREFUSED, EHOSTUNREACH, EINPROGRESS, ETIMEDOUT
+    inval = {22, 14}   # EINVAL, EFAULT
+    again = {11}       # EAGAIN
+    nospc = {28, 122}  # ENOSPC, EDQUOT
+    busy = {16, 26}    # EBUSY, ETXTBSY
+    if e in perm: return "EPERM_EACCES"
+    if e in notfound: return "ENOENT_NET"
+    if e in inval: return "EINVAL_EFAULT"
+    if e in again: return "EAGAIN"
+    if e in nospc: return "ENOSPC"
+    if e in busy: return "EBUSY"
+    return "OTHER"
 
-    rows = []
-    first_seen_time = None
-    fallback_start = time.time()
 
+def log1p_clamp(x, lo=-1e6, hi=1e6):
+    if x is None:
+        return 0.0
     try:
-        for raw in stream:
-            line = raw.rstrip("\n")
-            m = _KDUMP_CALL_RE.match(line)
-            if not m:
-                # ignorar líneas RET u otros eventos
-                continue
+        if math.isnan(x):
+            return 0.0
+    except TypeError:
+        pass
+    return math.log1p(max(min(float(x), hi), lo))
 
-            pid = int(m.group("pid"))
-            proc = m.group("proc")
-            sysc = m.group("sys").lower()
-            ts_raw = m.group("ts")
 
-            if ts_raw:
-                ts_epoch = float(ts_raw)
-            else:
-                # muy raro en -T; fallback relativo si faltara
-                now = time.time()
-                if first_seen_time is None:
-                    first_seen_time = now
-                ts_epoch = fallback_start + (now - first_seen_time)
+def ewm_update(prev_value: float, obs: float, dt: float, tau: float) -> float:
+    """Exponential Weighted Mean con dt variable: α = 1 - exp(-dt/τ)."""
+    if dt is None or dt < 0:
+        dt = 0.0
+    if tau <= 0:
+        return obs
+    alpha = 1.0 - math.exp(-dt / tau)
+    base = prev_value if prev_value is not None else 0.0
+    return (1.0 - alpha) * base + alpha * obs
 
-            rows.append({
-                "timestamp_epoch": ts_epoch,
-                "pid": pid,
-                "process_name": proc,
-                "syscall_name": sysc,
-            })
-    finally:
-        # Evitar cerrar el file_obj original si nos lo pasan abierto por Django
-        if need_detach:
-            try:
-                stream.detach()
-            except Exception:
-                pass
 
-    if not rows:
-        # DataFrame vacío con columnas esperadas
-        return pd.DataFrame(columns=[
-            "timestamp_epoch","pid","process_profile","syscall_name","category",
-            "seq_no_pid","inter_arrival_ms","hour_of_day","weekday"
-        ])
+# ----------------------------
+# Estado por clave (pid/comm)
+# ----------------------------
 
-    df = pd.DataFrame(rows)
+@dataclass
+class KeyState:
+    last_ts: Optional[float] = None
+    prev_syscall: Optional[str] = None
+    run_len: int = 0
+    # Tasas EWM
+    rate_tau05: float = 0.0
+    rate_tau5: float = 0.0
+    fail_tau5: float = 0.0
+    # Tasas por syscall (compactas)
+    by_syscall_tau5: Dict[str, float] = field(default_factory=dict)
 
-    # Enriquecimientos
-    df["process_profile"] = df["process_name"].apply(_process_profile_from_name)
-    df["category"] = df["syscall_name"].apply(_category_from_syscall)
 
-    # Orden estable por pid y tiempo
-    df = df.sort_values(["pid", "timestamp_epoch"], kind="stable").reset_index(drop=True)
+# ----------------------------
+# Extractor online
+# ----------------------------
 
-    # Secuencia por PID
-    df["seq_no_pid"] = df.groupby("pid").cumcount()
+@dataclass
+class OnlineFeatureExtractor:
+    # Dimensiones de hashing
+    n_hash_sys: int = 256      # 1-gram (syscall)
+    n_hash_pair: int = 256     # par (prev,curr)
+    n_hash_comm: int = 64      # 'comm'
+    # Control de crecimiento del diccionario by_syscall
+    limit_by_syscall: int = 8  # top-N por key
+    # Constantes de tiempo (seg)
+    tau_short: float = 0.5
+    tau_long: float = 5.0
+    # Emitir sidecar con tokens activos por bucket
+    emit_sidecar: bool = False
 
-    # Inter-arrival por PID (ms)
-    df["inter_arrival_ms"] = (
-        df.groupby("pid")["timestamp_epoch"].diff().fillna(0.0) * 1000.0
-    )
+    # Estado online por pid y comm
+    st_pid: Dict[int, KeyState] = field(default_factory=dict)
+    st_comm: Dict[str, KeyState] = field(default_factory=dict)
 
-    # Hora del día y día de la semana
-    df["hour_of_day"] = df["timestamp_epoch"].apply(lambda t: datetime.fromtimestamp(t).hour)
-    df["weekday"] = df["timestamp_epoch"].apply(lambda t: datetime.fromtimestamp(t).weekday())  # 0=Lunes
+    # Nombres legibles para densos (ajusta si añades/eliminas)
+    num_feature_names: List[str] = field(default_factory=lambda: [
+        "log1p(dur)",
+        "is_main",
+        "tid_mod8",
+        "uid_bucket",
+        "log1p(dt_pid_prev)",
+        "log1p(dt_comm_prev)",
+        "pid.rate_tau05",
+        "pid.rate_tau5",
+        "pid.fail_tau5",
+        "comm.rate_tau05",
+        "comm.rate_tau5",
+        "comm.fail_tau5",
+        "pid.run_len",
+    ])
 
-    # Selección y orden final de columnas
-    df_final = df[[
-        "timestamp_epoch",
-        "pid",
-        "process_profile",
-        "syscall_name",
-        "category",
-        "seq_no_pid",
-        "inter_arrival_ms",
-        "hour_of_day",
-        "weekday",
-    ]].copy()
+    # ---------- API de nombres/offsets ----------
 
-    return df_final
+    def feature_offsets(self) -> Dict[str, Tuple[int, int]]:
+        """Offsets [ini, fin) por bloque de features."""
+        off_sys = 0
+        off_pair = off_sys + self.n_hash_sys
+        off_comm = off_pair + self.n_hash_pair
+        off_errno = off_comm + self.n_hash_comm
+        off_bysys = off_errno + 16
+        off_nums = off_bysys + 64
+        return {
+            "sys":   (off_sys,   off_sys   + self.n_hash_sys),
+            "pair":  (off_pair,  off_pair  + self.n_hash_pair),
+            "comm":  (off_comm,  off_comm  + self.n_hash_comm),
+            "errno": (off_errno, off_errno + 16),
+            "bysys": (off_bysys, off_bysys + 64),
+            "nums":  (off_nums,  off_nums  + len(self.num_feature_names)),
+        }
 
-def extract_features_syscalls_linux(file_obj) -> pd.DataFrame:
-    """
-    Lee un log de syscalls (salida de `kdump -T`) desde un file-like object (binario o texto)
-    y devuelve un DataFrame con las 9 features requeridas.
+    def feature_names(self) -> List[str]:
+        """
+        Nombres legibles y estables por bloque.
+        Para buckets hasheados, prefijo + '#hXXX' (índice relativo al bloque).
+        """
+        offs = self.feature_offsets()
+        names: List[str] = []
 
-    Espera líneas 'CALL ...' con timestamp epoch. Si no hay timestamp, genera uno relativo.
-    """
-    # Asegurar lectura en texto aunque venga 'rb'
-    if isinstance(file_obj, io.BufferedReader) or "b" in getattr(file_obj, "mode", ""):
-        stream = io.TextIOWrapper(file_obj, encoding="utf-8", errors="ignore")
-        need_detach = True
-    else:
-        stream = file_obj
-        need_detach = False
+        # sys hash
+        names += [f"sys#h{j:03d}" for j in range(offs["sys"][1] - offs["sys"][0])]
+        # pair hash
+        names += [f"pair#h{j:03d}" for j in range(offs["pair"][1] - offs["pair"][0])]
+        # comm hash
+        names += [f"comm#h{j:03d}" for j in range(offs["comm"][1] - offs["comm"][0])]
+        # errno hash
+        names += [f"errno#h{j:03d}" for j in range(offs["errno"][1] - offs["errno"][0])]
+        # bysys hash
+        names += [f"bysys#h{j:03d}" for j in range(offs["bysys"][1] - offs["bysys"][0])]
+        # densos con nombre real
+        names += list(self.num_feature_names)
 
-    rows = []
-    first_seen_time = None
-    fallback_start = time.time()
+        return names
 
-    try:
-        for raw in stream:
-            line = raw.rstrip("\n")
-            m = _KDUMP_CALL_RE.match(line)
-            if not m:
-                # ignorar líneas RET u otros eventos
-                continue
+    def feature_dim(self) -> int:
+        """Total de dimensiones."""
+        return (self.n_hash_sys + self.n_hash_pair + self.n_hash_comm +
+                16 + 64 + len(self.num_feature_names))
 
-            pid = int(m.group("pid"))
-            proc = m.group("proc")
-            sysc = m.group("sys").lower()
-            ts_raw = m.group("ts")
+    # ---------- Internos de hashing ----------
 
-            if ts_raw:
-                ts_epoch = float(ts_raw)
-            else:
-                # muy raro en -T; fallback relativo si faltara
-                now = time.time()
-                if first_seen_time is None:
-                    first_seen_time = now
-                ts_epoch = fallback_start + (now - first_seen_time)
+    def _hashvec(self, keys: List[str], n: int) -> np.ndarray:
+        """Vectorizado con hashing; sin sidecar."""
+        v = np.zeros(n, dtype=np.float32)
+        for k in keys:
+            idx_signed = signed_hash(k, n)
+            idx = abs(idx_signed) % n
+            v[idx] += 1.0 if idx_signed >= 0 else -1.0
+        return v
 
-            rows.append({
-                "timestamp_epoch": ts_epoch,
-                "pid": pid,
-                "process_name": proc,
-                "syscall_name": sysc,
-            })
-    finally:
-        # Evitar cerrar el file_obj original si nos lo pasan abierto por Django
-        if need_detach:
-            try:
-                stream.detach()
-            except Exception:
-                pass
+    def _hashvec_with_keys(self, keys: List[str], n: int) -> Tuple[np.ndarray, Dict[int, List[str]]]:
+        """Hashing + sidecar: idx_local -> [tokens]."""
+        v = np.zeros(n, dtype=np.float32)
+        hit: Dict[int, List[str]] = {}
+        for k in keys:
+            idx_signed = signed_hash(k, n)
+            idx = abs(idx_signed) % n
+            v[idx] += 1.0 if idx_signed >= 0 else -1.0
+            hit.setdefault(idx, []).append(k)
+        return v, hit
 
-    if not rows:
-        # DataFrame vacío con columnas esperadas
-        return pd.DataFrame(columns=[
-            "timestamp_epoch","pid","process_profile","syscall_name","category",
-            "seq_no_pid","inter_arrival_ms","hour_of_day","weekday"
-        ])
+    # ---------- Actualización de estado ----------
 
-    df = pd.DataFrame(rows)
+    def _update_state(self, ks: KeyState, t: float, curr_sys: str, ok: bool) -> float:
+        dt = (t - ks.last_ts) if ks.last_ts is not None else None
+        # EWM de tasas (obs=1 evento)
+        ks.rate_tau05 = ewm_update(ks.rate_tau05, 1.0, dt, self.tau_short)
+        ks.rate_tau5  = ewm_update(ks.rate_tau5,  1.0, dt, self.tau_long)
+        # EWM de fallos (obs=1 si fallo)
+        ks.fail_tau5  = ewm_update(ks.fail_tau5, 0.0 if ok else 1.0, dt, self.tau_long)
+        # EWM por syscall
+        if curr_sys:
+            d = ks.by_syscall_tau5
+            if curr_sys not in d and len(d) >= self.limit_by_syscall:
+                # desalojo simple: elimina el de menor valor
+                victim = min(d.items(), key=lambda kv: kv[1])[0]
+                d.pop(victim, None)
+            prev = d.get(curr_sys, 0.0)
+            d[curr_sys] = ewm_update(prev, 1.0, dt, self.tau_long)
+        # run-length
+        if ks.prev_syscall == curr_sys:
+            ks.run_len = min(ks.run_len + 1, 8)
+        else:
+            ks.run_len = 1
+        ks.prev_syscall = curr_sys
+        ks.last_ts = t
+        return 0.0 if dt is None else float(dt)
 
-    # Enriquecimientos
-    df["process_profile"] = df["process_name"].apply(_process_profile_from_name)
-    df["category"] = df["syscall_name"].apply(_category_from_syscall)
+    # ---------- Transformación de un evento ----------
 
-    # Orden estable por pid y tiempo
-    df = df.sort_values(["pid", "timestamp_epoch"], kind="stable").reset_index(drop=True)
+    def transform_event(self, ev: dict) -> Tuple[np.ndarray, dict]:
+        """
+        Recibe un evento JSON ya parseado (línea de tu JSONL).
+        Devuelve (x, meta), donde x es el vector de características y meta
+        contiene metadatos y, si emit_sidecar=True, un mapeo de índices -> tokens.
+        """
+        # Campos base
+        ts = (ev.get("ts_enter_nsecs") or ev.get("ts", 0)) / 1e9
+        dur = (ev.get("duration_nsecs") or 0) / 1e9
+        pid = int(ev.get("pid", -1))
+        tid = int(ev.get("tid", -1))
+        uid = int(ev.get("uid", -1))
+        ret = ev.get("ret", 0)
+        syscall = str(ev.get("syscall_name") or ev.get("syscall_nr") or "")
+        comm = str(ev.get("comm") or "")
 
-    # Secuencia por PID
-    df["seq_no_pid"] = df.groupby("pid").cumcount()
+        is_main = 1.0 if pid == tid else 0.0
+        tid_mod8 = float(tid % 8 if tid >= 0 else 0)
+        uid_bucket = float(min(max(uid, 0), 65535))  # coarse
 
-    # Inter-arrival por PID (ms)
-    df["inter_arrival_ms"] = (
-        df.groupby("pid")["timestamp_epoch"].diff().fillna(0.0) * 1000.0
-    )
+        ok = (ret is not None and int(ret) >= 0)
+        e_bucket = errno_bucket(int(ret) if ret is not None else 0)
 
-    # Hora del día y día de la semana
-    df["hour_of_day"] = df["timestamp_epoch"].apply(lambda t: datetime.fromtimestamp(t).hour)
-    df["weekday"] = df["timestamp_epoch"].apply(lambda t: datetime.fromtimestamp(t).weekday())  # 0=Lunes
+        # Estados por PID y por comm
+        ks_pid = self.st_pid.setdefault(pid, KeyState())
+        ks_comm = self.st_comm.setdefault(comm, KeyState())
 
-    # Selección y orden final de columnas
-    df_final = df[[
-        "timestamp_epoch",
-        "pid",
-        "process_profile",
-        "syscall_name",
-        "category",
-        "seq_no_pid",
-        "inter_arrival_ms",
-        "hour_of_day",
-        "weekday",
-    ]].copy()
+        # --- IMPORTANTE: capturar prev antes de actualizar ---
+        prev_pid_sys = ks_pid.prev_syscall
+        prev_comm_sys = ks_comm.prev_syscall
 
-    return df_final
+        # Actualizar estado (devuelve dt previas)
+        dt_pid_prev = self._update_state(ks_pid, ts, syscall, ok)
+        dt_comm_prev = self._update_state(ks_comm, ts, syscall, ok)
+
+        # HASH features + sidecar opcional
+        if self.emit_sidecar:
+            v_sys, hk_sys = self._hashvec_with_keys([f"sys:{syscall}"], self.n_hash_sys)
+
+            pair_keys: List[str] = []
+            if prev_pid_sys:
+                pair_keys.append(f"pair_pid:{prev_pid_sys}->{syscall}")
+            if prev_comm_sys:
+                pair_keys.append(f"pair_comm:{prev_comm_sys}->{syscall}")
+            v_pair, hk_pair = self._hashvec_with_keys(pair_keys, self.n_hash_pair)
+
+            v_comm, hk_comm = self._hashvec_with_keys([f"comm:{comm}"], self.n_hash_comm)
+            v_errno, hk_en = self._hashvec_with_keys(
+                [f"errno:{e_bucket}", f"ok:{'1' if ok else '0'}"], 16
+            )
+
+            # by-syscall EWM compactas (PID + COMM), sumadas
+            top_pid = sorted(ks_pid.by_syscall_tau5.items(), key=lambda kv: -kv[1])[: self.limit_by_syscall]
+            top_comm = sorted(ks_comm.by_syscall_tau5.items(), key=lambda kv: -kv[1])[: self.limit_by_syscall]
+            bysys: Dict[str, float] = {}
+            for k, v in top_pid:
+                bysys[f"pid::{k}"] = bysys.get(f"pid::{k}", 0.0) + v
+            for k, v in top_comm:
+                bysys[f"comm::{k}"] = bysys.get(f"comm::{k}", 0.0) + v
+            v_bysys, hk_bs = self._hashvec_with_keys(
+                [f"bysys:{k}:{v:.3f}" for k, v in bysys.items()], 64
+            )
+        else:
+            v_sys = self._hashvec([f"sys:{syscall}"], self.n_hash_sys)
+
+            pair_keys = []
+            if prev_pid_sys:
+                pair_keys.append(f"pair_pid:{prev_pid_sys}->{syscall}")
+            if prev_comm_sys:
+                pair_keys.append(f"pair_comm:{prev_comm_sys}->{syscall}")
+            v_pair = self._hashvec(pair_keys, self.n_hash_pair)
+
+            v_comm = self._hashvec([f"comm:{comm}"], self.n_hash_comm)
+            v_errno = self._hashvec([f"errno:{e_bucket}", f"ok:{'1' if ok else '0'}"], 16)
+
+            top_pid = sorted(ks_pid.by_syscall_tau5.items(), key=lambda kv: -kv[1])[: self.limit_by_syscall]
+            top_comm = sorted(ks_comm.by_syscall_tau5.items(), key=lambda kv: -kv[1])[: self.limit_by_syscall]
+            bysys = {}
+            for k, v in top_pid:
+                bysys[f"pid::{k}"] = bysys.get(f"pid::{k}", 0.0) + v
+            for k, v in top_comm:
+                bysys[f"comm::{k}"] = bysys.get(f"comm::{k}", 0.0) + v
+            v_bysys = self._hashvec([f"bysys:{k}:{v:.3f}" for k, v in bysys.items()], 64)
+
+        # Numéricos densos
+        nums = np.array(
+            [
+                log1p_clamp(dur),
+                float(is_main),
+                tid_mod8,
+                uid_bucket,
+                log1p_clamp(dt_pid_prev),
+                log1p_clamp(dt_comm_prev),
+                ks_pid.rate_tau05,
+                ks_pid.rate_tau5,
+                ks_pid.fail_tau5,
+                ks_comm.rate_tau05,
+                ks_comm.rate_tau5,
+                ks_comm.fail_tau5,
+                float(min(ks_pid.run_len, 8)),
+            ],
+            dtype=np.float32,
+        )
+
+        # Concatenación final
+        x = np.concatenate([v_sys, v_pair, v_comm, v_errno, v_bysys, nums], axis=0)
+
+        meta = {
+            "ts": ts,
+            "pid": pid,
+            "tid": tid,
+            "comm": comm,
+            "syscall": syscall,
+            "ret": ret,
+            "ok": ok,
+        }
+
+        # Sidecar: índices absolutos -> tokens que los activaron
+        if self.emit_sidecar:
+            offs = self.feature_offsets()
+            active: Dict[int, List[str]] = {}
+
+            def add_hits(base: int, hits: Dict[int, List[str]]):
+                for local_idx, toks in hits.items():
+                    active[base + local_idx] = list(toks)
+
+            add_hits(offs["sys"][0], hk_sys)
+            add_hits(offs["pair"][0], hk_pair)
+            add_hits(offs["comm"][0], hk_comm)
+            add_hits(offs["errno"][0], hk_en)
+            add_hits(offs["bysys"][0], hk_bs)
+
+            meta["active_feature_names"] = active  # opcional para explicabilidad
+
+        return x, meta

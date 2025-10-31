@@ -175,7 +175,7 @@ export class ScenarioService {
    * 
    * @returns Observable with backend response
    */
-  saveScenario(name: string, design: any, csvFiles?: File[], networkFiles?: File[], logFiles?: File[]): Observable<any> {
+  saveScenario(name: string, design: any, csvFiles?: File[], networkFiles?: File[], jsonlFiles?: File[]): Observable<any> {
     if (isPlatformBrowser(this.platformId)) {
       const formData = new FormData();
       formData.append('name', name);
@@ -196,9 +196,9 @@ export class ScenarioService {
       }
 
       // Append log files to FormData if provided
-      if (logFiles && logFiles.length > 0) {
-        logFiles.forEach(file => {
-          formData.append('log_files', file);
+      if (jsonlFiles && jsonlFiles.length > 0) {
+        jsonlFiles.forEach(file => {
+          formData.append('jsonl_files', file);
         });
       }
     

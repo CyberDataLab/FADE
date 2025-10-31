@@ -89,6 +89,11 @@ def login_view(request):
     username = request.data.get('username')
     password = request.data.get('password')
 
+    logger.info("HOLAAAAAAAAA")
+
+    logger.info(username)
+    logger.info(password)
+
     # Authenticate user
     user = authenticate(username=username, password=password)
 

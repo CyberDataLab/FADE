@@ -24,4 +24,4 @@ if [[ "$MODE" == "gpu" ]]; then
 fi
 
 HOST_OS=$HOST_OS EXECUTION_MODE=$MODE \
-  docker-compose -f docker-compose.$MODE.yml up --build $GPU_FLAG
+  docker compose -f docker-compose.$MODE.yml up --build $GPU_FLAG

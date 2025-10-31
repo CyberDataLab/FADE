@@ -25,7 +25,7 @@ import shap
 from celery import shared_task
 from collections import defaultdict
 from sklearn.model_selection import train_test_split
-from tensorflow.keras.utils import to_categorical
+
 from .utils import *
 from netanoms_runtime.detection import run_live_production, SSHConfig, CaptureConfig
 
@@ -43,7 +43,7 @@ def create_scenario(request):
     Expects (multipart/form-data):
         - csv_files: List of CSV files.
         - network_files: List of PCAP files.
-        - log_files: List of Log files.
+        - jsonl_files: List of JSONL files.
         - Additional scenario metadata fields (e.g., name, description, etc.) as part of the form data.
 
     Behavior:
@@ -54,7 +54,7 @@ def create_scenario(request):
         - For each PCAP file:
             - If it already exists in the database (by name), increments reference count.
             - If new, stores its binary content and saves it.
-        - For each Log file:
+        - For each JSONL file:
             - If it already exists in the database (by name), increments reference count.
             - If new, stores its binary content and saves it.
         - Links all uploaded files to the created scenario.
@@ -76,16 +76,16 @@ def create_scenario(request):
     # Get the uploaded files from the request
     csv_files = request.FILES.getlist('csv_files')
     network_files = request.FILES.getlist('network_files')
-    log_files = request.FILES.getlist('log_files')
+    jsonl_files = request.FILES.getlist('jsonl_files')
 
     logger.info(f"[CREATE SCENARIO] CSV files received: {[f.name for f in csv_files]}")
     logger.info(f"[CREATE SCENARIO] PCAP files received: {[f.name for f in network_files]}")
-    logger.info(f"[CREATE SCENARIO] Log files received: {[f.name for f in log_files]}")
+    logger.info(f"[CREATE SCENARIO] JSONL files received: {[f.name for f in jsonl_files]}")
 
     # Check if at least one CSV or PCAP file is provided
-    if not csv_files and not network_files and not log_files:
+    if not csv_files and not network_files and not jsonl_files:
         # Return an error response if no files are provided
-        return JsonResponse({"error": "At least one CSV, PCAP or Log file is required."}, status=status.HTTP_400_BAD_REQUEST)
+        return JsonResponse({"error": "At least one CSV, PCAP or JSONL file is required."}, status=status.HTTP_400_BAD_REQUEST)
 
     saved_files = []
 
@@ -145,30 +145,30 @@ def create_scenario(request):
                 saved_files.append(new_file)
                 logger.info(f"[CREATE SCENARIO] New PCAP file saved: {network_file.name}")
 
-        for log_file in log_files:
+        for jsonl_file in jsonl_files:
 
             # Check if the file already exists in the database
-            existing_file = File.objects.filter(name=log_file.name).first()
+            existing_file = File.objects.filter(name=jsonl_file.name).first()
 
             # If it exists, increment the reference count
             if existing_file:
                 existing_file.references += 1
                 existing_file.save()
                 saved_files.append(existing_file)
-                logger.info(f"[CREATE SCENARIO] Existing Log file found: {log_file.name} (references updated to {existing_file.references})")
+                logger.info(f"[CREATE SCENARIO] Existing Log file found: {jsonl_file.name} (references updated to {existing_file.references})")
             
             # If it does not exist, read the content, count entries, and save it
             else:
-                log_content = log_file.read()
+                log_content = jsonl_file.read()
                 new_file = File.objects.create(
-                    name=log_file.name,
-                    file_type='log',
+                    name=jsonl_file.name,
+                    file_type='jsonl',
                     entry_count=0,
-                    content=ContentFile(log_content, name=log_file.name),
+                    content=ContentFile(log_content, name=jsonl_file.name),
                     references=1
                 )
                 saved_files.append(new_file)
-                logger.info(f"[CREATE SCENARIO] New PCAP file saved: {log_file.name}")
+                logger.info(f"[CREATE SCENARIO] New JSONL file saved: {jsonl_file.name}")
 
     except Exception as e:
         # Return an error response if there is an issue processing the files
@@ -544,7 +544,7 @@ def put_scenario_by_uuid(request, uuid):
         design_json = request.POST.get('design')
         csv_files = request.FILES.getlist('csv_files')
         network_files = request.FILES.getlist('network_files')
-        log_files = request.FILES.getlist('log_files')
+        jsonl_files = request.FILES.getlist('jsonl_files')
 
         # Return error if design field is missing
         if not design_json:
@@ -573,10 +573,10 @@ def put_scenario_by_uuid(request, uuid):
                 net_name = element.get("parameters", {}).get("networkFileName")
                 if net_name:
                     referenced_file_names.add(net_name)
-            elif element.get("type") == "Log":
-                log_name = element.get("parameters", {}).get("logFileName")
-                if log_name:
-                    referenced_file_names.add(log_name)
+            elif element.get("type") == "JSONL":
+                jsonl_name = element.get("parameters", {}).get("jsonlFileName")
+                if jsonl_name:
+                    referenced_file_names.add(jsonl_name)
 
         # Fetch all referenced files from the database
         referenced_files = list(File.objects.filter(name__in=referenced_file_names))
@@ -638,30 +638,30 @@ def put_scenario_by_uuid(request, uuid):
                 logger.info(f"[UPDATE SCENARIO] New PCAP file saved: {network_file.name}")
 
         # Process the uploaded Log files
-        for log_file in log_files:
+        for jsonl_file in jsonl_files:
 
             # Check if the file already exists in the database
-            existing = File.objects.filter(name=log_file.name).first()
+            existing = File.objects.filter(name=jsonl_file.name).first()
 
             # If it exists, increment the reference count
             if existing:
                 existing.references += 1
                 existing.save()
                 updated_files.append(existing)
-                logger.info(f"[UPDATE SCENARIO] Existing Log file found: {log_file.name} (references updated to {existing.references})")
+                logger.info(f"[UPDATE SCENARIO] Existing JSONL file found: {jsonl_file.name} (references updated to {existing.references})")
 
             # If it does not exist, read the content and save it
             else:
-                log_content = log_file.read()
+                log_content = jsonl_file.read()
                 new_file = File.objects.create(
-                    name=log_file.name,
-                    file_type='log',
+                    name=jsonl_file.name,
+                    file_type='jsonl',
                     entry_count=0,
-                    content=ContentFile(log_content, name=log_file.name),
+                    content=ContentFile(log_content, name=jsonl_file.name),
                     references=1
                 )
                 updated_files.append(new_file)
-                logger.info(f"[UPDATE SCENARIO] New Log file saved: {log_file.name}")
+                logger.info(f"[UPDATE SCENARIO] New JSONL file saved: {jsonl_file.name}")
 
         # Combine referenced files and updated files
         all_files_to_keep = {f.name: f for f in referenced_files + updated_files}
@@ -1035,54 +1035,48 @@ def execute_scenario(scenario_model, scenario, design):
 
 
 
+            elif el_type == "JSONL":
+                logger.info("[EXECUTE SCENARIO] Processing JSONL element")
 
+                jsonl_file_name = params.get("jsonlFileName")
+                logger.info(f"[EXECUTE SCENARIO] JSONL file name: {jsonl_file_name}")
 
-
-
-            elif el_type == "Log":
-                logger.info("[EXECUTE SCENARIO] Processing Log element")
-
-                # Get the network file name from parameters
-                log_file_name = params.get("logFileName")
-
-                logger.info(f"[EXECUTE SCENARIO] Log file name: {log_file_name}")
-
-                # Get the analysis mode from parameters, defaulting to "flow"
-                operating_system = params.get("operating_system", "macOS")
-
-                logger.info(f"[EXECUTE SCENARIO] Operating system : {operating_system}")
-                logger.info(f"[EXECUTE SCENARIO] Log file name: {log_file_name}")
-
-                # Check if the file exists in the database
                 try:
-                    file = File.objects.get(name=log_file_name)
-                    with open(file.content.path, 'rb') as f:
-                        # Extract features from the PCAP file based on the analysis mode
-                        if operating_system == "macOS":
-                            logger.info("[EXECUTE SCENARIO] Extracting features from MacOS syscalls")
-                            df = extract_features_syscalls_macOS(f)
-                        else:
-                            logger.info("[EXECUTE SCENARIO] Extracting features from Linux syscalls")
-                            df = extract_features_syscalls_linux(f)
-                    logger.info(f"[EXECUTE SCENARIO] Extracted DataFrame: {df.head()}")
-                
-                # Handle errors when loading the PCAP file
+
+                    file = File.objects.get(name=jsonl_file_name)
+                    file_path = file.content.path
+
+                    # Si el archivo contiene SOLO JSON por línea, esto basta:
+                    # df = pd.read_json(file_path, lines=True)
+
+                    # Versión robusta por si hubiera líneas no-JSON (se filtran):
+                    with open(file_path, "r", encoding="utf-8", errors="replace") as fh:
+                        only_json = "".join(line for line in fh if line.lstrip().startswith("{"))
+                    df = pd.read_json(io.StringIO(only_json), lines=True)
+
+                    # (Opcional) asegurar orden de columnas si lo quieres fijo:
+                    expected_cols = [
+                        "window_start_ns","window_end_ns","read","write","openat","close","fstat",
+                        "mmap","mprotect","munmap","brk","rt_sigaction","rt_sigprocmask","ioctl",
+                        "poll","select","futex","nanosleep","sched_yield","total_syscalls"
+                    ]
+                    df = df.reindex(columns=expected_cols)
+
+                    logger.info(df)
+
+                    # Ahora 'df' es el DataFrame que querías
+                    logger.info(f"[EXECUTE SCENARIO] DataFrame shape: {df.shape}")
+
+                # Handle errors when loading the JSONL file
                 except Exception as e:
-                    return {"error": f"Error loading PCAP: {str(e)}"}
+                    return {"error": f"Error loading JSONL: {str(e)}"}
 
                 # Check if the DataFrame is empty
                 if df.empty:
-                    return {"error": "The PCAP file does not contain usable data"}
+                    return {"error": "The JSONL file does not contain usable data"}
 
                 # Store the DataFrame in the data storage
                 data_storage[element_id] = df
-
-
-
-
-
-
-
 
 
 
@@ -1405,6 +1399,7 @@ def execute_scenario(scenario_model, scenario, design):
 
                         # Case the model is a neural network
                         if el_type in ["CNNClassifier", "RNNClassifier", "MLPClassifier"]:
+                            from tensorflow.keras.utils import to_categorical
                             logger.info(f"[EXECUTE SCENARIO] Training neural network model: {el_type}")
 
                             X_train_raw = X_train_concat.values
