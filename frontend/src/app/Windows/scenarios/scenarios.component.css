@@ -1,41 +1,35 @@
-/* ============================================================
-   Anomaly Detector — 2025 Blue UI
-   (Reemplazo completo del CSS del componente)
-   ============================================================ */
-
-/* ---------- Compatibilidad / evitar desbordes ---------- */
+/* Ensures consistent sizing for all elements */
 *, *::before, *::after { box-sizing: border-box; }
 
-/* ---------- Contenido del componente ---------- */
-/* Alinea el contenido a la izquierda (antes estaba centrado) */
+/* Main content area aligned to the center horizontally */
 .content{
   display: flex;
-  align-items: flex-start;
-  justify-content: flex-start;
-  height: 100%;
+  align-items: center;
+  justify-content: center;
+  height: calc(100vh - 60px - 40px);
   width: 100%;
-  padding: 24px 12px;
-  padding-left: 8px;
-  padding-right: 12px;
+  padding: 0;
   box-sizing: border-box;
 }
 
-/* ---------- Acciones flotantes (FABs) ---------- */
+/* Floating action buttons positioned at bottom-right */
 .options-container{
   position: fixed;
   z-index: 20;
-  right: clamp(8px, 2vw, 16px);  /* siempre visible sin provocar scroll */
+  right: clamp(8px, 2vw, 16px);
   bottom: 24px;
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
+/* Glass-style circular buttons for “New” and “Import” */
 .new-button,
 .import-button{
   display: inline-grid;
   place-items: center;
-  width: 48px; height: 48px;
+  width: var(--fab-size-md);
+  height: var(--fab-size-md);
   border-radius: 12px;
   border: 1px solid rgba(255,255,255,.65);
   background: color-mix(in oklab, #fff 75%, var(--blue-50) 25%);
@@ -46,11 +40,22 @@
   box-shadow: 0 14px 28px rgba(22,36,80,.12), 0 2px 6px rgba(22,36,80,.06);
   transition: transform .08s ease, box-shadow .2s ease, background .2s ease;
 }
-.new-button i, .import-button i { font-size: 18px; line-height: 1; }
-.new-button:hover, .import-button:hover{
-  transform: translateY(-2px);
-  box-shadow: 0 18px 34px rgba(28, 70, 170, .16), 0 3px 10px rgba(28, 70, 170, .08);
+
+/* Icons inside floating buttons */
+.new-button i,
+.import-button i{
+  font-size: var(--font-lg);
+  line-height: 1;
 }
+
+/* Hover effect: lift up and stronger shadow */
+.new-button:hover,
+.import-button:hover{
+  transform: translateY(-2px);
+  box-shadow: 0 18px 34px rgba(28,70,170,.16), 0 3px 10px rgba(28,70,170,.08);
+}
+
+/* Tooltip displayed on hover */
 .tooltip-text{
   position: absolute;
   right: 56px;
@@ -59,29 +64,31 @@
   opacity: 0;
   pointer-events: none;
   transform: translateY(0);
+  font-size: var(--font-md);
   transition: opacity .2s ease, visibility .2s ease;
   background: #343a40;
   color: #fff;
   border-radius: 8px;
   padding: 6px 10px;
-  font-size: 12px;
   box-shadow: 0 6px 20px rgba(0,0,0,.18);
 }
+
 .new-button:hover .tooltip-text,
 .import-button:hover .tooltip-text{
   visibility: visible;
   opacity: 1;
 }
 
-/* ---------- Card/Contenedor de la tabla ---------- */
-/* Overrides para neutralizar reglas antiguas */
+/* Card container wrapping the table with glass panel effect */
 .table-container{
-  position: relative !important;           /* en tu CSS antiguo estaba absolute */
-  left: auto !important; right: auto !important; top: auto !important;
+  position: relative !important;
+  left: auto !important;
+  right: auto !important;
+  top: auto !important;
   width: 100%;
   max-width: none;
   min-width: 0;
-  max-height: 70vh;
+  max-height: 80vh;
   display: flex;
   flex-direction: column;
   background: var(--card-bg);
@@ -92,10 +99,10 @@
   -webkit-backdrop-filter: blur(22px) saturate(120%);
   overflow: hidden;
   box-sizing: border-box;
-  flex: 1 1 auto;  /* ocupa todo el alto posible */
+  flex: 1 1 auto;
 }
 
-/* Header del card */
+/* Header row inside table container */
 .table-header{
   display: flex;
   align-items: center;
@@ -103,34 +110,37 @@
   padding: 16px 20px;
   border-bottom: 1px solid rgba(255,255,255,.55);
 }
+
+/* Title for the table section */
 .table-title{
   margin: 0;
-  font-size: 18px;
+  font-size: var(--font-xl);
   font-weight: 800;
   letter-spacing: .01em;
   color: var(--blue-600);
 }
 
-/* ---------- Tabla ---------- */
+/* Scenario table layout and typography */
 .scenario-table{
   width: 100%;
   border-collapse: collapse;
   table-layout: auto;
-  font-size: 14px;
+  font-size: var(--font-md);
 }
 
-/* Cabecera en degradado azul */
-/* Si tu CSS antiguo ponía background-color a los <th>, lo anulamos: */
+/* Remove legacy backgrounds and apply blue gradient header */
 .scenario-table th{
   background: transparent !important;
   background-color: transparent !important;
   color: #fff;
 }
+
 .scenario-table thead{
   background: linear-gradient(180deg, var(--blue-500), var(--blue-600));
   color: #fff;
 }
 
+/* Header cells styling */
 .scenario-table thead th{
   padding: 14px 14px;
   text-align: left;
@@ -138,20 +148,24 @@
   letter-spacing: .02em;
 }
 
+/* Scrollable table body */
 .scenario-table tbody{
   display: block;
-  max-height: 60vh;  /* ocupa lo que queda del card */
-  overflow-y: auto;           /* scroll solo aquí */
+  max-height: 60vh;
+  overflow-y: auto;
   overflow-x: hidden;
 }
 
+/* Unified fixed layout for rows */
 .scenario-table thead,
 .scenario-table tbody tr{
   display: table;
   width: 100%;
   table-layout: fixed;
+  font-size: var(--font-lg);
 }
 
+/* Body cell styling */
 .scenario-table td{
   padding: 12px 14px;
   color: var(--text);
@@ -159,41 +173,38 @@
   vertical-align: middle;
 }
 
-/* Define los anchos de las columnas */
+/* Column width distribution */
 .scenario-table th:nth-child(1),
-.scenario-table td:nth-child(1) {
-  width: 20%;   /* ID */
-}
+.scenario-table td:nth-child(1){ width: 30%; }
 
 .scenario-table th:nth-child(2),
-.scenario-table td:nth-child(2) {
-  width: 15%;   /* Name */
-}
+.scenario-table td:nth-child(2){ width: 10%; }
 
 .scenario-table th:nth-child(3),
-.scenario-table td:nth-child(3) {
-  width: 12%;   /* Status */
-}
+.scenario-table td:nth-child(3){ width: 10%; }
 
 .scenario-table th:nth-child(4),
-.scenario-table td:nth-child(4) {
-  width: 15%;   /* Date */
-}
+.scenario-table td:nth-child(4){ width: 20%; }
 
 .scenario-table th:nth-child(5),
-.scenario-table td:nth-child(5) {
-  width: 40%;   /* Actions */
+.scenario-table td:nth-child(5){ width: 30%; }
+
+/* Handling long names without breaking layout */
+.name-cell{
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.name-cell{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Actions column wrapper */
 .actions-col{ width: 36%; }
 
-/* Hover de fila */
+/* Row hover effect with subtle highlight */
 .scenario-table tbody tr:hover{
   background: color-mix(in oklab, var(--blue-500) 10%, white);
 }
 
-/* ---------- Botonera de acciones ---------- */
+/* Action buttons for each row */
 .action-buttons{
   display: flex;
   gap: 8px;
@@ -201,11 +212,12 @@
   align-items: center;
 }
 
+/* Default action button with soft gradient */
 .default-button{
   display: inline-grid;
   place-items: center;
-  min-width: 38px;
-  height: 36px;
+  min-width: var(--fab-size-sm);
+  height: var(--fab-size-sm);
   padding: 0 10px;
   border-radius: 10px;
   border: 1px solid rgba(255,255,255,.70);
@@ -215,40 +227,45 @@
   transition: transform .06s ease, box-shadow .2s ease, background .2s ease;
   box-shadow: 0 6px 16px rgba(22,36,80,.10), inset 0 1px 0 rgba(255,255,255,.35);
 }
-.default-button i{ font-size: 14px; }
+
+/* Action icon inside small button */
+.default-button i{ font-size: var(--font-md); }
+
+/* Hover effect for action buttons */
 .default-button:hover{
   transform: translateY(-1px);
   background: linear-gradient(180deg, #ffffff, #edf3ff);
-  box-shadow: 0 10px 22px rgba(28, 70, 170, .14), inset 0 1px 0 rgba(255,255,255,.45);
+  box-shadow: 0 10px 22px rgba(28,70,170,.14), inset 0 1px 0 rgba(255,255,255,.45);
 }
+
+/* Focus outline for accessibility */
 .default-button:focus-visible{
   outline: none;
-  box-shadow: 0 0 0 4px var(--ring), 0 6px 16px rgba(22,36,80,.10);
+  box-shadow: 0 0 0 4px(var(--ring)), 0 6px 16px rgba(22,36,80,.10);
 }
+
+/* Delete button color accent */
 .delete-button{ color: var(--danger); }
 
-/* ---------- Chips de estado ---------- */
+/* Status cells styled only with text, not pills */
 .status-cell{ font-weight: 700; }
 
-/* Solo texto (sin pastilla) pero con el separador de fila */
+/* Finished and error states with colored text only */
 td.finished,
 td.error{
   background: transparent !important;
   border-radius: 0 !important;
   box-shadow: none !important;
   padding: 12px 14px !important;
-  text-align: left !important;
-
-  /* importante: mantenemos el separador inferior */
   border: 0 !important;
   border-bottom: 1px dashed color-mix(in oklab, var(--blue-500) 25%, transparent) !important;
 }
 
-/* Colores del estado */
+/* Status colors */
 td.finished{ color: var(--ok) !important; }
 td.error{ color: var(--danger) !important; }
 
-/* ---------- Tabla vacía ---------- */
+/* Empty row styling */
 .empty-row{
   text-align: center;
   font-style: italic;
@@ -256,32 +273,43 @@ td.error{ color: var(--danger) !important; }
   height: 54px;
 }
 
-/* ---------- Scrollbar minimal ---------- */
+/* Minimal scrollbar for table body */
 .scenario-table tbody::-webkit-scrollbar{ width: 8px; }
-.scenario-table tbody::-webkit-scrollbar-thumb{ background: rgba(46,104,255,.35); border-radius: 10px; }
-.scenario-table tbody::-webkit-scrollbar-track{ background: rgba(245,246,250,.5); }
+.scenario-table tbody::-webkit-scrollbar-thumb{
+  background: rgba(46,104,255,.35);
+  border-radius: 10px;
+}
+.scenario-table tbody::-webkit-scrollbar-track{
+  background: rgba(245,246,250,.5);
+}
 
-/* ---------- Responsive ---------- */
+/* Responsive adjustments for smaller screens */
 @media (max-width: 900px){
   .actions-col{ width: 42%; }
   .default-button{ min-width: 34px; height: 34px; }
 }
+
 @media (max-width: 700px){
   .actions-col{ width: 50%; }
   .table-container{ height: min(78vh, 760px); }
 }
+
 @media (max-width: 520px){
   .options-container{ right: 16px; bottom: 16px; }
   .table-container{ width: 94vw !important; }
+  /* Hide ID column on small screens */
   .scenario-table th:nth-child(1),
-  .scenario-table td:nth-child(1){ display: none; } /* oculta ID en móviles */
+  .scenario-table td:nth-child(1){
+    display: none;
+  }
 }
 
-/* ---------- Accesibilidad ---------- */
+/* Reduced-motion accessibility */
 @media (prefers-reduced-motion: reduce){
   *{ transition: none !important; animation: none !important; }
 }
 
+/* Host wrapper enforcing proper layout boundaries */
 :host{
   display: block;
   min-width: 0;

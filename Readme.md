@@ -15,13 +15,24 @@
 
 3. Create a directory in the project root directory called ‘ssh_keys’ and copy into it the two files generated in the previous step: 'id_ed25519' and 'id_ed25519.pub'.
 
+EN EL HOST: sudo chown -R anomalydetector:anomalydetector ~/defender_software/ssh_keys
+chmod 700 ~/defender_software/ssh_keys
+chmod 600 ~/defender_software/ssh_keys/id_ed25519
+chmod 644 ~/defender_software/ssh_keys/id_ed25519.pub
+
+para ver que todo funciona bien poner eso en el contenedor del backend y generará known hosts y old
+ssh -i /root/.ssh/id_ed25519 -o StrictHostKeyChecking=no anomalydetector@host.docker.internal true
+
+ver el contenido de id_ed25519.pub y pegarlo en ~/.ssh/authorized_keys
+
+
 4. To start the docker-compose.yml, run the following command in the project root directory:
    ```sh
    ./start.sh --mode <mode>   
    ```
    Replace <mode> with cpu or gpu.
 
-5. Once the containers for the frontend, backend, and database  are up and running, run the following command to check the container names:
+5. Once the containers for the frontend, backend, and database are up and running, run the following command to check the container names:
    ```sh
    docker ps
    ```
@@ -112,7 +123,7 @@
 
 ### On Linux
 
-1. For production, add the following line to your sudoers configuration (via sudo visudo), replacing <username> with your actual Linux username:
+1. For production, add the following line to your sudoers configuration (via sudo visudo -f /etc/sudoers.d/tools), replacing <username> with your actual Linux username:
    ```text
    <username> ALL=(ALL) NOPASSWD: /usr/bin/tshark
    ```
@@ -120,7 +131,7 @@
 
 2. For policy management, add this line to your sudoers configuration:
    ```text
-   <username> ALL=(ALL) NOPASSWD: /usr/sbin/iptables, /usr/sbin/ip, /usr/bin/tee
+   <username> ALL=(ALL) NOPASSWD: /usr/sbin/iptables, /usr/sbin/ip, /usr/bin/tee, /usr/bin/bpftrace
    ```
    This allows your user to manage firewall policies without requiring a password each time.
 

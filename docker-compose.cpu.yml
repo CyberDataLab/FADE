@@ -17,7 +17,7 @@ services:
     build: 
       context: ./backend
       dockerfile: Dockerfile-cpu
-    command: ["./wait-for-it.sh", "db:3306", "--", "python", "manage.py", "runserver", "0.0.0.0:8000", "--noreload"]
+    command: ["./wait-for-it.sh", "db:3306", "--", "python", "manage.py", "runserver", "0.0.0.0:8000"]
     volumes:
       - ./backend:/app
       - ./frontend:/app/frontend  
@@ -25,6 +25,8 @@ services:
       - /tmp/pcap_shared:/app/pcap_shared
     ports:
       - "8000:8000"
+    env_file:
+      - .env 
     environment:
       MYSQL_DATABASE: defender
       MYSQL_USER: user
@@ -34,6 +36,9 @@ services:
       EXECUTION_MODE: ${EXECUTION_MODE}
     depends_on:
       - db
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+      - "host.docker.internal:172.17.0.1"  # fallback Linux
   
   frontend:
     build:

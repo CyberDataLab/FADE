@@ -1,5 +1,5 @@
 <!-- Action buttons shown when not editing or changing password -->
- <div class="options-container" *ngIf="!isEditing && !isChangingPassword">
+<div class="options-container" *ngIf="!isEditing && !isChangingPassword">
 
   <!-- Button to enable user info editing -->
   <button class="edit-button" (click)="enableEdit()">
@@ -52,57 +52,61 @@
 </div>
 
 <!-- Display user information when not editing or changing password -->
-<div *ngIf="!isEditing && !isChangingPassword">
-  <h2 class="section-title">User Information</h2>
-  <table class="information-table">
-    <thead>
-      <tr>
-        <th>Field</th>
-        <th>Value</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>Name</td>
-        <td>{{ user?.first_name }}</td>
-      </tr>
-      <tr>
-        <td>Surname</td>
-        <td>{{ user?.last_name }}</td>
-      </tr>
-      <tr>
-        <td>Username</td>
-        <td>{{ user?.username }}</td>
-      </tr>
-      <tr>
-        <td>Email</td>
-        <td>{{ user?.email }}</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
+<div class="user-page">
+  <div class="user-section-card">
+    <div *ngIf="!isEditing && !isChangingPassword">
+      <h2 class="section-title">User Information</h2>
+      <table class="information-table">
+        <thead>
+          <tr>
+            <th>Field</th>
+            <th>Value</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Name</td>
+            <td>{{ user?.first_name }}</td>
+          </tr>
+          <tr>
+            <td>Surname</td>
+            <td>{{ user?.last_name }}</td>
+          </tr>
+          <tr>
+            <td>Username</td>
+            <td>{{ user?.username }}</td>
+          </tr>
+          <tr>
+            <td>Email</td>
+            <td>{{ user?.email }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
-<!-- Display user statistics when not editing or changing password -->
-<div *ngIf="!isEditing && !isChangingPassword" class="statistics-section">
-  <h2 class="section-title">User Statistics</h2>
-  <table class="information-table">
-    <thead>
-      <tr>
-        <th>Login Count</th>
-        <th>Password Changes</th>
-        <th>Designs Created</th>
-        <th>Scenarios Executed</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>{{ user?.numberTimesConnected }}</td>
-        <td>{{ user?.numberTimesModifiedPassword }}</td>
-        <td>{{ user?.numberDesignsCreated }}</td>
-        <td>{{ user?.numberExecutedScenarios }}</td>
-      </tr>
-    </tbody>
-  </table>
+    <!-- Display user statistics when not editing or changing password -->
+    <div *ngIf="!isEditing && !isChangingPassword" class="statistics-section">
+      <h2 class="section-title">User Statistics</h2>
+      <table class="information-table">
+        <thead>
+          <tr>
+            <th>Login Count</th>
+            <th>Password Changes</th>
+            <th>Designs Created</th>
+            <th>Scenarios Executed</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>{{ user?.numberTimesConnected }}</td>
+            <td>{{ user?.numberTimesModifiedPassword }}</td>
+            <td>{{ user?.numberDesignsCreated }}</td>
+            <td>{{ user?.numberExecutedScenarios }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
 </div>
 
 <!-- Change password modal -->

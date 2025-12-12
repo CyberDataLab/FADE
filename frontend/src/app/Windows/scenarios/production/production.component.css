@@ -1,12 +1,9 @@
-/* ============================================================
-   Production — Light Blue theme (misma lógica, nuevo aspecto)
-   ============================================================ */
-
-/* Botón genérico */
+/* Generic floating button with glass/blue look */
 .button{
   display: inline-grid;
   place-items: center;
-  width: 48px; height: 48px;
+  width: var(--fab-size-md);
+  height: var(--fab-size-md);
   border-radius: 12px;
   border: 1px solid rgba(255,255,255,.65);
   background: color-mix(in oklab, #fff 75%, var(--blue-50) 25%);
@@ -17,24 +14,31 @@
   box-shadow: 0 14px 28px rgba(22,36,80,.12), 0 2px 6px rgba(22,36,80,.06);
   transition: transform .08s ease, box-shadow .2s ease, background .2s ease;
 }
-.button i { font-size: 18px; line-height: 1; }
+
+/* Icon inside the generic button */
+.button i {
+  font-size: var(--font-lg);
+  line-height: 1;
+}
+
+/* Hover state: lifted button with stronger shadow */
 .button:hover{
   transform: translateY(-2px);
   box-shadow: 0 18px 34px rgba(28, 70, 170, .16), 0 3px 10px rgba(28, 70, 170, .08);
 }
 
-/* Contenedor de botones flotante */
+/* Floating container for production control buttons */
 .button-container{
   position: fixed;
   z-index: 20;
-  right: clamp(8px, 2vw, 16px);  /* siempre visible sin provocar scroll */
+  right: clamp(8px, 2vw, 16px);
   bottom: 24px;
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
-/* Contenedor de tabla */
+/* Main table wrapper with card-style background */
 .table-container {
   width: 100%;
   height: 90%;
@@ -48,20 +52,24 @@
   box-shadow: 0 16px 40px rgba(36,87,255,.10);
 }
 
-/* Tabla */
+/* Production table layout and font size */
 .scenario-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 16px;
+  font-size: var(--font-md);
 }
 
-.scenario-table th, .scenario-table td {
+/* Table cells: padding and text color */
+.scenario-table th,
+.scenario-table td {
   padding: 12px;
   text-align: left;
+  font-size: var(--font-lg);
   color: var(--text);
   overflow: visible;
 }
 
+/* Ensure consistent column widths for header and rows */
 .scenario-table thead,
 .scenario-table tbody tr {
   display: table;
@@ -69,6 +77,7 @@
   table-layout: fixed;
 }
 
+/* Styling for the “no data” row */
 .scenario-table .empty-row {
   text-align: center;
   font-style: italic;
@@ -76,37 +85,41 @@
   padding: 20px;
 }
 
+/* Table header with blue gradient and white text */
 .scenario-table th {
   background: linear-gradient(180deg, var(--blue-500), var(--blue-600));
   color: white;
   font-weight: 600;
 }
 
+/* Column widths: ID, Name, Status */
 .scenario-table th:nth-child(1),
 .scenario-table td:nth-child(1) {
-  width: 10%;   /* ID */
+  width: 10%;
 }
 
 .scenario-table th:nth-child(2),
 .scenario-table td:nth-child(2) {
-  width: 75%;   /* Name */
+  width: 75%;
 }
 
 .scenario-table th:nth-child(3),
 .scenario-table td:nth-child(3) {
-  width: 20%;   /* Status */
+  width: 20%;
 }
 
-/* Líneas entre filas */
+/* Row separators between body rows */
 .scenario-table tbody tr:not(:last-child) td {
   border-bottom: 1px solid var(--blue-400);
 }
 
+/* Hover highlight for table rows */
 .scenario-table tbody tr:hover td {
   background: color-mix(in oklab, var(--blue-500) 10%, white);
   transition: background-color 0.2s ease;
 }
 
+/* Generic empty row styling fallback */
 .empty-row{
   text-align: center;
   font-style: italic;
@@ -114,7 +127,7 @@
   height: 54px;
 }
 
-/* Celda de anomalía */
+/* Cell that contains anomaly summary and hover preview */
 .anomaly-cell {
   position: relative;
   max-width: 100%;
@@ -122,9 +135,9 @@
   cursor: pointer;
 }
 
-/* Overlay de imágenes en hover (mismo fixed que antes) */
+/* Hover overlay showing preview images and details */
 .hover-images {
-  position: fixed;       /* mantiene el comportamiento original */
+  position: fixed;
   z-index: 9999;
   background: var(--field-bg);
   border: 1px solid var(--field-border);
@@ -137,21 +150,23 @@
   flex-direction: row;
 }
 
+/* Show overlay when hovering the anomaly cell */
 .anomaly-cell:hover .hover-images {
   display: flex;
   flex-direction: row;
   top: 100%;
 }
 
+/* Variant: show overlay above the cell instead of below */
 .anomaly-cell.hover-up .hover-images {
   bottom: 100%;
   top: auto;
 }
 
-/* Imágenes preview */
+/* Preview images inside the hover overlay */
 .hover-images img {
-  width: 480px;
-  height: 360px;
+  width: var(--image-hover-width);
+  height: var(--image-hover-height);
   object-fit: contain;
   margin-right: 12px;
   border-radius: 10px;
@@ -162,7 +177,7 @@
   cursor: zoom-in;
 }
 
-/* Modal */
+/* Fullscreen modal used for enlarged anomaly images */
 .image-modal {
   position: fixed;
   inset: 0;
@@ -172,6 +187,8 @@
   justify-content: center;
   z-index: 2000;
 }
+
+/* Large anomaly image inside the modal */
 .image-modal img {
   max-width: 90%;
   max-height: 90%;
@@ -181,19 +198,21 @@
   background: #fff;
   padding: 12px;
 }
+
+/* Close button for the image modal */
 .close-btn {
   position: fixed;
   top: 20px;
   right: 30px;
   background: none;
   border: none;
-  font-size: 32px;
+  font-size: var(--font-xl);
   color: #fff;
   cursor: pointer;
   z-index: 2100;
 }
 
-/* Texto de detalles */
+/* Text panel showing detailed anomaly information */
 .anomaly-details {
   background: var(--blue-100);
   padding: 10px;
@@ -207,20 +226,22 @@
   border: 1px solid var(--field-border);
 }
 
+/* Container for row action buttons and dropdown */
 .action-buttons {
   position: relative;
-  overflow: visible;                  /* so the popover can overflow the cell */
+  overflow: visible;
   display: flex;
   gap: 8px;
   align-items: center;
   flex-wrap: nowrap;
 }
 
+/* Default small action button inside the table */
 .default-button{
   display: inline-grid;
   place-items: center;
-  min-width: 38px;
-  height: 36px;
+  min-width: var(--fab-size-sm);
+  height: var(--fab-size-sm);
   padding: 0 10px;
   border-radius: 10px;
   border: 1px solid rgba(255,255,255,.70);
@@ -230,31 +251,44 @@
   transition: transform .06s ease, box-shadow .2s ease, background .2s ease;
   box-shadow: 0 6px 16px rgba(22,36,80,.10), inset 0 1px 0 rgba(255,255,255,.35);
 }
-.default-button i{ font-size: 14px; }
+
+/* Icon inside default action button */
+.default-button i{
+  font-size: var(--font-md);
+}
+
+/* Hover state for default action buttons */
 .default-button:hover{
   transform: translateY(-1px);
   background: linear-gradient(180deg, #ffffff, #edf3ff);
   box-shadow: 0 10px 22px rgba(28, 70, 170, .14), inset 0 1px 0 rgba(255,255,255,.45);
 }
+
+/* Focus-visible state for keyboard navigation */
 .default-button:focus-visible{
   outline: none;
   box-shadow: 0 0 0 4px var(--ring), 0 6px 16px rgba(22,36,80,.10);
 }
-.delete-button{ color: var(--danger); }
 
-.dropdown {
-  position: relative;                 /* positioning context for the popover */
+/* Delete action button variant */
+.delete-button{
+  color: var(--danger);
 }
 
+/* Dropdown wrapper used for “More” menu */
+.dropdown {
+  position: relative;
+}
+
+/* More button inherits default-button; only tweak width if needed */
 .more-button {
-  /* already inherits .default-button look; optional tighter min-width */
   min-width: 38px;
 }
 
-/* Hidden by default; shown when .dropdown has .open (Angular toggles it) */
+/* Hidden dropdown menu; shown when .open is applied (Angular) */
 .dropdown .menu {
   position: absolute;
-  top: calc(100% + 10px);             /* below the button */
+  top: calc(100% + 10px);
   right: 0;
   min-width: 220px;
   padding: 8px;
@@ -266,104 +300,61 @@
   backdrop-filter: blur(16px) saturate(120%);
   -webkit-backdrop-filter: blur(16px) saturate(120%);
   box-shadow: 0 18px 34px rgba(28,70,170,.18), 0 3px 10px rgba(28,70,170,.10);
-  z-index: 3000;                      /* above table content */
-  display: none;                      /* prevent cell growth */
-  white-space: nowrap;                /* keep items on one line */
+  z-index: 3000;
+  display: none;
+  white-space: nowrap;
 }
 
-/* Show when Angular adds .open */
-.dropdown.open .menu { display: block; }
+/* Display dropdown menu when .open is present */
+.dropdown.open .menu {
+  display: block;
+}
 
-/* “Drop up” variant (you already toggle .drop-up in the template) */
+/* “Drop-up” variant when the menu should open upwards */
 .dropdown.drop-up .menu {
   bottom: calc(100% + 10px);
   top: auto;
 }
 
-/* Tiny arrow */
+/* Small decorative arrow for the menu */
 .dropdown .menu::after {
   content: "";
   position: absolute;
   right: 14px;
   top: -8px;
-  width: 12px; height: 12px;
+  width: 12px;
+  height: 12px;
   transform: rotate(45deg);
   background: inherit;
   border-left: 1px solid var(--field-border);
   border-top: 1px solid var(--field-border);
   filter: drop-shadow(0 2px 2px rgba(0,0,0,.06));
 }
+
+/* Arrow repositioned for drop-up menus */
 .dropdown.drop-up .menu::after {
-  top: auto; bottom: -8px;
-  border-left: none; border-top: none;
+  top: auto;
+  bottom: -8px;
+  border-left: none;
+  border-top: none;
   border-right: 1px solid var(--field-border);
   border-bottom: 1px solid var(--field-border);
 }
 
-/* Items */
+/* Dropdown menu items for row actions */
 .menu-item {
   padding: 10px 12px;
   border-radius: 10px;
-  font-size: 14px;
+  font-size: var(--font-md);
   color: var(--blue-700);
   transition: background .15s ease, transform .04s ease;
   cursor: pointer;
 }
+
+/* Hover and active states for menu items */
 .menu-item:hover {
   background: color-mix(in oklab, var(--blue-500) 12%, #fff);
 }
 .menu-item:active {
   transform: translateY(1px);
-}
-
-.content-header.left-aligned {
-  display: flex;
-  justify-content: flex-start;
-  align-items: center;
-  width: 100%;
-  margin: 10px 0 16px 0; /* separación respecto a la tabla */
-  padding-left: 12px;    /* un pequeño margen izquierdo */
-}
-
-/* Bloque interno del selector */
-.mode-selector {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-/* Estilos del texto y del select */
-.content-label {
-  font-weight: 600;
-  color: #1f2d3d;
-}
-
-.mode-select {
-  padding: 6px 10px;
-  border-radius: 8px;
-  border: 1px solid #dbe2ef;
-  outline: none;
-  background-color: white;
-  cursor: pointer;
-}
-
-
-.content-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;              /* separa selector y tabla */
-}
-
-.content-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  white-space: nowrap;    /* evita salto de línea en "Mode:" */
-  margin: 0;              /* quita márgenes si tenías antes */
-  flex: 0 0 auto;         /* ancho ajustado al contenido */
-}
-
-.table-container {
-  flex: 1 1 auto;         /* la tabla ocupa el resto del ancho */
-  min-width: 0;           /* evita desbordes */
 }

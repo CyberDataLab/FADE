@@ -373,10 +373,10 @@ export class ScenarioService {
    * 
    * @returns Observable with production execution result
    */
-  playProduction(uuid: string, mode: string): Observable<any> {
+  playProduction(uuid: string): Observable<any> {
     if (isPlatformBrowser(this.platformId)) {
       return this.handleRequest(
-        this.http.post(`${this.apiUrl}${uuid}/play-production/`, {mode}, { headers: this.getAuthHeaders() })
+        this.http.post(`${this.apiUrl}${uuid}/play-production/`, {}, { headers: this.getAuthHeaders() })
       );
     }
     return EMPTY;

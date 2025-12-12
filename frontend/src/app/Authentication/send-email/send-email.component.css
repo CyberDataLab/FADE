@@ -9,7 +9,7 @@ html, body {
     align-items: center;
     font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, "Noto Sans";
     background: radial-gradient(1200px 800px at 10% 10%, #f6f8fc 0%, #eef1f6 40%, #e9edf4 100%);
-    overflow: hidden; /* quita scroll global */
+    overflow: hidden;
   }
 
 /* Responsive layout: stack registration options vertically and center on small screens */
@@ -18,8 +18,7 @@ html, body {
   }
   @media (max-width: 480px) {
     .send-email-btn, .send-email-input { height: 52px; }
-    .send-email-title { font-size: 32px; }
-    .input-icon { /* centrar icono en altura 52px */
+    .input-icon {
       top: 50%;
       transform: translateY(-50%);
     }
@@ -45,10 +44,9 @@ html, body {
   background: var(--card-bg);
   backdrop-filter: blur(22px) saturate(120%);
   -webkit-backdrop-filter: blur(22px) saturate(120%);
-  width: min(92vw, 720px);          /* antes: 100vw -> producía scroll. */
-  box-sizing: border-box;           /* el padding no suma ancho */
+  width: min(92vw, 720px);
+  box-sizing: border-box;
   box-shadow: 0 20px 60px rgba(22,36,80,.18), 0 2px 8px rgba(22,36,80,.06);
-  /* Que el modal nunca sea más alto que la ventana y el scroll viva en el body */
   max-height: calc(100vh - 48px);
   display: flex;
   flex-direction: column;
@@ -67,7 +65,7 @@ html, body {
     margin: 0 0 28px;
     font-weight: 800;
     letter-spacing: -0.02em;
-    font-size: clamp(30px, 5.5vw, 44px);
+    font-size: var(--font-xl);
     line-height: 1.1;
     color: var(--text-strong, #2156e7);
     text-align: left;
@@ -96,8 +94,8 @@ html, body {
     border: 1px solid var(--field-border, rgba(28,77,214,.14));
     background: var(--field-bg, rgba(255,255,255,.92));
     color: var(--text, #1b2430);
-    padding: 0 18px; /* base; si hay icono, se ajusta con .with-icon */
-    font-size: 16px;
+    padding: 0 18px;
+    font-size: var(--font-md);
     line-height: 1;
     box-shadow: 0 1px 0 rgba(18,48,128,.03);
     transition: box-shadow .2s ease, border-color .2s ease, background .2s ease, transform .06s ease;
@@ -120,7 +118,7 @@ html, body {
     left: 16px;
     transform: none;
     color: var(--btn-from, #2e79ff);
-    font-size: 16px;
+    font-size: var(--font-md);
     pointer-events: none;
   }
   
@@ -132,7 +130,7 @@ html, body {
 /* Error message styling */
 .error-message {
     color: #ff4757;
-    font-size: 14px;
+    font-size: var(--font-sm);
     margin: 8px 0 0;
   }
 
@@ -149,7 +147,7 @@ html, body {
     color: #fff;
     font-weight: 700;
     letter-spacing: .02em;
-    font-size: 16px;
+    font-size: var(--font-md);
     text-transform: uppercase;
     cursor: pointer;
     box-shadow: 0 10px 24px rgba(36,87,255,.35), inset 0 1px 0 rgba(255,255,255,.25);
@@ -169,7 +167,7 @@ html, body {
     color: #fff;
     font-weight: 700;
     letter-spacing: .02em;
-    font-size: 16px;
+    font-size: var(--font-md);
     text-transform: uppercase;
     cursor: pointer;
     box-shadow: 0 10px 24px rgba(36,87,255,.35), inset 0 1px 0 rgba(255,255,255,.25);
@@ -180,5 +178,5 @@ html, body {
     position: fixed;
     top: 20px;
     right: 20px;
-    z-index: 9999; /* por encima del modal */
+    z-index: 9999;
   }

@@ -27,7 +27,10 @@ from collections import defaultdict
 from sklearn.model_selection import train_test_split
 
 from .utils import *
-from netanoms_runtime.detection import run_live_production, SSHConfig, CaptureConfig
+from netanoms_runtime.detection import run_live_production
+from netanoms_runtime.ssh_config import SSHConfig
+from netanoms_runtime.capture_config import CaptureConfig
+from netanoms_runtime.explainability_config import ExplainabilityConfig
 
 logger = logging.getLogger('backend')
 
@@ -1156,6 +1159,7 @@ def execute_scenario(scenario_model, scenario, design):
                         train_size=train_size,
                         test_size=test_size
                     )
+                    
 
                     # Store the split data in the data storage
                     data_storage[element_id] = {
@@ -1828,39 +1832,56 @@ def play_scenario_production_by_uuid(request, uuid):
     # Get the user from the request
     user = request.user
 
-    # Get the production mode from the request data
-    #mode = request.data.get('mode')
-
     try:
-        try:
-            # Load user-specific system configuration
-            user_config = SystemConfiguration.objects.get(user=user)
-            host_username = user_config.host_username or 'default_user'
-            tshark_path = user_config.tshark_path or '/usr/bin/tshark'
-            interface = user_config.interface or 'eth0'
-
-            logger.info(f"[PRODUCTION EXECUTION] Loaded system config for user {user.username}")
-
-        # Return error if user config does not exist
-        except SystemConfiguration.DoesNotExist:
-            logger.info(f"[PRODUCTION EXECUTION] Scenario found: {scenario.name} (UUID: {uuid})")
-            return JsonResponse({'error': 'User system config not found'}, status=404)
-
-        # Load the scenario and its design
+        # 1) Load scenario + design + global config
         scenario = Scenario.objects.get(uuid=uuid, user=user)
         config = load_config()
         design = json.loads(scenario.design) if isinstance(scenario.design, str) else scenario.design
 
-        # Detect the analysis mode from the design
-        analysis_mode = "flow"
-        for element in design["elements"]:
-            if element["type"] == "Network":
-                analysis_mode = element.get("parameters", {}).get("analysisMode", "flow").strip().lower()
+        # 2) Detect source type from design: Network vs JSONL
+        source_type = None
+        for element in design.get("elements", []):
+            etype = element.get("type")
+            if etype == "Network":
+                source_type = "Network"
+                break
+            if etype == "JSONL":
+                source_type = "JSONL"
                 break
 
-        logger.info(f"[PRODUCTION EXECUTION] Analysis mode detected: {analysis_mode}")
+        if not source_type:
+            logger.warning(f"[PRODUCTION EXECUTION] Source element (Network/JSONL) not found in design (UUID: {uuid})")
+            return JsonResponse({'error': 'Source element (Network/JSONL) not found in the design.'}, status=400)
 
-        # Build pipelines from the design
+        # 3) Load user-specific system configuration
+        try:
+            user_config = SystemConfiguration.objects.get(user=user)
+        except SystemConfiguration.DoesNotExist:
+            logger.info(f"[PRODUCTION EXECUTION] Scenario found: {scenario.name} (UUID: {uuid})")
+            return JsonResponse({'error': 'User system config not found'}, status=404)
+
+        host_username = user_config.host_username or 'default_user'
+        interface = user_config.interface or 'eth0'
+
+        # 4) Detect analysis mode from design
+        if source_type == "Network":
+            analysis_mode = "flow"
+            for element in design.get("elements", []):
+                if element.get("type") == "Network":
+                    analysis_mode = (
+                        element.get("parameters", {})
+                               .get("analysisMode", "flow")
+                               .strip()
+                               .lower()
+                    )
+                    break
+            logger.info(f"[PRODUCTION EXECUTION] Analysis mode detected: {analysis_mode}")
+        else:
+            # For JSONL source, we map to "syscalls" in this branch
+            analysis_mode = "syscalls"
+            logger.info(f"[PRODUCTION EXECUTION] Analysis mode detected: {analysis_mode}")
+
+        # 5) Build pipelines from design (returns List[PipelineDef])
         scenario_model = ScenarioModel.objects.get(scenario=scenario)
         execution = scenario_model.execution
         base_path = os.path.join(settings.MEDIA_ROOT, 'models_storage')
@@ -1870,24 +1891,107 @@ def play_scenario_production_by_uuid(request, uuid):
             logger.warning(f"[PRODUCTION EXECUTION] No pipelines found for scenario UUID: {uuid}")
             return JsonResponse({'error': 'No pipelines found for this scenario.'}, status=400)
 
-        ssh = SSHConfig(username=host_username, host="host.docker.internal",
-                    tshark_path=tshark_path, interface=interface, sudo=True)
-        cap = CaptureConfig(mode=analysis_mode, run_env="docker")
+        # 6) Build ExplainabilityConfig from design + config (simplified)
+        expl_cfg = None
+        try:
+            elements = design.get("elements", [])
+
+            # Build a map from explainability "type" ("SHAP"/"LIME") to its config entry
+            expl_cfg_by_type = {}
+            for expl_def in config["sections"]["dataModel"]["explainability"]:
+                expl_type = expl_def.get("type")  # "SHAP" or "LIME"
+                if expl_type:
+                    expl_cfg_by_type[expl_type.upper()] = expl_def
+
+            expl_kind = None        # "shap" | "lime"
+            expl_module = ""
+            expl_class = ""
+
+            # We only need to know IF there is any explainability node in the design
+            for el in elements:
+                el_type = el.get("type")
+                if el_type not in ["SHAP", "LIME"]:
+                    continue
+
+                params = el.get("parameters", {})
+                expl_type_from_design = params.get("explainer_type", "").strip()
+                if not expl_type_from_design:
+                    continue
+
+                cfg_entry = expl_cfg_by_type.get(el_type)
+                if not cfg_entry:
+                    continue
+
+                module_path = cfg_entry.get("class")  # e.g. "shap" or "lime.lime_tabular"
+
+                if el_type == "SHAP":
+                    expl_kind = "shap"
+                elif el_type == "LIME":
+                    expl_kind = "lime"
+
+                expl_module = module_path
+                expl_class = expl_type_from_design
+                break  # first explainability node is enough
+
+            if expl_kind and expl_module and expl_class:
+                expl_cfg = ExplainabilityConfig(
+                    kind=expl_kind,              # "shap" | "lime"
+                    module=expl_module,          # e.g. "shap" or "lime.lime_tabular"
+                    explainer_class=expl_class,  # e.g. "KernelExplainer", "LimeTabularExplainer"
+                    explainer_kwargs={},         # add extra kwargs if needed
+                )
+
+        except Exception:
+            logger.exception("[PRODUCTION EXECUTION] Error building ExplainabilityConfig from design")
+            expl_cfg = None
+
+        # 7) Build SSH + capture configuration depending on source type / mode
+        if source_type == "Network":
+            tshark_path = user_config.tshark_path or '/usr/bin/tshark'
+            ssh = SSHConfig(
+                username=host_username,
+                host="host.docker.internal",
+                tshark_path=tshark_path,
+                interface=interface,
+                sudo=True,
+            )
+            cap = CaptureConfig(
+                mode=analysis_mode,  # "flow" or "packet"
+                run_env="docker",
+                # bpftrace_script is kept for compatibility, but not used for plain network capture
+                bpftrace_script="/home/anomalydetector/defender_software/syscalls_event.bt",
+            )
+        else:
+            # Syscalls mode with bpftrace
+            bpftrace_path = '/usr/bin/bpftrace'
+            ssh = SSHConfig(
+                username=host_username,
+                host="host.docker.internal",
+                bpftrace_path=bpftrace_path,
+                interface=interface,
+                sudo=True,
+            )
+            cap = CaptureConfig(
+                mode=analysis_mode,  # "syscalls"
+                run_env="docker",
+            )
+
+        # 8) Application-level callbacks (they know about Scenario, DB, etc.)
 
         def on_anomaly(evt):
             logger.info("[ANOMALY EVENT RAW] %s", evt)
 
-            # clean_for_json may not always be available (e.g., during tests)
+            # clean_for_json may not always be available (e.g. in tests)
             try:
                 from .utils import clean_for_json
             except Exception:
                 def clean_for_json(x): return x
 
             try:
-                # 1) Unwrap kwargs if the event follows {'kwargs': {...}}
+                # Unwrap kwargs if event comes as {'kwargs': {...}}
                 payload = evt.get('kwargs', evt) if isinstance(evt, dict) else evt
 
-                # 2) Helper that works for both dicts and objects
+                # Helper to retrieve values from dict or object attributes
                 def getv(obj, *names, default=None):
                     for name in names:
                         if isinstance(obj, dict):
@@ -1908,26 +2012,25 @@ def play_scenario_production_by_uuid(request, uuid):
                 global_lime_images = getv(payload, 'global_lime_images', default=[]) or []
                 local_lime_images  = getv(payload, 'local_lime_images',  default=[]) or []
 
-                # 3) Persist using your existing context vars
+                # Persist anomaly metrics using your existing models
                 save_anomaly_metrics(
-                    scenario_model=scenario_model,              # captured from outer scope
+                    scenario_model=scenario_model,
                     model_name=model_name,
                     feature_name=feature_name,
                     feature_values=clean_for_json(feature_values),
-                    anomalies=anomaly_desc,                 # note: maps from 'anomalies' if needed
-                    execution=execution,                    # captured from outer scope
+                    anomalies=anomaly_desc,
+                    execution=execution,
                     production=True,
                     anomaly_details=anomaly_details,
                     global_shap_images=global_shap_images,
                     local_shap_images=local_shap_images,
                     global_lime_images=global_lime_images,
-                    local_lime_images=local_lime_images
+                    local_lime_images=local_lime_images,
                 )
 
                 logger.info("[ANOMALY EVENT SAVED] model=%s feature=%s", model_name, feature_name)
 
             except Exception:
-                # This will show you *why* saving failed (types, nulls, etc.)
                 logger.exception("Error in on_anomaly callback")
 
         def on_status(msg):
@@ -1936,33 +2039,26 @@ def play_scenario_production_by_uuid(request, uuid):
         def on_error(err):
             logger.error(f"[ERROR] {err}")
 
+        # 9) Start generic live capture (library-level function, no Scenario/Design inside)
         handle = run_live_production(
             ssh=ssh,
             capture=cap,
             pipelines=pipelines,
-            scenario_model=scenario_model,
-            design=design,
-            config=config,
+            explainability=expl_cfg,   # may be None → no SHAP/LIME
+            scenario_uuid=str(uuid),            # used as session_id and scenario_uuid in the library
             execution=execution,
-            uuid=str(uuid),
-            scenario=scenario,
             on_anomaly=on_anomaly,
             on_status=on_status,
             on_error=on_error,
         )
 
         production_handles[uuid] = handle
-
-        # Return success response
         return JsonResponse({'message': 'Real-time capture started'}, status=200)
 
-    # Return error if scenario does not exist
     except Scenario.DoesNotExist:
         return JsonResponse({'error': 'Scenario not found'}, status=404)
-    
-    # Handle any other exceptions
     except Exception as e:
-        logger.error("Error en ejecución en producción: %s", str(e))
+        logger.error("Error in production execution: %s", str(e))
         return JsonResponse({'error': str(e)}, status=500)
 
 @api_view(['POST'])

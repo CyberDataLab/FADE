@@ -434,7 +434,8 @@ export class MetricsComponent implements OnInit {
    */
   closeModal() {
     this.showModal = false;
-    this.modalImageUrl = null;
-    this.modalImageLabel = null;
+    this.modalChartType = undefined as any; // o ''
+    this.modalImageUrl = '';
+    this.modalImageLabel = '';
   }
 }

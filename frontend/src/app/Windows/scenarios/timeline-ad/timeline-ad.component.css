@@ -1,9 +1,11 @@
-/* ============================================================
-   Timeline AD — 2025 Blue/Glass UI
-   Consistente con Metrics, User y Anomaly Detector
-   ============================================================ */
+/* Main page container for anomalies timeline; holds the scroll */
+.anomalies-page{
+  height: calc(100vh - 120px);
+  overflow: auto;
+  padding: 12px 0;
+}
 
-/* ---------- Contenedor principal ---------- */
+/* Inner glass card that wraps all charts and content */
 .anomalies-container {
   height: auto !important;
   max-width: 1400px;
@@ -18,7 +20,7 @@
   -webkit-backdrop-filter: blur(22px) saturate(120%);
 }
 
-/* ---------- Títulos ---------- */
+/* Headings reset and unified typography for the page */
 h2, h3, h4, h5 {
   background: transparent;
   box-shadow: none;
@@ -26,29 +28,34 @@ h2, h3, h4, h5 {
   font-weight: 700;
   color: var(--text-strong);
 }
-h2 { font-size: 1.6rem; margin-bottom: 1.5rem; }
-h3 { font-size: 1.3rem; margin: 1.2rem 0; }
-h4 { font-size: 1.1rem; margin: 1rem 0; }
-h5 { font-size: 0.95rem; margin: 0.6rem 0; }
 
-/* ---------- Grupos de charts ---------- */
+h2 { font-size: var(--font-xl); margin-bottom: 1.5rem; }
+h3 { font-size: var(--font-lx); margin: 1.2rem 0; }
+h4 { font-size: var(--font-lg); margin: 1rem 0; }
+h5 { font-size: var(--font-md); margin: 0.6rem 0; }
+
+/* Grid layout to place charts and global SHAP/LIME side by side */
 .charts-wrapper-with-global {
-  display: grid;                 /* antes era flex */
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 24px 28px;
   margin: 1.2rem 0 2rem;
-  align-items: start;
+  align-items: flex-start;
 }
+
+/* Virtual wrapper: lets child charts participate in the grid */
 .charts-wrapper {
-  display: contents;
-  flex-direction: column;
-  gap: 1.4rem;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 24px 28px;
   flex: 1 1 auto;
 }
 
-/* ---------- Contenedores de charts ---------- */
+/* Individual chart card with glass style and hover lift */
 .chart-container {
-  flex: initial;
+  flex: 1 1 48%;
   min-width: 340px;
   max-width: calc(50% - 0.6rem);
   height: 420px;
@@ -59,10 +66,14 @@ h5 { font-size: 0.95rem; margin: 0.6rem 0; }
   box-shadow: 0 12px 32px rgba(28,77,214,.12);
   transition: transform .08s ease, box-shadow .2s ease;
 }
+
+/* Hover state for chart cards */
 .chart-container:hover {
   transform: translateY(-2px);
   box-shadow: 0 16px 36px rgba(28,77,214,.18);
 }
+
+/* Ensure Chart.js canvas fills the chart container */
 .chart-container canvas {
   width: 100% !important;
   height: 100% !important;
@@ -70,17 +81,26 @@ h5 { font-size: 0.95rem; margin: 0.6rem 0; }
   display: block;
 }
 
-/* ---------- Imágenes SHAP/LIME ---------- */
-.global-shap-container, .global-lime-container {
-  flex: 0 0 360px;
+/* Containers for global SHAP/LIME images */
+.global-shap-container,
+.global-lime-container {
+  flex: 1 1 48%;
+  min-width: 340px;
+  max-width: calc(50% - 0.6rem);
   text-align: center;
   cursor: pointer;
   transition: transform .08s ease, box-shadow .2s ease;
 }
-.global-shap-container:hover, .global-lime-container:hover {
+
+/* Slight lift when hovering global explanation images */
+.global-shap-container:hover,
+.global-lime-container:hover {
   transform: translateY(-2px);
 }
-.global-shap-container img, .global-lime-container img {
+
+/* Styling for SHAP/LIME preview images */
+.global-shap-container img,
+.global-lime-container img {
   width: 100%;
   max-height: 300px;
   border-radius: 10px;
@@ -90,7 +110,7 @@ h5 { font-size: 0.95rem; margin: 0.6rem 0; }
   box-shadow: 0 8px 22px rgba(22,36,80,.12);
 }
 
-/* ---------- Modal ---------- */
+/* Fullscreen overlay for enlarged charts or images */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -100,6 +120,8 @@ h5 { font-size: 0.95rem; margin: 0.6rem 0; }
   justify-content: center;
   z-index: 9999;
 }
+
+/* Modal content card wrapping the large chart/image */
 .modal-content {
   position: relative;
   width: 84%;
@@ -110,6 +132,8 @@ h5 { font-size: 0.95rem; margin: 0.6rem 0; }
   padding: 28px;
   box-shadow: 0 20px 50px rgba(31,38,135,.22);
 }
+
+/* Chart or image inside the modal, scaled to viewport */
 .modal-content canvas,
 .modal-content img {
   width: 100%;
@@ -117,26 +141,30 @@ h5 { font-size: 0.95rem; margin: 0.6rem 0; }
   object-fit: contain;
   border-radius: 12px;
 }
+
+/* Close button in the top-right corner of the modal */
 .close-btn {
   position: absolute;
   top: 12px;
   right: 18px;
   background: none;
   border: none;
-  font-size: 26px;
+  font-size: var(--font-xl);
   color: var(--text);
   cursor: pointer;
 }
 
-/* ---------- Scrollbar ---------- */
+/* Global scrollbar styling for the page */
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-thumb {
   background: linear-gradient(180deg, var(--blue-400), var(--blue-600));
   border-radius: 10px;
 }
-::-webkit-scrollbar-track { background: rgba(240,242,250,.6); }
+::-webkit-scrollbar-track {
+  background: rgba(240,242,250,.6);
+}
 
-/* ---------- Responsive ---------- */
+/* Responsive layout: charts span full width on narrower screens */
 @media (max-width: 900px) {
   .chart-container {
     flex: 1 1 100%;

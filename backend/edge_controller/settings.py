@@ -14,6 +14,11 @@ from pathlib import Path
 from decouple import config
 from datetime import timedelta
 
+from django.conf import settings
+import logging
+
+logger = logging.getLogger('backend')
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -202,3 +207,6 @@ EMAIL_HOST_USER = config("EMAIL_HOST_USER", cast=str, default=None)
 EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", cast=str, default=None)
 EMAIL_USE_TLS = config("EMAIL_USE_TLS", cast=bool, default=True)
 EMAIL_USE_SSL = config("EMAIL_USE_SSL", cast=bool, default=False)  # Aquí se corrige
+
+
+print(f"EMAIL DEBUG -> HOST={EMAIL_HOST}, PORT={EMAIL_PORT}")

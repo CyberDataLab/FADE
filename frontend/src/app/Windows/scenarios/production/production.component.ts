@@ -52,9 +52,6 @@ export class ProductionComponent implements OnInit{
   /** @summary Direction to show dropdown menus (up/down) based on index */
   dropdownDirection: Record<number, 'up' | 'down'> = {};  
 
-  /** @summary Current view mode: 'syscalls' or 'network' */
-  mode: 'syscalls' | 'network' = 'syscalls'; // sin persistencia
-
   /**
    * @summary Injects dependencies for routing and data services.
    * 
@@ -143,22 +140,13 @@ export class ProductionComponent implements OnInit{
   
     this.dropdownDirection[idx] =
       spaceBelow < MENU_ESTIMATED_HEIGHT && spaceAbove > spaceBelow ? 'up' : 'down';
-  
-    // (Opcional) si prefieres medir la altura real del UL:
-    // setTimeout(() => {
-    //   const menu = btn.parentElement?.querySelector('.menu') as HTMLElement | null;
-    //   const h = menu?.offsetHeight ?? MENU_ESTIMATED_HEIGHT;
-    //   const spaceBelowNow = window.innerHeight - rect.bottom;
-    //   const spaceAboveNow = rect.top;
-    //   this.dropdownDirection[idx] = (spaceBelowNow < h && spaceAboveNow > spaceBelowNow) ? 'up' : 'down';
-    // });
   }
 
   /**
    * @summary Starts the scenario playback and activates data refresh loop.
    */
   play() {
-    this.scenarioService.playProduction(this.uuid, this.mode).subscribe({
+    this.scenarioService.playProduction(this.uuid).subscribe({
       next: () => {
         this.isPlaying = true;
   

@@ -11,7 +11,6 @@ import { ThemeService } from '../../Core/services/theme.service';
 export class ThemeToggleComponent {
   constructor(public theme: ThemeService) {}
 
-  // Iconos SVG como strings (sin depender de variables SCSS)
   sunIcon = `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
   <path d="M6.76 4.84l-1.8-1.79L3.17 4.84l1.79 1.79 1.8-1.79zM1 13h3v-2H1v2zm10 10h2v-3h-2v3zm7.04-19.95l-1.79 1.79 1.8 1.79 1.79-1.79-1.8-1.79zM20 11v2h3v-2h-3zM6.76 19.16l-1.8 1.79 1.8 1.79 1.79-1.79-1.79-1.79zM17.24 19.16l1.79 1.79 1.8-1.79-1.8-1.79-1.79 1.79zM12 6a6 6 0 100 12 6 6 0 000-12z"/>

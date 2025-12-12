@@ -1,4 +1,4 @@
-/* Reset margins and set base layout full screen with scroll support */
+/* Reset margins and set full-screen base layout with fixed background */
 html, body {
   margin: 0;
   padding: 0;
@@ -10,14 +10,14 @@ html, body {
   overflow: hidden;
 }
 
-/* Apply box-sizing to all elements */
+/* Apply consistent box-sizing and remove default spacing on all elements */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
-/* Main application container with sidebar and workspace */
+/* Main application shell: sidebar + workspace, offset below fixed topbar */
 .app-container {
   display: flex;
   flex-direction: row;
@@ -26,26 +26,28 @@ html, body {
   overflow: hidden;
   margin: 0;
   padding: 0;
-  position: absolute;
-  top: 0;
+  position: fixed;
+  top: 60px;   /* adjust to match top-bar height */
   left: 0;
+  right: 0;
+  z-index: 9;
 }
 
-/* Sidebar container for draggable elements */
+/* Left-hand sidebar with draggable elements and glass effect */
 .design-container {
-  width: 250px;
+  width: var(--design-width);
   background: linear-gradient(160deg, var(--blue-100) 0%, var(--blue-200) 100%);
   background-clip: padding-box;
   color: var(--text);
   height: calc(100vh - 60px);
   max-height: 100%;
   overflow: auto;
-  margin: 0;
+  margin: 0 !important;
   padding: 0;
   box-sizing: border-box;
-  position: relative;  
-  top: 60px;
-  left: 0;
+  position: relative;
+  top: 0;
+  left: 0 !important;
   overflow-y: auto;
   border: 1px solid rgba(255,255,255,0.25);
   backdrop-filter: blur(18px) saturate(160%);
@@ -54,15 +56,14 @@ html, body {
   box-shadow: 0 8px 25px rgba(0,0,0,0.25);
 }
 
-
-/* Section block inside sidebar */
+/* Sidebar section block wrapping each group of elements */
 .section {
   margin: 10px 0;
   border-radius: 5px;
   cursor: pointer;
 }
 
-/* Section header with icon and label */
+/* Section header with icon, label and gradient background */
 .section-header {
   padding: 10px;
   background: linear-gradient(135deg, var(--blue-200), var(--blue-400));
@@ -73,8 +74,7 @@ html, body {
   transition: all 0.3s ease;
 }
 
-
-/* Hover effect for section header */
+/* Hover state for section and sub-category headers */
 .section-header:hover,
 .sub-category-header:hover {
   background: linear-gradient(135deg, var(--blue-300), var(--blue-500));
@@ -83,63 +83,66 @@ html, body {
   box-shadow: 0 4px 12px rgba(46, 121, 255, 0.3);
 }
 
+/* Icon size in section header */
 .section-header i {
-  font-size: 20px;
+  font-size: var(--font-lg);
 }
 
+/* Label styling inside section and sub-category headers */
 .section-header span,
 .sub-category-header span {
-  font-size: 14px;
+  font-size: var(--font-md);
   font-weight: 600;
   color: var(--blue-700);
   letter-spacing: 0.3px;
 }
 
+/* Sub-category wrapper inside sections */
 .sub-category {
   margin: 5px 0;
   border-radius: 5px;
   cursor: pointer;
 }
 
-/* Header for subcategories */
-
+/* Icon size for sub-category headers */
 .sub-category-header i {
-  font-size: 18px;
+  font-size: var(--font-md);
   margin-left: 10px;
 }
 
-/* Wrapper for options inside a section */
+/* Inner sub-section background block in config/sections */
 .sub-section {
   padding: 10px 0;
   background-color: #3d4a5bd0;
   border-radius: 5px;
 }
 
-/* Grid layout for element options */
+/* Grid layout for element options in sidebar */
 .option-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-  justify-content: center;
-  padding: 10px 0;
+  gap: 14px;
+  padding: 10px 12px;
+  justify-items: center;
 }
 
-/* Style for each draggable option (with Angular deep styling) */
+/* Draggable element card in the sidebar (Angular deep selector) */
 :host ::ng-deep .option {
   display: flex !important;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 70px;
-  height: 80px;
+  width: var(--tool-card-width) !important;
+  height: var(--tool-card-height) !important;
   color: var(--text);
   background: rgba(255,255,255,0.15);
-  border-radius: 12px;
+  border-radius: 10px;
   padding: 8px;
   cursor: pointer;
   transition: all 0.3s ease-in-out;
 }
 
+/* Hover effect for draggable option cards */
 :host ::ng-deep .option:hover {
   background: var(--blue-100);
   color: var(--blue-700);
@@ -147,35 +150,39 @@ html, body {
   box-shadow: 0 4px 14px rgba(46, 121, 255, 0.25);
 }
 
+/* Default icon style inside options */
 :host ::ng-deep .option i {
-  font-size: 13px;
+  font-size: var(--font-sm);
   margin-bottom: 20px;
 }
 
+/* Font Awesome icon variant styling */
 :host ::ng-deep .option i.fa {
-  font-size: 18px; 
-  margin-bottom: 10px; 
+  font-size: var(--font-lx);
+  margin-bottom: 10px;
 }
 
+/* Font Awesome solid icon variant styling */
 :host ::ng-deep .option i.fas {
-  font-size: 18px; 
-  margin-bottom: 10px; 
+  font-size: var(--font-lx);
+  margin-bottom: 10px;
 }
 
+/* Label text for sidebar options */
 :host ::ng-deep .option span {
-  font-size: 11px;
+  font-size: var(--font-md);
   text-align: center;
   word-wrap: break-word;
   overflow-wrap: break-word;
   white-space: normal;
 }
 
-/* Active state for selected element */
+/* Active/selected state for a sidebar option */
 :host ::ng-deep .option.active {
   background-color: #24313c;
 }
 
-/* Main working canvas area */
+/* Main visual editor workspace area */
 .workspace {
   flex-grow: 1;
   position: relative;
@@ -184,59 +191,62 @@ html, body {
   margin: 0;
   padding: 0;
   height: calc(100vh - 60px);
+  isolation: isolate;
 }
 
-/* Grid-style drop area for elements */
+/* Canvas-style drop area with grid background for nodes */
 .drop-area {
   width: 100%;
   height: calc(100vh - 60px);
   border: 2px dashed #ccc;
   border-radius: 0;
-  background-image: linear-gradient(to right, rgba(0, 0, 0, 0.15) 1px, transparent 1px),
-                    linear-gradient(to bottom, rgba(0, 0, 0, 0.15) 1px, transparent 1px);
+  background-image:
+    linear-gradient(to right, rgba(0, 0, 0, 0.15) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.15) 1px, transparent 1px);
   background-size: 20px 20px;
   background-color: rgba(255,255,255,0.6);
   margin: 0;
   padding: 0;
-  top: 60px;
+  top: 0;
   box-sizing: border-box;
   position: absolute;
-  z-index: 1; 
+  z-index: 0;
 }
 
-/* Draggable element inside drop area */
+/* Draggable node wrapper inside the drop area */
 .drop-area .draggable {
   position: absolute;
   color: white;
   text-align: center;
   cursor: pointer;
+  z-index: 2;
 }
 
-
+/* Force white text for all children of drop area */
 .drop-area * {
-  color:white;
+  color: white;
 }
 
-/* Style for visual node elements */
+/* Node block styling for workspace elements */
 .workspace-element {
   position: relative;
   padding: 10px;
-  margin: 0; 
+  margin: 0;
   background-color: #4a5c70;
   color: white;
   border-radius: 5px;
   text-align: center;
   cursor: pointer;
-  z-index: 1;
+  z-index: 2;
 }
 
-/* Selected element highlight */
+/* Visual style for currently selected node */
 ::ng-deep .selected {
   border: 2px dashed rgb(255, 255, 255);
   background-color: #6a7d87;
 }
 
-/* Drag selection box styling */
+/* Selection rectangle used for multi-select */
 #selection-box {
   position: absolute;
   z-index: 1000;
@@ -245,20 +255,20 @@ html, body {
   pointer-events: none;
 }
 
-/* Panel for node configuration */
+/* Right-side configuration panel container */
 .config-container {
-  width: 400px;
+  width: var(--config-width);
   padding: 10px;
   background: linear-gradient(160deg, var(--blue-100) 0%, var(--blue-200) 100%);
   color: var(--text);
   position: relative;
-  top: 60px; 
-  right: 0; 
+  top: 0;
+  right: 0;
   height: calc(100vh - 60px);
   z-index: 10;
   box-sizing: border-box;
-  display: none; 
-  transition: transform 0.3s ease-in-out; 
+  display: none;
+  transition: transform 0.3s ease-in-out;
   overflow-y: auto;
   border: 1px solid var(--card-border);
   backdrop-filter: blur(18px) saturate(160%);
@@ -269,17 +279,17 @@ html, body {
   padding-top: 50px;
 }
 
-/* Show the configuration panel */
+/* Visible state for configuration panel */
 .config-container.show {
-  display: block; 
+  display: block;
 }
 
-/* Close button inside the config panel */
+/* Floating close button for configuration panel */
 .config-container .close-btn {
   position: absolute;
   top: 10px;
   right: 10px;
-  width: 32px; 
+  width: 32px;
   height: 32px;
   margin-top: 10px;
   margin-right: 10px;
@@ -297,33 +307,38 @@ html, body {
   float: right;
 }
 
-.config-container .close-btn:hover i { font-size: 18px; line-height: 1; }
+/* Slightly enlarge the icon on hover */
+.config-container .close-btn:hover i {
+  font-size: var(--font-lg);
+  line-height: 1;
+}
 
+/* Hover effect for close button */
 .config-container .close-btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 12px 22px rgba(28, 70, 170, .16), 0 3px 10px rgba(28, 70, 170, .08);
 }
 
-/* Style for SVG layer used for connections */
+/* SVG layer used for connection lines between nodes */
 svg {
   z-index: -1;
   pointer-events: none;
   overflow: visible;
 }
 
-/* Icon inside node for config button */
+/* Gear icon placed inside node for opening config */
 :host ::ng-deep .gear-icon {
   position: absolute;
-  font-size: 15px !important;
+  font-size: var(--font-md) !important;
   right: 3px;
   top: 3px;
-  color: white;  
+  color: white;
   cursor: pointer;
   display: show;
   z-index: 2;
 }
 
-/* Visual config panel group sections */
+/* Sub-section inside config panel with translucent background */
 .sub-section {
   padding: 10px 0;
   background-color: #4a5c7063;
@@ -340,6 +355,7 @@ svg {
   margin-top: 10px;
 }
 
+/* Single column item as a selectable pill */
 .csv-columns-container .column-item {
   padding: 12px 16px;
   border-radius: 12px;
@@ -355,7 +371,7 @@ svg {
   box-shadow: 0 4px 12px rgba(0,0,0,0.08);
 }
 
-/* Hover con efecto brillante */
+/* Hover effect for CSV column pills */
 .csv-columns-container .column-item:hover {
   background: rgba(255, 255, 255, 0.25);
   transform: translateY(-2px) scale(1.03);
@@ -363,14 +379,14 @@ svg {
   color: var(--blue-600);
 }
 
-/* Estado seleccionado */
+/* Selected CSV column state */
 .csv-columns-container .column-item.selected {
   background: linear-gradient(135deg, var(--blue-200), var(--blue-400));
   color: var(--text);
   box-shadow: 0 6px 20px rgba(46, 121, 255, 0.35);
 }
 
-/* Grid container for metrics */
+/* Grid layout for selectable metrics in config panel */
 .metrics-container {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -380,69 +396,217 @@ svg {
   margin-top: 10px;
 }
 
-.metric-item {
-  padding: 8px 12px;
-  border-radius: 4px;
-  background-color: #f0f0f0;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  border: 1px solid #ddd;
-}
-
+/* Single metric item styled as glass pill */
 .metrics-container .metric-item {
-  padding: 8px 12px;
-  background: #f5f5f5;
-  border-radius: 4px;
-  cursor: pointer;
+  padding: 12px 16px;
+  border-radius: 12px;
   text-align: center;
-  transition: all 0.2s;
-}
-
-/* Selected metric visual style */
-.metrics-container .metric-item.selected {
-  background-color: #7690ad97;
-  box-shadow: 0 2px 4px rgba(33, 150, 243, 0.2);
-}
-
-/* Grouped config property input with label */
-.config-property-group {
-  display: flex;
-  justify-content: space-between;
-  margin: 15px 0;
-  align-items: center;
-}
-
-.config-property-group label {
-  font-size: 14px;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  color: var(--blue-700);
   font-weight: 500;
-  color: #4a5c70; /* gris medio */
-  letter-spacing: 0.2px;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
 }
 
-/* Inputs y selects */
-.config-property-group input,
-.config-property-group select {
-  font-size: 14px;
-  font-weight: 400;
+/* Hover effect for metric items */
+.metrics-container .metric-item:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 6px 18px rgba(46,121,255,0.25);
+  color: var(--blue-600);
+}
+
+/* Selected metric item state */
+.metrics-container .metric-item.selected {
+  background: linear-gradient(135deg, var(--blue-200), var(--blue-400));
   color: var(--text);
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(0,0,0,0.1);
-  border-radius: 8px;
-  transition: border 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 6px 20px rgba(46, 121, 255, 0.35);
 }
 
-.config-property-group input:focus,
-.config-property-group select:focus {
-  border: 1px solid var(--blue-400);
-  box-shadow: 0 0 6px rgba(46, 121, 255, 0.25);
-  outline: none;
-}
-
+/* Headings inside the configuration panel */
 .config-container h2,
 .config-container h3 {
-  font-size: 18px;
+  font-size: var(--font-lx);
   font-weight: 600;
   color: var(--blue-700);
   margin-bottom: 16px;
   letter-spacing: 0.4px;
+}
+
+
+/* ============================================================
+   BASE: Wrapper general de cada propiedad (label + input)
+   ============================================================ */
+:host ::ng-deep .config-content .config-property-group {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 12px;
+  margin-bottom: 28px;
+  align-items: center;
+}
+
+
+/* ============================================================
+   LABELS
+   ============================================================ */
+:host ::ng-deep .config-content .config-label {
+  font-size: var(--font-lg);
+  font-weight: 600;
+  color: #4a5c70;
+}
+
+:host ::ng-deep .config-content .config-label--block {
+  grid-column: 1 / span 2;
+  margin-bottom: 8px;
+}
+
+
+/* ============================================================
+   INPUTS (select, number, file, etc.)
+   ============================================================ */
+:host ::ng-deep .config-content .config-input {
+  width: 100%;
+  height: 34px;
+  padding: 6px 10px;
+  font-size: var(--font-lg);
+  background: rgba(255,255,255,0.9);
+  color: #1e2a33;
+  border: 1px solid rgba(0,0,0,0.18);
+  border-radius: 8px;
+  outline: none;
+  transition: 0.2s ease;
+  box-sizing: border-box;
+}
+
+/* Selects más grandes cuando son condicionales/dinámicos */
+:host ::ng-deep .config-content .config-input--select {
+  height: 38px;
+}
+
+/* Number inputs */
+:host ::ng-deep .config-content .config-input--number {
+  height: 34px;
+}
+
+/* Hover / Focus */
+:host ::ng-deep .config-content .config-input:focus,
+:host ::ng-deep .config-content .config-input:hover {
+  border-color: #3a7bd5;
+  box-shadow: 0 0 6px rgba(58,123,213,0.28);
+}
+
+
+/* ============================================================
+   FILE INPUT
+   ============================================================ */
+:host ::ng-deep .config-content .config-property-group--file .config-input {
+  padding: 4px;
+  background: rgba(255,255,255,0.8);
+}
+
+
+/* ============================================================
+   TEXTAREA + ZOOM TOOLBAR
+   ============================================================ */
+:host ::ng-deep .config-content .config-property-group--textarea {
+  display: block;
+}
+
+:host ::ng-deep .config-content .textarea-toolbar {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-bottom: 6px;
+}
+
+:host ::ng-deep .config-content .textarea-zoom-btn {
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.25);
+  color: white;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: var(--font-lx);
+  transition: 0.2s ease;
+}
+
+:host ::ng-deep .config-content .textarea-zoom-btn:hover {
+  background: rgba(255,255,255,0.25);
+  border-color: rgba(255,255,255,0.45);
+  transform: scale(1.05);
+}
+
+:host ::ng-deep .config-content .config-textarea {
+  width: 100%;
+  min-height: 220px;
+  padding: 12px;
+  font-family: monospace;
+  font-size: var(--font-lg);
+  border-radius: 8px;
+  background: rgba(255,255,255,0.9);
+  border: 1px solid rgba(0,0,0,0.18);
+  resize: vertical;
+  color: #1e2a33;
+  box-sizing: border-box;
+  transition: 0.2s ease;
+}
+
+:host ::ng-deep .config-content .config-textarea:focus {
+  border-color: #3a7bd5;
+  box-shadow: 0 0 8px rgba(58,123,213,0.25);
+}
+
+
+/* ============================================================
+   MULTI-SELECT CHIPS
+   ============================================================ */
+:host ::ng-deep .config-content .config-property-group--multiselect {
+  display: block;
+}
+
+:host ::ng-deep .config-content .csv-columns-container {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  padding: 10px;
+}
+
+:host ::ng-deep .config-content .csv-columns-container .column-item {
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.2);
+  color: #1e2a33;
+  cursor: pointer;
+  text-align: center;
+  transition: 0.25s ease;
+}
+
+:host ::ng-deep .config-content .csv-columns-container .column-item:hover {
+  background: rgba(255,255,255,0.3);
+  transform: translateY(-2px);
+}
+
+:host ::ng-deep .config-content .csv-columns-container .column-item.selected {
+  background: linear-gradient(135deg, #6ba2ff, #3f6df9);
+  color: white;
+  border-color: rgba(255,255,255,0.4);
+}
+
+
+/* ============================================================
+   RESPONSIVE PANEL
+   ============================================================ */
+@media (max-width: 480px) {
+  .config-content .config-property-group {
+    grid-template-columns: 1fr;
+  }
+
+  .config-content .config-label {
+    margin-bottom: 6px;
+  }
 }

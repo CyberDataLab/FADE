@@ -181,11 +181,7 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
 
       if (this.scenarioId) {
         this.isNewScenario = false;
-        this.loadEditScenario(this.scenarioId);
       } 
-
-      // Load sections defined in config.json
-      this.loadSections();
 
       // Show save button in the toolbar
       this.toolbarService.showSaveButton();
@@ -216,12 +212,21 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
     if (isPlatformBrowser(this.platformId)) {
       const container = this.reteContainer.nativeElement;
   
+      // Create de Rete editor
       this.editorRef = await createEditor(
         container,
         this.injector,
         (node) => this.openConfigForNode(node),
         (node) => this.deleteNode(node)
       );
+  
+      // Load config.json
+      this.loadSections(() => {
+        // When the config is loaded, if it is a scenario edit, we load it visually.
+        if (this.scenarioId) {
+          this.loadEditScenario(this.scenarioId);
+        }
+      });
     }
   }
 
@@ -511,138 +516,206 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
 
     const formattedValue = currentValue !== undefined ? currentValue.toString() : prop.default;
 
+
     // Render each type of input based on `prop.type`
     switch (prop.type) {
 
       // Handle file input type
-      case 'file':
+      case 'file': {
         html += `
-          <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center;">
-            <label for="${prop.name}-${elementId}">${this.formatPropertyName(prop.label || prop.name)}:</label>
-            <input type="file" id="${prop.name}-${elementId}" accept="${prop.accept || '*'}" />
-          </div>`;
+          <div class="config-property-group config-property-group--file">
+            <label
+              for="${prop.name}-${elementId}"
+              class="config-label"
+            >
+              ${this.formatPropertyName(prop.label || prop.name)}:
+            </label>
+            <input
+              type="file"
+              id="${prop.name}-${elementId}"
+              class="config-input"
+              accept="${prop.accept || '*'}"
+            />
+          </div>
+        `;
         break;
+      }
 
       // Handle conditional select input type
-      case 'conditional-select':
+      case 'conditional-select': {
         html += `
-          <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: flex-start;">
-            <label for="${prop.name}-${elementId}" style="flex: 1;">${prop.label}:</label>
-            <select id="${prop.name}-select-${elementId}" style="height: 3.6em; padding: 0.75em 1em; font-size: 16px; line-height: 1.2; flex: 2; box-sizing: border-box;">
-              ${prop.options.map((opt: string) => `
-                <option value="${opt}" ${currentValue === opt ? 'selected' : ''}>
-                  ${opt}
-                </option>`).join('')}
+          <div class="config-property-group">
+            <label
+              for="${prop.name}-${elementId}"
+              class="config-label"
+            >
+              ${this.formatPropertyName(prop.label)}:
+            </label>
+            <select
+              id="${prop.name}-select-${elementId}"
+              class="config-input config-input--select"
+            >
+              ${prop.options
+                .map(
+                  (opt: string) => `
+                    <option value="${opt}" ${currentValue === opt ? 'selected' : ''}>
+                      ${this.formatOptionName(opt)}
+                    </option>
+                  `
+                )
+                .join('')}
             </select>
-          </div>`;
+          </div>
+        `;
         break;
+      }
 
       // Handle standard select input type
       case 'select': {
         const hasConditional = prop.conditional !== undefined;
         const initialDisplay = hasConditional ? 'none' : 'grid';
         const divId = `${prop.name}-row-${elementId}`;
-      
+
         html += `
-          <div id="${divId}" style="display: ${initialDisplay}; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center;">
-            <label for="${prop.name}-${elementId}" style="text-align: left;">${this.formatPropertyName(prop.label)}:</label>
-            <select id="${prop.name}-${elementId}" style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px; margin-top: -10px;">
-              ${prop.options.map((opt: string) => `
-                <option value="${opt}" ${formattedValue === opt ? 'selected' : ''}>
-                  ${this.formatOptionName(opt)}
-                </option>`
-              ).join('')}
+          <div
+            id="${divId}"
+            class="config-property-group"
+            style="display: ${initialDisplay};"
+          >
+            <label
+              for="${prop.name}-${elementId}"
+              class="config-label"
+            >
+              ${this.formatPropertyName(prop.label)}:
+            </label>
+            <select
+              id="${prop.name}-${elementId}"
+              class="config-input config-input--select"
+            >
+              ${prop.options
+                .map(
+                  (opt: string) => `
+                    <option value="${opt}" ${formattedValue === opt ? 'selected' : ''}>
+                      ${this.formatOptionName(opt)}
+                    </option>
+                  `
+                )
+                .join('')}
             </select>
-          </div>`;
+          </div>
+        `;
         break;
       }
         
       // Handle dynamic select input type
-      case 'dynamic-select':
+      case 'dynamic-select': {
         html += `
-          <div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 60px; align-items: flex-start;">
-            <label for="${prop.name}-${elementId}" style="flex: 1;">${this.formatPropertyName(prop.label)}:</label>
-            <select id="${prop.name}-${elementId}" style="height: 3.6em; padding: 0.75em 1em; font-size: 16px; line-height: 1.2; flex: 2; box-sizing: border-box;">
+          <div class="config-property-group">
+            <label
+              for="${prop.name}-${elementId}"
+              class="config-label"
+            >
+              ${this.formatPropertyName(prop.label)}:
+            </label>
+            <select
+              id="${prop.name}-${elementId}"
+              class="config-input config-input--select"
+            >
               <!-- Opciones generadas dinámicamente en setupDynamicInputs -->
             </select>
-          </div>`;
+          </div>
+        `;
         break;
+      } 
         
       // Handle number input type
-      case 'number':
+      case 'number': {
         const hasConditional = prop.conditional !== undefined;
         const initialDisplay = hasConditional ? 'none' : 'grid';
         const divId = `${prop.name}-row-${elementId}`;
-    
+
         html += `
-          <div id="${divId}" style="display: ${initialDisplay}; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 60px; align-items: center;">
-            <label for="${prop.name}-${elementId}" style="text-align: left;">${this.formatPropertyName(prop.label)}:</label>
-            <input type="number" id="${prop.name}-${elementId}" placeholder="${prop.placeholder}" 
-                  value="${currentValue}" 
-                  ${prop.min ? `min="${prop.min}"` : ''}
-                  ${prop.step ? `step="${prop.step}"` : ''}
-                  style="height: 30px; padding: 3px 5px; vertical-align: middle; line-height: 20px; margin-top: -10px;">
-          </div>`;
+          <div
+            id="${divId}"
+            class="config-property-group"
+            style="display: ${initialDisplay};"
+          >
+            <label
+              for="${prop.name}-${elementId}"
+              class="config-label"
+            >
+              ${this.formatPropertyName(prop.label)}:
+            </label>
+            <input
+              type="number"
+              id="${prop.name}-${elementId}"
+              class="config-input config-input--number"
+              placeholder="${prop.placeholder || ''}"
+              value="${currentValue}"
+              ${prop.min !== undefined ? `min="${prop.min}"` : ''}
+              ${prop.step !== undefined ? `step="${prop.step}"` : ''}
+            />
+          </div>
+        `;
         break;
+      }
 
       // Handle textarea input type
-        case 'textarea':
-          html += `
-            <div style="display: flex; flex-direction: column; margin-bottom: 60px;">
-              <label for="${prop.name}-${elementId}" style="margin-bottom: 10px;">
-                ${this.formatPropertyName(prop.label)}:
-              </label>
+      case 'textarea': {
+        html += `
+          <div class="config-property-group config-property-group--textarea">
+            <label
+              for="${prop.name}-${elementId}"
+              class="config-label config-label--block"
+            >
+              ${this.formatPropertyName(prop.label)}:
+            </label>
 
-              <div style="display: flex; justify-content: flex-end; gap: 5px; margin-bottom: 5px;">
-                <button id="zoom-in-${elementId}-${prop.name}" type="button"
-                  style="
-                    background: transparent;
-                    border: 1px solid transparent;
-                    border-radius: 4px;
-                    padding: 2px 8px;
-                    font-size: 20px;
-                    cursor: pointer;
-                    transition: all 0.2s ease;
-                    color: white;
-                  "
-                  onmouseover="this.style.borderColor='#fff';"
-                  onmouseout="this.style.borderColor='transparent';"
-                >🔍+</button>
-                
-                <button id="zoom-out-${elementId}-${prop.name}" type="button"
-                  style="
-                    background: transparent;
-                    border: 1px solid transparent;
-                    border-radius: 4px;
-                    padding: 2px 8px;
-                    font-size: 20px;
-                    cursor: pointer;
-                    transition: all 0.2s ease;
-                    color: white;
-                  "
-                  onmouseover="this.style.borderColor='#fff';"
-                  onmouseout="this.style.borderColor='transparent';"
-                >🔍−</button>
-              </div>
+            <div class="textarea-toolbar">
+              <button
+                id="zoom-in-${elementId}-${prop.name}"
+                type="button"
+                class="textarea-zoom-btn"
+              >
+                🔍+
+              </button>
+              <button
+                id="zoom-out-${elementId}-${prop.name}"
+                type="button"
+                class="textarea-zoom-btn"
+              >
+                🔍−
+              </button>
+            </div>
 
-              <textarea 
-                id="${prop.name}-${elementId}"
-                placeholder="${prop.placeholder || ''}"
-                style="width: 100%; min-height: 200px; padding: 10px; font-family: monospace; font-size: 10px; border: 1px solid #ccc; border-radius: 4px; resize: vertical; overflor-y: auto;"
-              >${formattedValue}</textarea>
-            </div>`;
-          break;
+            <textarea
+              id="${prop.name}-${elementId}"
+              class="config-textarea"
+              placeholder="${prop.placeholder || ''}"
+            >${formattedValue}</textarea>
+          </div>
+        `;
+        break;
+      }
 
       // Handle multi-select input type
-        case 'multi-select': 
-          html += `
-            <div id="${prop.name}-row-${elementId}" style="margin-bottom: 60px;">
-              <label style="text-align: left; display: block; margin-bottom: 10px;">
-                ${this.formatPropertyName(prop.label)}:
-              </label>
-              <div id="${prop.name}-container-${elementId}" class="csv-columns-container"></div>
-            </div>`;
-          break;   
+      case 'multi-select': {
+        html += `
+          <div
+            id="${prop.name}-row-${elementId}"
+            class="config-property-group config-property-group--multiselect"
+          >
+            <label class="config-label config-label--block">
+              ${this.formatPropertyName(prop.label)}:
+            </label>
+            <div
+              id="${prop.name}-container-${elementId}"
+              class="csv-columns-container"
+            ></div>
+          </div>
+        `;
+        break;  
+      }
     }
 
     return html;
@@ -960,11 +1033,11 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
           const textarea = document.getElementById(controlId) as HTMLTextAreaElement;
           if (textarea) {
             textarea.value = getCurrentValue() ?? prop.default;
-  
+
             textarea.addEventListener('input', () => {
               saveValue(textarea.value);
             });
-  
+
             textarea.addEventListener('wheel', (e) => {
               const scrollTop = textarea.scrollTop;
               const scrollHeight = textarea.scrollHeight;
@@ -974,20 +1047,34 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
               const shouldStop = (e.deltaY < 0 && !atTop) || (e.deltaY > 0 && !atBottom);
               if (shouldStop) e.stopPropagation();
             });
-  
+
             const zoomIn = document.getElementById(`zoom-in-${elementId}-${paramKey}`);
             const zoomOut = document.getElementById(`zoom-out-${elementId}-${paramKey}`);
-            const maxFontSize = 13;
-            const minFontSize = 7;
-  
-            const updateFontSize = (delta: number) => {
-              const currentSize = parseFloat(window.getComputedStyle(textarea).fontSize);
-              const newSize = Math.max(minFontSize, Math.min(maxFontSize, currentSize + delta));
+
+            if (!textarea.dataset['baseFontSize']) {
+              const cs = window.getComputedStyle(textarea);
+              textarea.dataset['baseFontSize'] = cs.fontSize.replace('px', '');
+              textarea.dataset['zoomLevel'] = '0';
+            }
+
+            const maxZoomLevel = 4;
+            const minZoomLevel = -3;
+            const stepPx = 1.5;
+
+            const applyZoom = (deltaLevel: number) => {
+              const baseFont = parseFloat(textarea.dataset['baseFontSize'] || '14');
+              let level = parseInt(textarea.dataset['zoomLevel'] || '0', 10);
+
+              level += deltaLevel;
+              level = Math.max(minZoomLevel, Math.min(maxZoomLevel, level));
+              textarea.dataset['zoomLevel'] = level.toString();
+
+              const newSize = baseFont + level * stepPx;
               textarea.style.fontSize = `${newSize}px`;
             };
-  
-            zoomIn?.addEventListener('click', () => updateFontSize(1));
-            zoomOut?.addEventListener('click', () => updateFontSize(-1));
+
+            zoomIn?.addEventListener('click', () => applyZoom(1));
+            zoomOut?.addEventListener('click', () => applyZoom(-1));
           }
           break;
         }
@@ -1694,12 +1781,15 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
   /**
    * @summary Loads the visual node configuration from `assets/config.json` and stores it in `this.config`.
    */
-  loadSections() {
+  loadSections(onLoaded?: () => void) {
     this.http.get<any>('assets/config.json').subscribe(
-      (data:any) => {
+      (data: any) => {
         this.config = data;
+        if (onLoaded) {
+          onLoaded();
+        }
       },
-      (error:any) => {
+      (error: any) => {
         console.error('Error cargando el JSON:', error);
       }
     );

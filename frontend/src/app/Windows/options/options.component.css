@@ -1,7 +1,26 @@
-/* options.component.css — 2025 Blue/Glass style */
+/* Host element: fill viewport height (minus header) and hide outer overflow */
+:host{
+  display: block;
+  height: calc(100vh - 120px);
+  overflow: hidden;
+  width: 100%;
+  flex: 1 1 auto;
+}
 
-/* Card contenedor */
-.options-section{
+/* Page wrapper: center the main options section horizontally */
+.options-page{
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  overflow: hidden;
+  width: 100%;
+}
+
+/* Main options card: glass-like panel with scrollable content */
+.options-section {
+  display: flex;
+  flex-direction: column;
   background: var(--card-bg);
   border: 1px solid var(--card-border);
   backdrop-filter: saturate(140%) blur(10px);
@@ -11,21 +30,22 @@
   box-shadow: 0 10px 30px rgba(28, 77, 214, .10);
   width: 100%;
   max-width: 1100px;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
   margin: 0 auto;
 }
 
-/* Título de sección */
+/* Section title: strong heading to separate content blocks */
 .section-title{
   margin: 0 0 14px 0;
-  font-size: clamp(18px, 2.2vw, 24px);
+  font-size: var(--font-xl);
   font-weight: 700;
   letter-spacing: .2px;
   color: var(--text-strong);
 }
 
-/* -----------------------------
-   Zona de inputs del usuario
---------------------------------*/
+/* Grid layout for user inputs: form fields and actions */
 .user-inputs{
   display: grid;
   grid-template-columns: repeat(3, minmax(220px, 1fr));
@@ -34,71 +54,80 @@
   margin-bottom: clamp(14px, 2.2vw, 20px);
 }
 
+/* Labels: stacked text with light emphasis */
 .user-inputs label{
   display: flex;
   flex-direction: column;
   gap: 6px;
-  font-size: 13px;
+  font-size: var(--font-sm);
   font-weight: 600;
   color: var(--muted);
 }
 
+/* Text inputs: soft card-like fields with focus ring */
 .user-inputs input{
   appearance: none;
   background: var(--field-bg);
   border: 1px solid var(--field-border);
   border-radius: 10px;
   padding: 10px 12px;
-  font-size: 14px;
+  font-size: var(--font-md);
   color: var(--text);
   outline: none;
   transition: box-shadow .15s ease, border-color .15s ease, transform .06s ease;
 }
 
+/* Input focus state: accent border and subtle glow */
 .user-inputs input:focus{
   border-color: var(--accent);
   box-shadow: 0 0 0 4px var(--ring);
 }
 
+/* Input active state: tiny press-down effect */
 .user-inputs input:active{
   transform: translateY(0.5px);
 }
 
-/* Botón primario "Save" */
+/* Primary button inside the inputs grid (e.g., Save) */
 .user-inputs button{
-  align-self: end;
-  height: 40px;
-  padding: 0 16px;
+  display: inline-grid;
+  place-items: center;
+  width: 100%;
+  height: 56px;
+  margin-top: 12px;
   border: 0;
-  border-radius: 12px;
-  font-weight: 700;
-  cursor: pointer;
+  border-radius: 16px;
   background: linear-gradient(180deg, var(--btn-from), var(--btn-to));
   color: #fff;
-  box-shadow: 0 6px 18px rgba(46, 121, 255, .28);
-  transition: transform .06s ease, filter .2s ease, box-shadow .2s ease;
+  font-weight: 700;
+  letter-spacing: .02em;
+  font-size: var(--font-md);
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow:
+    0 10px 24px rgba(36,87,255,.35),
+    inset 0 1px 0 rgba(255,255,255,.25);
+  transition: transform .06s ease, box-shadow .2s ease, filter .2s ease;
 }
 
-.user-inputs button:hover{ filter: brightness(1.03); }
-.user-inputs button:active{ transform: translateY(1px); }
-.user-inputs button:focus-visible{
-  outline: none;
-  box-shadow: 0 0 0 4px var(--ring), 0 6px 18px rgba(46, 121, 255, .28);
-}
+/* Style for login button state */
+.user-inputs button:hover{ transform: translateY(-1px); filter: saturate(110%); }
+.user-inputs button:active{ transform: translateY(0); box-shadow: 0 8px 18px rgba(36,87,255,.28); }
+.user-inputs button:focus-visible{ outline: none; box-shadow: 0 0 0 4px var(--ring), 0 10px 24px rgba(36,87,255,.35); }
 
-/* -----------------------------
-   Tabla de información del sistema
---------------------------------*/
+/* System information table: compact, centered card-like table */
 .information-table{
-  width: 100%;
+  width: auto;
   border-collapse: collapse;
   margin: 0;
-  font-size: 14.5px;
+  font-size: var(--font-md);
+  margin: 0 auto;
   border-radius: 12px;
-  overflow: hidden; /* bordes redondeados consistentes */
+  overflow: hidden;
+  
 }
 
-/* Encabezado fijo y cuerpo scrollable */
+/* Make header and rows use fixed table layout for alignment */
 .information-table thead,
 .information-table tbody tr{
   display: table;
@@ -106,6 +135,7 @@
   table-layout: fixed;
 }
 
+/* Sticky header: gradient background and fixed top position */
 .information-table thead{
   position: sticky;
   top: 0;
@@ -114,64 +144,68 @@
   color: #fff;
 }
 
+/* Shared cell padding and alignment */
 .information-table th, .information-table td{
   padding: 12px 14px;
   text-align: left;
 }
 
+/* Header text: stronger weight and subtle tracking */
 .information-table th{
   font-weight: 700;
   letter-spacing: .2px;
 }
 
+/* Table body: semi-transparent white for glass effect */
 .information-table tbody{
   display: table !important;
-  max-height: 60vh;        /* cuerpo con scroll, no toda la página */
-  overflow-y: auto;
   background: rgba(255,255,255,.55);
 }
 
-/* Filas y separadores */
+/* Divide rows with light separators */
 .information-table tbody tr:not(:last-child) td{
   border-bottom: 1px solid rgba(36, 87, 255, .14);
 }
 
+/* Highlight row on hover for better scanability */
 .information-table tbody tr:hover td{
   background: rgba(159,193,255,.20);
 }
 
-/* Scrollbar acorde al sistema */
+/* Custom vertical scrollbar for the table body */
 .information-table tbody::-webkit-scrollbar{ width: 10px; }
+
+/* Scrollbar thumb: blue gradient with rounded corners */
 .information-table tbody::-webkit-scrollbar-thumb{
   background: linear-gradient(180deg, var(--blue-400), var(--blue-600));
   border-radius: 10px;
 }
+
+/* Scrollbar track: soft neutral background */
 .information-table tbody::-webkit-scrollbar-track{
   background: rgba(240,242,250,.6);
   border-radius: 10px;
 }
 
-/* -----------------------------
-   Estados y accesibilidad
---------------------------------*/
+/* Host element fallback: ensure it behaves as a block container */
 :host{
   display: block;
 }
 
-/* Reducir animaciones si el usuario lo prefiere */
+/* Respect reduced motion preference: disable transitions for inputs and buttons */
 @media (prefers-reduced-motion: reduce){
   .user-inputs input,
   .user-inputs button{ transition: none; }
 }
 
-/* -----------------------------
-   Responsive
---------------------------------*/
+/* Medium screens: reduce input grid to 2 columns */
 @media (max-width: 1024px){
   .user-inputs{
     grid-template-columns: repeat(2, minmax(220px, 1fr));
   }
 }
+
+/* Small screens: stack inputs in a single column and tighten padding */
 @media (max-width: 640px){
   .user-inputs{
     grid-template-columns: 1fr;

@@ -32,8 +32,7 @@ import pyshark
 from collections import defaultdict
 import joblib
 
-
-
+from netanoms_runtime.pipeline_def import PipelineDef
 
 logger = logging.getLogger('backend')
 
@@ -795,17 +794,20 @@ def save_classification_metrics(scenario_model, model_name, metrics, execution):
     Returns:
         None
     """
-
-    ClassificationMetric.objects.create(
+    metric, created = ClassificationMetric.objects.get_or_create(
         scenario_model=scenario_model,
         execution=execution,
         model_name=model_name,
-        accuracy=metrics.get("accuracy"),
-        precision=metrics.get("precision"),
-        recall=metrics.get("recall"),
-        f1_score=metrics.get("f1_score"),
-        confusion_matrix=json.dumps(metrics.get("confusion_matrix")),
+        defaults=metrics,
     )
+
+    if not created:
+        metric.accuracy = metrics.get("accuracy")
+        metric.precision = metrics.get("precision")
+        metric.recall = metrics.get("recall")
+        metric.f1_score = metrics.get("f1_score")
+        metric.confusion_matrix = metrics.get("confusion_matrix")
+        metric.save()
 
 def save_regression_metrics(scenario_model, model_name, metrics, execution):
     """
@@ -820,16 +822,20 @@ def save_regression_metrics(scenario_model, model_name, metrics, execution):
     Returns:
         None
     """
-    RegressionMetric.objects.create(
+    metric, created = RegressionMetric.objects.get_or_create(
         scenario_model=scenario_model,
         execution=execution,
         model_name=model_name,
-        mse=metrics.get("mse"),
-        rmse=metrics.get("rmse"),
-        mae=metrics.get("mae"),
-        r2=metrics.get("r2"),
-        msle=metrics.get("msle"),
+        defaults=metrics,
     )
+
+    if not created:
+        metric.mse = metrics.get("mse")
+        metric.rmse = metrics.get("rmse")
+        metric.mae = metrics.get("mae")
+        metric.r2 = metrics.get("r2")
+        metric.msle = metrics.get("msle")
+        metric.save()
 
 def save_anomaly_metrics(scenario_model, model_name, feature_name, feature_values, anomalies, execution, production, anomaly_details=None, global_shap_images=None, local_shap_images=None, global_lime_images=None, local_lime_images=None
 ):
@@ -1159,47 +1165,6 @@ def save_shap_bar_local(shap_values, scenario_uuid, index) -> str:
         logger.warning(f"[SHAP LOCAL] Error while saving SHAP plot: {e}")
         return ""
 
-def save_anomaly_information(info: dict, uuid: str, index: int, protocol: str) -> str:
-    """
-    Generates and saves an image representation of anomaly information.
-
-    The image includes key-value pairs (e.g., protocol, ports, IPs) displayed as text.
-    This is useful for preserving structured anomaly metadata in a visual format.
-
-    Args:
-        info (dict): Dictionary containing anomaly information (e.g., IPs, ports).
-        uuid (str): Unique identifier for the scenario or execution.
-        index (int): Index of the anomaly instance.
-        protocol (str): Protocol name (e.g., TCP, UDP).
-
-    Returns:
-        str: Relative path to the saved image file.
-    """
-
-    # Enrich anomaly info with protocol and ensure port values are integers
-    info["protocol"] = protocol
-    info["src_port"] = int(info["src_port"])
-    info["dst_port"] = int(info["dst_port"])
-
-    logger.info("[ANOMALY INFO] Generating anomaly image with the following information: %s", info)
-
-    # Create the figure
-    plt.figure(figsize=(6, 4))
-    plt.axis("off")
-
-    # Format the text to display
-    text = "\n".join([f"{k}: {v}" for k, v in info.items()])
-    plt.text(0, 0.9, text, fontsize=10, va='top')
-
-    # Build output path
-    path = os.path.join(settings.MEDIA_ROOT, "anomaly_images", f"anomaly_{uuid}_{index}.png")
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-
-    # Save the image
-    plt.savefig(path, bbox_inches="tight")
-    plt.close()
-    return f"anomaly_images/anomaly_{uuid}_{index}.png"
-
 def check_and_send_email_alerts():
     """
     Checks all active email alert policies and sends notifications if thresholds are exceeded.
@@ -1342,7 +1307,7 @@ def build_pipelines_from_design(design, scenario_uuid, config, base_path):
             for model in section.get(key, []):
                 model_types.add(model["type"])
 
-    pipelines = []
+    pipelines: List[PipelineDef] = []
 
     # Traverse the sorted nodes and build pipelines for each model node
     for element_id in sorted_order:
@@ -1351,7 +1316,7 @@ def build_pipelines_from_design(design, scenario_uuid, config, base_path):
 
         # Only build pipeline for recognized model types
         if el_type in model_types:
-            pipeline_steps = []
+            pipeline_steps: List[tuple] = []
             visited = set()
             stack = [element_id]
 
@@ -1367,26 +1332,36 @@ def build_pipelines_from_design(design, scenario_uuid, config, base_path):
                     prev_type = elements[prev_id]["type"]
 
                     # Load the component from disk if it exists
-                    pkl_path = os.path.join(base_path, f'{prev_id}_{scenario_uuid}.pkl')
+                    pkl_path = os.path.join(base_path, f"{prev_id}_{scenario_uuid}.pkl")
                     if os.path.exists(pkl_path):
                         instance = joblib.load(pkl_path)
+                        # prepend para respetar el orden (de origen → modelo)
                         pipeline_steps.insert(0, (prev_type, instance))
 
             # Load the actual model instance
-            model_path = os.path.join(base_path, f'{element_id}_{scenario_uuid}.pkl')
-            if os.path.exists(model_path):
-                model_bundle = joblib.load(model_path)
+            model_path = os.path.join(base_path, f"{element_id}_{scenario_uuid}.pkl")
+            if not os.path.exists(model_path):
+                continue
 
-                # Extract model and optional training data
-                if isinstance(model_bundle, dict):
-                    model_instance = model_bundle.get("model")
-                    X_train = model_bundle.get("X_train")
-                else:
-                    model_instance = model_bundle
-                    X_train = None
+            model_bundle = joblib.load(model_path)
 
-                # Append the complete pipeline
-                pipelines.append((element_id, model_instance, pipeline_steps, X_train))
+            # Extract model and optional training data
+            if isinstance(model_bundle, dict):
+                model_instance = model_bundle.get("model")
+                X_train = model_bundle.get("X_train")
+            else:
+                model_instance = model_bundle
+                X_train = None
+
+            # Añadimos un PipelineDef en vez de una tupla
+            pipelines.append(
+                PipelineDef(
+                    id=element_id,
+                    model=model_instance,
+                    steps=pipeline_steps,
+                    X_train=X_train,
+                )
+            )
 
     return pipelines
 
@@ -2453,381 +2428,3 @@ def get_next_anomaly_index(scenario_model):
 
     # Return the next available index
     return current + 1
-
-def _clean_json_values(values):
-    """
-    Convierte un array/lista a una lista JSON-segura:
-    - ±inf -> NaN -> None
-    - NaN -> None
-    - numpy.* -> tipos nativos (float/int/bool/str)
-    """
-    # Acepta list/ndarray/Series
-    s = pd.Series(values, copy=False)
-
-    # Sustituir ±inf por NaN
-    s = s.replace([np.inf, -np.inf], np.nan)
-
-    cleaned = []
-    for x in s.tolist():
-        if pd.isna(x):
-            cleaned.append(None)
-        elif isinstance(x, (np.floating, float)):
-            cleaned.append(float(x))
-        elif isinstance(x, (np.integer, int)):
-            cleaned.append(int(x))
-        elif isinstance(x, (np.bool_, bool)):
-            cleaned.append(bool(x))
-        elif isinstance(x, (str,)):
-            cleaned.append(x)
-        else:
-            # Último recurso: convertir a string para no romper JSON
-            cleaned.append(str(x))
-    return cleaned
-
-
-# ----------------------------
-# Utilidades / helpers
-# ----------------------------
-
-def signed_hash(s: str, n_features: int) -> int:
-    """Hash determinista (MD5) a índice con signo (+/-1) para 'hashing trick'."""
-    h = hashlib.md5(s.encode('utf-8')).digest()
-    # Primeros 4 bytes → índice; siguiente 1 bit → signo
-    idx = int.from_bytes(h[:4], 'little', signed=False) % n_features
-    sign = 1 if (h[4] & 0x80) == 0 else -1
-    return idx * sign
-
-
-def errno_bucket(ret: int) -> str:
-    """Mapeo grueso de errno a buckets semánticos; ret>=0 => OK."""
-    if ret is None or ret >= 0:
-        return "OK"
-    # errno negativo (convención Linux)
-    e = -int(ret)
-    # grupos muy comunes
-    perm = {1, 13, 126, 127}  # EPERM, EACCES, ...
-    notfound = {2, 3, 20, 107, 111, 113, 115, 121}  # ENOENT, ESRCH, ENOTDIR, ENOTCONN, ECONNREFUSED, EHOSTUNREACH, EINPROGRESS, ETIMEDOUT
-    inval = {22, 14}   # EINVAL, EFAULT
-    again = {11}       # EAGAIN
-    nospc = {28, 122}  # ENOSPC, EDQUOT
-    busy = {16, 26}    # EBUSY, ETXTBSY
-    if e in perm: return "EPERM_EACCES"
-    if e in notfound: return "ENOENT_NET"
-    if e in inval: return "EINVAL_EFAULT"
-    if e in again: return "EAGAIN"
-    if e in nospc: return "ENOSPC"
-    if e in busy: return "EBUSY"
-    return "OTHER"
-
-
-def log1p_clamp(x, lo=-1e6, hi=1e6):
-    if x is None:
-        return 0.0
-    try:
-        if math.isnan(x):
-            return 0.0
-    except TypeError:
-        pass
-    return math.log1p(max(min(float(x), hi), lo))
-
-
-def ewm_update(prev_value: float, obs: float, dt: float, tau: float) -> float:
-    """Exponential Weighted Mean con dt variable: α = 1 - exp(-dt/τ)."""
-    if dt is None or dt < 0:
-        dt = 0.0
-    if tau <= 0:
-        return obs
-    alpha = 1.0 - math.exp(-dt / tau)
-    base = prev_value if prev_value is not None else 0.0
-    return (1.0 - alpha) * base + alpha * obs
-
-
-# ----------------------------
-# Estado por clave (pid/comm)
-# ----------------------------
-
-@dataclass
-class KeyState:
-    last_ts: Optional[float] = None
-    prev_syscall: Optional[str] = None
-    run_len: int = 0
-    # Tasas EWM
-    rate_tau05: float = 0.0
-    rate_tau5: float = 0.0
-    fail_tau5: float = 0.0
-    # Tasas por syscall (compactas)
-    by_syscall_tau5: Dict[str, float] = field(default_factory=dict)
-
-
-# ----------------------------
-# Extractor online
-# ----------------------------
-
-@dataclass
-class OnlineFeatureExtractor:
-    # Dimensiones de hashing
-    n_hash_sys: int = 256      # 1-gram (syscall)
-    n_hash_pair: int = 256     # par (prev,curr)
-    n_hash_comm: int = 64      # 'comm'
-    # Control de crecimiento del diccionario by_syscall
-    limit_by_syscall: int = 8  # top-N por key
-    # Constantes de tiempo (seg)
-    tau_short: float = 0.5
-    tau_long: float = 5.0
-    # Emitir sidecar con tokens activos por bucket
-    emit_sidecar: bool = False
-
-    # Estado online por pid y comm
-    st_pid: Dict[int, KeyState] = field(default_factory=dict)
-    st_comm: Dict[str, KeyState] = field(default_factory=dict)
-
-    # Nombres legibles para densos (ajusta si añades/eliminas)
-    num_feature_names: List[str] = field(default_factory=lambda: [
-        "log1p(dur)",
-        "is_main",
-        "tid_mod8",
-        "uid_bucket",
-        "log1p(dt_pid_prev)",
-        "log1p(dt_comm_prev)",
-        "pid.rate_tau05",
-        "pid.rate_tau5",
-        "pid.fail_tau5",
-        "comm.rate_tau05",
-        "comm.rate_tau5",
-        "comm.fail_tau5",
-        "pid.run_len",
-    ])
-
-    # ---------- API de nombres/offsets ----------
-
-    def feature_offsets(self) -> Dict[str, Tuple[int, int]]:
-        """Offsets [ini, fin) por bloque de features."""
-        off_sys = 0
-        off_pair = off_sys + self.n_hash_sys
-        off_comm = off_pair + self.n_hash_pair
-        off_errno = off_comm + self.n_hash_comm
-        off_bysys = off_errno + 16
-        off_nums = off_bysys + 64
-        return {
-            "sys":   (off_sys,   off_sys   + self.n_hash_sys),
-            "pair":  (off_pair,  off_pair  + self.n_hash_pair),
-            "comm":  (off_comm,  off_comm  + self.n_hash_comm),
-            "errno": (off_errno, off_errno + 16),
-            "bysys": (off_bysys, off_bysys + 64),
-            "nums":  (off_nums,  off_nums  + len(self.num_feature_names)),
-        }
-
-    def feature_names(self) -> List[str]:
-        """
-        Nombres legibles y estables por bloque.
-        Para buckets hasheados, prefijo + '#hXXX' (índice relativo al bloque).
-        """
-        offs = self.feature_offsets()
-        names: List[str] = []
-
-        # sys hash
-        names += [f"sys#h{j:03d}" for j in range(offs["sys"][1] - offs["sys"][0])]
-        # pair hash
-        names += [f"pair#h{j:03d}" for j in range(offs["pair"][1] - offs["pair"][0])]
-        # comm hash
-        names += [f"comm#h{j:03d}" for j in range(offs["comm"][1] - offs["comm"][0])]
-        # errno hash
-        names += [f"errno#h{j:03d}" for j in range(offs["errno"][1] - offs["errno"][0])]
-        # bysys hash
-        names += [f"bysys#h{j:03d}" for j in range(offs["bysys"][1] - offs["bysys"][0])]
-        # densos con nombre real
-        names += list(self.num_feature_names)
-
-        return names
-
-    def feature_dim(self) -> int:
-        """Total de dimensiones."""
-        return (self.n_hash_sys + self.n_hash_pair + self.n_hash_comm +
-                16 + 64 + len(self.num_feature_names))
-
-    # ---------- Internos de hashing ----------
-
-    def _hashvec(self, keys: List[str], n: int) -> np.ndarray:
-        """Vectorizado con hashing; sin sidecar."""
-        v = np.zeros(n, dtype=np.float32)
-        for k in keys:
-            idx_signed = signed_hash(k, n)
-            idx = abs(idx_signed) % n
-            v[idx] += 1.0 if idx_signed >= 0 else -1.0
-        return v
-
-    def _hashvec_with_keys(self, keys: List[str], n: int) -> Tuple[np.ndarray, Dict[int, List[str]]]:
-        """Hashing + sidecar: idx_local -> [tokens]."""
-        v = np.zeros(n, dtype=np.float32)
-        hit: Dict[int, List[str]] = {}
-        for k in keys:
-            idx_signed = signed_hash(k, n)
-            idx = abs(idx_signed) % n
-            v[idx] += 1.0 if idx_signed >= 0 else -1.0
-            hit.setdefault(idx, []).append(k)
-        return v, hit
-
-    # ---------- Actualización de estado ----------
-
-    def _update_state(self, ks: KeyState, t: float, curr_sys: str, ok: bool) -> float:
-        dt = (t - ks.last_ts) if ks.last_ts is not None else None
-        # EWM de tasas (obs=1 evento)
-        ks.rate_tau05 = ewm_update(ks.rate_tau05, 1.0, dt, self.tau_short)
-        ks.rate_tau5  = ewm_update(ks.rate_tau5,  1.0, dt, self.tau_long)
-        # EWM de fallos (obs=1 si fallo)
-        ks.fail_tau5  = ewm_update(ks.fail_tau5, 0.0 if ok else 1.0, dt, self.tau_long)
-        # EWM por syscall
-        if curr_sys:
-            d = ks.by_syscall_tau5
-            if curr_sys not in d and len(d) >= self.limit_by_syscall:
-                # desalojo simple: elimina el de menor valor
-                victim = min(d.items(), key=lambda kv: kv[1])[0]
-                d.pop(victim, None)
-            prev = d.get(curr_sys, 0.0)
-            d[curr_sys] = ewm_update(prev, 1.0, dt, self.tau_long)
-        # run-length
-        if ks.prev_syscall == curr_sys:
-            ks.run_len = min(ks.run_len + 1, 8)
-        else:
-            ks.run_len = 1
-        ks.prev_syscall = curr_sys
-        ks.last_ts = t
-        return 0.0 if dt is None else float(dt)
-
-    # ---------- Transformación de un evento ----------
-
-    def transform_event(self, ev: dict) -> Tuple[np.ndarray, dict]:
-        """
-        Recibe un evento JSON ya parseado (línea de tu JSONL).
-        Devuelve (x, meta), donde x es el vector de características y meta
-        contiene metadatos y, si emit_sidecar=True, un mapeo de índices -> tokens.
-        """
-        # Campos base
-        ts = (ev.get("ts_enter_nsecs") or ev.get("ts", 0)) / 1e9
-        dur = (ev.get("duration_nsecs") or 0) / 1e9
-        pid = int(ev.get("pid", -1))
-        tid = int(ev.get("tid", -1))
-        uid = int(ev.get("uid", -1))
-        ret = ev.get("ret", 0)
-        syscall = str(ev.get("syscall_name") or ev.get("syscall_nr") or "")
-        comm = str(ev.get("comm") or "")
-
-        is_main = 1.0 if pid == tid else 0.0
-        tid_mod8 = float(tid % 8 if tid >= 0 else 0)
-        uid_bucket = float(min(max(uid, 0), 65535))  # coarse
-
-        ok = (ret is not None and int(ret) >= 0)
-        e_bucket = errno_bucket(int(ret) if ret is not None else 0)
-
-        # Estados por PID y por comm
-        ks_pid = self.st_pid.setdefault(pid, KeyState())
-        ks_comm = self.st_comm.setdefault(comm, KeyState())
-
-        # --- IMPORTANTE: capturar prev antes de actualizar ---
-        prev_pid_sys = ks_pid.prev_syscall
-        prev_comm_sys = ks_comm.prev_syscall
-
-        # Actualizar estado (devuelve dt previas)
-        dt_pid_prev = self._update_state(ks_pid, ts, syscall, ok)
-        dt_comm_prev = self._update_state(ks_comm, ts, syscall, ok)
-
-        # HASH features + sidecar opcional
-        if self.emit_sidecar:
-            v_sys, hk_sys = self._hashvec_with_keys([f"sys:{syscall}"], self.n_hash_sys)
-
-            pair_keys: List[str] = []
-            if prev_pid_sys:
-                pair_keys.append(f"pair_pid:{prev_pid_sys}->{syscall}")
-            if prev_comm_sys:
-                pair_keys.append(f"pair_comm:{prev_comm_sys}->{syscall}")
-            v_pair, hk_pair = self._hashvec_with_keys(pair_keys, self.n_hash_pair)
-
-            v_comm, hk_comm = self._hashvec_with_keys([f"comm:{comm}"], self.n_hash_comm)
-            v_errno, hk_en = self._hashvec_with_keys(
-                [f"errno:{e_bucket}", f"ok:{'1' if ok else '0'}"], 16
-            )
-
-            # by-syscall EWM compactas (PID + COMM), sumadas
-            top_pid = sorted(ks_pid.by_syscall_tau5.items(), key=lambda kv: -kv[1])[: self.limit_by_syscall]
-            top_comm = sorted(ks_comm.by_syscall_tau5.items(), key=lambda kv: -kv[1])[: self.limit_by_syscall]
-            bysys: Dict[str, float] = {}
-            for k, v in top_pid:
-                bysys[f"pid::{k}"] = bysys.get(f"pid::{k}", 0.0) + v
-            for k, v in top_comm:
-                bysys[f"comm::{k}"] = bysys.get(f"comm::{k}", 0.0) + v
-            v_bysys, hk_bs = self._hashvec_with_keys(
-                [f"bysys:{k}:{v:.3f}" for k, v in bysys.items()], 64
-            )
-        else:
-            v_sys = self._hashvec([f"sys:{syscall}"], self.n_hash_sys)
-
-            pair_keys = []
-            if prev_pid_sys:
-                pair_keys.append(f"pair_pid:{prev_pid_sys}->{syscall}")
-            if prev_comm_sys:
-                pair_keys.append(f"pair_comm:{prev_comm_sys}->{syscall}")
-            v_pair = self._hashvec(pair_keys, self.n_hash_pair)
-
-            v_comm = self._hashvec([f"comm:{comm}"], self.n_hash_comm)
-            v_errno = self._hashvec([f"errno:{e_bucket}", f"ok:{'1' if ok else '0'}"], 16)
-
-            top_pid = sorted(ks_pid.by_syscall_tau5.items(), key=lambda kv: -kv[1])[: self.limit_by_syscall]
-            top_comm = sorted(ks_comm.by_syscall_tau5.items(), key=lambda kv: -kv[1])[: self.limit_by_syscall]
-            bysys = {}
-            for k, v in top_pid:
-                bysys[f"pid::{k}"] = bysys.get(f"pid::{k}", 0.0) + v
-            for k, v in top_comm:
-                bysys[f"comm::{k}"] = bysys.get(f"comm::{k}", 0.0) + v
-            v_bysys = self._hashvec([f"bysys:{k}:{v:.3f}" for k, v in bysys.items()], 64)
-
-        # Numéricos densos
-        nums = np.array(
-            [
-                log1p_clamp(dur),
-                float(is_main),
-                tid_mod8,
-                uid_bucket,
-                log1p_clamp(dt_pid_prev),
-                log1p_clamp(dt_comm_prev),
-                ks_pid.rate_tau05,
-                ks_pid.rate_tau5,
-                ks_pid.fail_tau5,
-                ks_comm.rate_tau05,
-                ks_comm.rate_tau5,
-                ks_comm.fail_tau5,
-                float(min(ks_pid.run_len, 8)),
-            ],
-            dtype=np.float32,
-        )
-
-        # Concatenación final
-        x = np.concatenate([v_sys, v_pair, v_comm, v_errno, v_bysys, nums], axis=0)
-
-        meta = {
-            "ts": ts,
-            "pid": pid,
-            "tid": tid,
-            "comm": comm,
-            "syscall": syscall,
-            "ret": ret,
-            "ok": ok,
-        }
-
-        # Sidecar: índices absolutos -> tokens que los activaron
-        if self.emit_sidecar:
-            offs = self.feature_offsets()
-            active: Dict[int, List[str]] = {}
-
-            def add_hits(base: int, hits: Dict[int, List[str]]):
-                for local_idx, toks in hits.items():
-                    active[base + local_idx] = list(toks)
-
-            add_hits(offs["sys"][0], hk_sys)
-            add_hits(offs["pair"][0], hk_pair)
-            add_hits(offs["comm"][0], hk_comm)
-            add_hits(offs["errno"][0], hk_en)
-            add_hits(offs["bysys"][0], hk_bs)
-
-            meta["active_feature_names"] = active  # opcional para explicabilidad
-
-        return x, meta

@@ -1,9 +1,35 @@
-/* ============================================================
-   User — 2025 Blue/Glass UI (reemplazo completo)
-   Coherente con Anomaly Detector y estilos globales
-   ============================================================ */
+:host{
+  display: block;
+  height: calc(100vh - 120px);
+  overflow: hidden;
+  width: 100%;
+  flex: 1 1 auto;
+}
 
-/* ---------- Botones flotantes (abajo derecha) ---------- */
+.user-page{
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  overflow: hidden;
+  width: 100%;
+}
+
+.user-section-card{
+  display: flex;
+  flex-direction: column;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  backdrop-filter: saturate(140%) blur(10px);
+  -webkit-backdrop-filter: saturate(140%) blur(10px);
+  border-radius: 16px;
+  padding: clamp(18px, 2.2vw, 28px);
+  width: 100%;
+  max-width: 1100px;
+  box-shadow: 0 10px 30px rgba(28, 77, 214, .10);
+}
+
+/* Floating options container in the bottom-right corner */
 .options-container{
   position: fixed;
   bottom: 24px;
@@ -14,14 +40,14 @@
   gap: 12px;
 }
 
-/* Estilo glass/azul como en Anomaly Detector */
+/* Glass/blue floating buttons for edit and password actions */
 .edit-button,
 .password-button{
   display: inline-grid;
   place-items: center;
-  width: 52px;
-  height: 52px;
-  border-radius: 14px;
+  width: var(--fab-size-md);
+  height: var(--fab-size-md);
+  border-radius: 12px;
   border: 1px solid rgba(255,255,255,.65);
   background: color-mix(in oklab, #fff 75%, var(--blue-50) 25%);
   backdrop-filter: blur(16px) saturate(120%);
@@ -31,50 +57,67 @@
   box-shadow: 0 14px 28px rgba(22,36,80,.12), 0 2px 6px rgba(22,36,80,.06);
   transition: transform .08s ease, box-shadow .2s ease, background .2s ease;
 }
+
+/* Hover effect: slight lift and stronger shadow */
 .edit-button:hover,
 .password-button:hover{
   transform: translateY(-2px);
-  box-shadow: 0 18px 34px rgba(28, 70, 170, .16), 0 3px 10px rgba(28, 70, 170, .08);
+  box-shadow: 0 18px 34px rgba(28,70,170,.16), 0 3px 10px rgba(28,70,170,.08);
 }
-.edit-button i,
-.password-button i{ font-size: 18px; line-height: 1; }
 
-/* Tooltip consistente */
+/* Icon inside floating buttons */
+.edit-button i,
+.password-button i{
+  font-size: var(--font-lg);
+  line-height: 1;
+}
+
+/* Tooltip bubble shown when hovering the floating buttons */
 .tooltip-text{
   position: absolute;
-  right: calc(100% + 8px);
-  top: 50%;
-  transform: translateY(-50%);
+  right: 56px;
   white-space: nowrap;
   visibility: hidden;
   opacity: 0;
   pointer-events: none;
+  transform: translateY(0);
+  font-size: var(--font-md);
   transition: opacity .2s ease, visibility .2s ease;
   background: #343a40;
   color: #fff;
   border-radius: 8px;
   padding: 6px 10px;
-  font-size: 12px;
   box-shadow: 0 6px 20px rgba(0,0,0,.18);
 }
+
+/* Show tooltip on hover */
 .edit-button:hover .tooltip-text,
 .password-button:hover .tooltip-text{
   visibility: visible;
   opacity: 1;
 }
 
-/* ---------- Títulos ---------- */
+/* Titles for main sections and modals */
 .section-title,
 .edit-title,
 .change-password-title{
   margin: 0 0 14px 0;
-  font-size: clamp(18px, 2.2vw, 24px);
+  font-size: var(--font-xl);
   font-weight: 700;
   letter-spacing: .2px;
   color: var(--text-strong);
-  text-align: left;
   position: relative;
 }
+
+/* Center section titles and align them visually with tables */
+.section-title{
+  text-align: center;
+  display: block;
+  width: min(900px, 100%);
+  margin: 0 auto 6px auto;
+}
+
+/* Underline decoration for modal titles */
 .edit-title::after,
 .change-password-title::after{
   content:'';
@@ -86,23 +129,27 @@
   border-radius:2px;
 }
 
-/* ---------- Tablas centradas ---------- */
+/* Centered information tables with glass effect */
 .information-table{
-  width: min(100%, 900px);      /* ancho máx. centrado */
-  margin: 0 auto 24px auto;     /* centra horizontal */
+  width: min(100%, 900px);
+  margin: 0 auto 24px auto;
   border-collapse: collapse;
-  font-size: 15px;
+  font-size: var(--font-md);
   border-radius: 12px;
   overflow: hidden;
   background: rgba(255,255,255,.55);
   box-shadow: 0 10px 28px rgba(28,77,214,.08);
 }
+
+/* Fixed layout for header and rows */
 .information-table thead,
 .information-table tbody tr{
   display: table;
   width: 100%;
   table-layout: fixed;
 }
+
+/* Sticky table header with blue gradient background */
 .information-table thead{
   position: sticky;
   top: 0;
@@ -110,30 +157,41 @@
   background: linear-gradient(180deg, var(--blue-500), var(--blue-600));
   color: #fff;
 }
+
+/* Header cells: white text and strong weight */
 .information-table th{
   padding: 12px 14px;
   text-align: left;
-  color: #fff;              /* títulos SIEMPRE en blanco */
+  color: #fff;
   font-weight: 700;
   letter-spacing: .02em;
 }
 
+/* Body cells: normal text color */
 .information-table td{
   padding: 12px 14px;
   text-align: left;
-  color: var(--text);       /* contenido normal en negro */
+  color: var(--text);
 }
+
+/* Scrollable table body when content is tall */
 .information-table tbody{
   display: block;
-  max-height: 60vh;      /* scroll solo en cuerpo */
+  max-height: 60vh;
   overflow-y: auto;
 }
+
+/* Row separation lines */
 .information-table tbody tr:not(:last-child) td{
   border-bottom: 1px solid rgba(36, 87, 255, .14);
 }
-.statistics-section{ margin-top: 28px; }
 
-/* Scrollbar suave */
+/* Extra spacing before the statistics section */
+.statistics-section{
+  margin-top: 28px;
+}
+
+/* Custom scrollbar for the table body */
 .information-table tbody::-webkit-scrollbar{ width: 10px; }
 .information-table tbody::-webkit-scrollbar-thumb{
   background: linear-gradient(180deg, var(--blue-400), var(--blue-600));
@@ -144,7 +202,7 @@
   border-radius: 10px;
 }
 
-/* ---------- Modales (Editar / Cambiar password) ---------- */
+/* Modal dialog wrapper with slide-in animation */
 .modal-dialog{
   display: flex;
   justify-content: center;
@@ -152,11 +210,14 @@
   padding: 24px;
   animation: slideIn .35s ease-out;
 }
+
+/* Slide-in animation for modals */
 @keyframes slideIn{
   from{ transform: translateY(-8px); opacity: 0; }
   to{ transform: translateY(0); opacity: 1; }
 }
 
+/* Shared modal panel styles for edit and change-password modals */
 .change-password-modal .modal-content,
 .edit-modal .modal-content{
   background: var(--card-bg);
@@ -168,55 +229,96 @@
   width: min(720px, 96vw);
   box-shadow: 0 18px 44px rgba(31, 38, 135, 0.18);
   color: var(--text);
-  position:fixed;
+  position: absolute;
+  inset: 0;
   transform: translateX(50%);
   justify-content: center;
 }
+
+/* Modal overlay covering the content area */
+.edit-modal,
+.change-password-modal{
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  pointer-events: auto;
+}
+
+/* Centered modal content with max height and scroll */
+.edit-modal .modal-content,
+.change-password-modal .modal-content{
+  position: static;
+  transform: none;
+  margin: 0;
+  width: min(720px, 96%);
+  max-height: 90%;
+  overflow-y: auto;
+}
+
+/* Modal body with reserved space for scrollbar */
 .modal-body{
   max-height: 50vh;
   overflow-y: auto;
-  padding-right: 4px; /* hueco para scrollbar */
+  padding-right: 4px;
 }
 
-/* ---------- Inputs + icono ojo fijo ---------- */
+/* Form group wrapper for inputs inside modals */
 .form-group{ margin-bottom: 16px; }
+
+/* Wrapper to position icons inside inputs */
 .input-wrapper{ position: relative; }
+
+/* Inputs used in change-password and edit modals */
 .change-password-input,
 .edit-input{
   background: var(--field-bg);
   border: 1px solid var(--field-border);
   border-radius: 12px;
   color: var(--text);
-  font-size: 15px;
-  padding: 12px 44px 12px 14px; /* espacio para el icono */
+  font-size: var(--font-md);
+  padding: 12px 44px 12px 14px;
   width: 100%;
   transition: border-color .15s ease, box-shadow .15s ease;
 }
+
+/* Focus state for modal inputs */
 .change-password-input:focus,
 .edit-input:focus{
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 4px var(--ring);
 }
+
+/* Password visibility toggle button inside input */
 .password-toggle-btn{
   position: absolute;
   right: 12px; top: 50%;
   transform: translateY(-50%);
-  background: none; border: 0;
+  background: none;
+  border: 0;
   color: #8d97ab;
-  cursor: pointer; padding: 0; line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
 }
-.password-toggle-btn:hover{ color: var(--accent); }
 
-/* Mensajes de error sin “saltar” el layout */
+/* Hover state for password toggle icon */
+.password-toggle-btn:hover{
+  color: var(--accent);
+}
+
+/* Error message text with reserved space to avoid layout jumps */
 .error-message{
   color: var(--danger);
-  font-size: 12.5px;
+  font-size: var(--font-sm);
   margin: 6px 2px 0 2px;
-  min-height: 16px; /* reserva de espacio */
+  min-height: 16px;
 }
 
-/* ---------- Footer de modales ---------- */
+/* Modal footer with two-column button layout */
 .modal-footer.button-row{
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -224,7 +326,7 @@
   padding: 18px 0 4px 0;
 }
 
-/* Botones principales (submit) */
+/* Primary action buttons (edit / change password) */
 .edit-btn,
 .change-password-btn{
   background: linear-gradient(180deg, var(--btn-from), var(--btn-to));
@@ -237,17 +339,23 @@
   box-shadow: 0 6px 18px rgba(46, 121, 255, .28);
   transition: transform .06s ease, filter .2s ease, box-shadow .2s ease;
 }
+
+/* Hover/active/focus styles for primary buttons */
 .edit-btn:hover,
-.change-password-btn:hover{ filter: brightness(1.03); }
+.change-password-btn:hover{
+  filter: brightness(1.03);
+}
 .edit-btn:active,
-.change-password-btn:active{ transform: translateY(1px); }
+.change-password-btn:active{
+  transform: translateY(1px);
+}
 .edit-btn:focus-visible,
 .change-password-btn:focus-visible{
   outline: none;
   box-shadow: 0 0 0 4px var(--ring), 0 6px 18px rgba(46, 121, 255, .28);
 }
 
-/* Botones cancelar */
+/* Cancel buttons for modals */
 .cancel-edit-btn,
 .cancel-change-password-btn{
   background: #4f5051;
@@ -259,16 +367,52 @@
   cursor: pointer;
   transition: filter .2s ease;
 }
-.cancel-edit-btn:hover,
-.cancel-change-password-btn:hover{ filter: brightness(1.03); }
 
-/* ---------- Responsivo ---------- */
-@media (max-width: 640px){
-  .modal-footer.button-row{ grid-template-columns: 1fr; }
-  .options-container{ right: 16px; bottom: 16px; }
+/* Hover state for cancel buttons */
+.cancel-edit-btn:hover,
+.cancel-change-password-btn:hover{
+  filter: brightness(1.03);
 }
 
-/* ---------- Accesibilidad ---------- */
+/* Stack modal footer buttons on small screens */
+@media (max-width: 640px){
+  .modal-footer.button-row{
+    grid-template-columns: 1fr;
+  }
+  .options-container{
+    right: 16px;
+    bottom: 16px;
+  }
+}
+
+/* Disable animations and transitions for users who prefer reduced motion */
 @media (prefers-reduced-motion: reduce){
   *{ transition: none !important; animation: none !important; }
+}
+
+/* Host element: center user sections vertically and horizontally */
+:host{
+  display: grid;
+  min-height: 100%;
+  align-content: center;
+  justify-items: center;
+  padding-block: clamp(24px, 6vh, 72px);
+}
+
+/* Wrapper for “User Information” and “User Statistics” blocks */
+.user-wrap{
+  display: grid;
+  gap: clamp(60px, 10vh, 120px);
+  width: min(980px, 92%);
+}
+
+/* Each section groups title and table */
+.user-section{
+  display: grid;
+  gap: 14px;
+}
+
+/* Extra spacing before the statistics group */
+.statistics-section{
+  margin-top: clamp(12px, 2vh, 20px);
 }

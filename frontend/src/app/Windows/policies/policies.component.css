@@ -1,105 +1,129 @@
-/* Container for the policy section: centered card with blur and shadow */
-.policies-section{
-  margin:24px auto;
-  width:min(100%, 900px);
-  padding:24px 28px;
+/* Container for the policy section: centered card inside the content area */
+.policies-page{
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 0 clamp(16px, 6vw, 100px);
+}
+
+/* Main policy card: glassy panel with blur, shadow and scrollable content */
+.policies-section {
+  margin: 0;
+  width: min(900px, 90%);
   background: var(--card-bg);
-  border:1px solid var(--card-border);
-  border-radius:18px;
+  border: 1px solid var(--card-border);
+  border-radius: 18px;
+  padding: 24px 28px;
   box-shadow: 0 20px 60px rgba(22,36,80,.18), 0 2px 8px rgba(22,36,80,.06);
   backdrop-filter: blur(22px) saturate(120%);
   -webkit-backdrop-filter: blur(22px) saturate(120%);
+  max-width: min(900px, 90%);
+  max-height: calc(100% - 40px);
+  overflow: auto;
 }
 
-/* Title of the policy section with underline decoration */
+/* Section title with strong typography and underline accent */
 .policies-title{
-  margin:6px 0 18px;
-  font-size:22px;
-  font-weight:800;
-  letter-spacing:.01em;
+  margin: 6px 0 18px;
+  font-size: var(--font-xl);
+  font-weight: 800;
+  letter-spacing: .01em;
   color: var(--blue-600);
   position: relative;
 }
 
-/* Decorative line under the title */
+/* Decorative underline under the title */
 .policies-title::after{
-  content:"";
-  position:absolute;
-  left:0; bottom:-10px;
-  width:120px; height:3px;
-  border-radius:6px;
+  content: "";
+  position: absolute;
+  left: 0; bottom: -10px;
+  width: 120px; height: 3px;
+  border-radius: 6px;
   background: linear-gradient(180deg, var(--blue-500), var(--blue-600));
 }
 
-/* Group container for each policy input and label */
+/* Two-column grid for policy inputs */
 .policies-form{
-  display:grid;
+  display: grid;
   grid-template-columns: 1fr 1fr;
-  gap:14px 18px;
-  align-items:start;
+  gap: 14px 18px;
+  align-items: start;
 }
+
+/* Utility to make an element span the entire row */
 .span-2{ grid-column: 1 / -1; }
 
+/* Group wrapper for each label + input/select pair */
 .policy-form-group{
-  display:flex;
-  flex-direction:column;
-  gap:8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-/* Label for inputs and selects */
+/* Label styling for form fields */
 .policy-label{
-  font-weight:700;
+  font-weight: 700;
   color: var(--muted);
-  font-size:14px;
+  font-size: var(--font-sm);
 }
 
-/* Input and select field styling */
+/* Input and select fields with smooth interactive transitions */
 .policy-input,
 .policy-select{
-  appearance:none;
+  appearance: none;
   background: var(--field-bg);
-  border:1px solid var(--field-border);
-  border-radius:12px;
+  border: 1px solid var(--field-border);
+  border-radius: 12px;
   color: var(--text);
-  font-size:14px;
-  padding:12px 14px;
+  font-size: var(--font-md);
+  padding: 12px 14px;
   transition: box-shadow .2s, border-color .2s, background .2s;
 }
 
-/* Focus effect for input and select fields */
+/* Highlight focus state with accent ring */
 .policy-input:focus,
 .policy-select:focus{
-  outline:none;
+  outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 4px var(--ring);
 }
 
-/* Button for applying the policy */
-.apply-policy-button{
-  grid-column: 1 / -1;
-  height:44px;
-  border-radius:12px;
-  padding:0 18px;
-  border:1px solid rgba(255,255,255,.65);
+/* Apply button: full-width primary action with gradient and elevation */
+.apply-policy-button {
+  display: inline-grid;
+  place-items: center;
+  width: 100%;
+  height: 56px;
+  margin-top: 12px;
+  border: 0;
+  border-radius: 16px;
   background: linear-gradient(180deg, var(--btn-from), var(--btn-to));
-  color:#fff;
-  font-weight:700;
-  letter-spacing:.02em;
-  cursor:pointer;
-  box-shadow: 0 12px 30px rgba(22,36,80,.18), 0 1px 4px rgba(22,36,80,.08);
-  transition: transform .08s, box-shadow .2s, filter .2s;
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: .02em;
+  font-size: var(--font-md);
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow:
+    0 10px 24px rgba(36,87,255,.35),
+    inset 0 1px 0 rgba(255,255,255,.25);
+  transition: transform .06s ease, box-shadow .2s ease, filter .2s ease;
 }
 
-/* Hover effect for the apply button */
-.apply-policy-button:hover {
-  background: #007e8d;
-  box-shadow: 0 4px 12px rgba(0, 151, 166, 0.3);
+/* Style for apply-policy button state */
+.apply-policy-button:hover{ transform: translateY(-1px); filter: saturate(110%); }
+.apply-policy-button:active{ transform: translateY(0); box-shadow: 0 8px 18px rgba(36,87,255,.28); }
+.apply-policy-button:focus-visible{ outline: none; box-shadow: 0 0 0 4px var(--ring), 0 10px 24px rgba(36,87,255,.35); }
+
+.span-2 {
+  grid-column: 1 / -1;
 }
 
-/* Message displayed after applying policy */
+/* Result message displayed after policy application */
 .policy-result-message {
   margin-top: 20px;
   color: #2d3436;
-  font-size: 15px;
+  font-size: var(--font-md);
   text-align: center;
 }

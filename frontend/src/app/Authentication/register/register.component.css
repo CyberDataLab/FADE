@@ -21,9 +21,8 @@ html, body {
   }
   @media (max-width: 480px){
     .register-btn, .register-input{ height: 52px; }
-    .register-title{ font-size: 32px; }
-    .input-icon{ top: 18px; }        /* (52 - 16)/2 */
-    .password-toggle-btn{ top: 12px; }/* (52 - 28)/2 */
+    .input-icon{ top: 18px; }
+    .password-toggle-btn{ top: 12px; }
   }
 
 /* Modal animation and alignment */
@@ -75,7 +74,7 @@ html, body {
     margin: 0 0 28px;
     font-weight: 800;
     letter-spacing: -0.02em;
-    font-size: clamp(30px, 5.5vw, 44px);
+    font-size: var(--font-xl);
     line-height: 1.1;
     color: var(--text-strong, #2156e7);
     text-align: left;
@@ -102,8 +101,8 @@ html, body {
     border: 1px solid var(--field-border, rgba(28,77,214,.14));
     background: var(--field-bg, rgba(255,255,255,.92));
     color: var(--text, #1b2430);
-    padding: 0 48px 0 18px; /* iconos a la derecha si no hay .with-icon */
-    font-size: 16px;
+    padding: 0 48px 0 18px;
+    font-size: var(--font-md);
     line-height: 1;
     box-shadow: 0 1px 0 rgba(18,48,128,.03);
     transition: box-shadow .2s ease, border-color .2s ease, background .2s ease, transform .06s ease;
@@ -121,10 +120,9 @@ html, body {
   position: fixed;
   top: 20px;
   right: 20px;
-  z-index: 9999; /* por encima del modal */
+  z-index: 9999;
 }
   
-
 /* Placeholder appearance */
 .register-input::placeholder{ color: #7a8699; }
 
@@ -140,14 +138,14 @@ html, body {
     left: 16px;
     transform: none;
     color: var(--btn-from, #2e79ff);
-    font-size: 16px;
+    font-size: var(--font-md);
     pointer-events: none;
   }
 
 /* Error message style */
 .error-message{
     color: #ff4757;
-    font-size: 14px;
+    font-size: var(--font-sm);
     margin: 8px 0 0;
   }
 
@@ -164,7 +162,7 @@ html, body {
     color: #fff;
     font-weight: 700;
     letter-spacing: .02em;
-    font-size: 16px;
+    font-size: var(--font-md);
     text-transform: uppercase;
     cursor: pointer;
     box-shadow:
@@ -190,7 +188,7 @@ html, body {
     gap: clamp(10px, 2vw, 28px);
     margin-top: 18px;
     flex-wrap: wrap;
-    font-size: 14px;
+    font-size: var(--font-sm);
   }
 
 /* Styling for the register links */
