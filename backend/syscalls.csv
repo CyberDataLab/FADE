@@ -1,2 +1,0 @@
-window_start_ns,window_end_ns,read,write,openat,close,fstat,mmap,mprotect,munmap,brk,rt_sigaction,rt_sigprocmask,ioctl,poll,select,futex,nanosleep,sched_yield,total_syscalls
-2219907072052,2220907048581,4627,9304,120,129,2832,4,0,4,0,0,187,236,32,0,16780,315,28,34598

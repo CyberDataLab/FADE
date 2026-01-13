@@ -63,8 +63,6 @@ def handle_syscalls_anomalies(
             df = pd.DataFrame([data])
 
             df_copy = df.copy() 
-
-            df.to_csv('syscalls.csv', index=False)
             
             if df.empty:
                 continue
