@@ -220,7 +220,7 @@ export class ScenarioService {
    * 
    * @returns Observable with response
    */
-  editScenario(uuid: string, design: any, csvFiles?: File[], networkFiles?: File[], logFiles?: File[]): Observable<any> {
+  editScenario(uuid: string, design: any, csvFiles?: File[], networkFiles?: File[], jsonlFiles?: File[]): Observable<any> {
     if (isPlatformBrowser(this.platformId)) {
       const formData = new FormData();
       formData.append('design', JSON.stringify(design));
@@ -236,8 +236,8 @@ export class ScenarioService {
       }
 
       // Append log files to FormData if provided
-      if (logFiles && logFiles.length > 0) {
-        logFiles.forEach(file => formData.append('log_files', file));
+      if (jsonlFiles && jsonlFiles.length > 0) {
+        jsonlFiles.forEach(file => formData.append('jsonl_files', file));
       }
   
       return this.handleRequest(this.http.put(`${this.apiUrl}put/${uuid}/`, formData, {
