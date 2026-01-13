@@ -2295,9 +2295,7 @@ def play_scenario_production_by_uuid(request, uuid):
             )
             cap = CaptureConfig(
                 mode=analysis_mode,  # "flow" or "packet"
-                run_env="docker",
-                # bpftrace_script is kept for compatibility, but not used for plain network capture
-                bpftrace_script="/home/anomalydetector/defender_software/syscalls_event.bt",
+                run_env="docker"
             )
         else:
             # Syscalls mode with bpftrace
@@ -2312,6 +2310,7 @@ def play_scenario_production_by_uuid(request, uuid):
             cap = CaptureConfig(
                 mode=analysis_mode,  # "syscalls"
                 run_env="docker",
+                bpftrace_script_path = user_config.bpftrace_script_path or ""
             )
 
         # 8) Application-level callbacks (they know about Scenario, DB, etc.)

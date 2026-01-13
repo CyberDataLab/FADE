@@ -88,13 +88,21 @@
   transform: translateY(0.5px);
 }
 
+.actions-footer{
+  margin-top: auto;
+  padding: 0 0 32px;
+  display: flex;
+  justify-content: center;
+}
+
 /* Primary button inside the inputs grid (e.g., Save) */
-.user-inputs button{
+.actions-footer button{
   display: inline-grid;
   place-items: center;
   width: 100%;
+  max-width: 360px;
   height: 56px;
-  margin-top: 12px;
+  margin: 0 auto;
   border: 0;
   border-radius: 16px;
   background: linear-gradient(180deg, var(--btn-from), var(--btn-to));
@@ -111,9 +119,9 @@
 }
 
 /* Style for login button state */
-.user-inputs button:hover{ transform: translateY(-1px); filter: saturate(110%); }
-.user-inputs button:active{ transform: translateY(0); box-shadow: 0 8px 18px rgba(36,87,255,.28); }
-.user-inputs button:focus-visible{ outline: none; box-shadow: 0 0 0 4px var(--ring), 0 10px 24px rgba(36,87,255,.35); }
+.actions-footer button:hover{ transform: translateY(-1px); filter: saturate(110%); }
+.actions-footer button:active{ transform: translateY(0); box-shadow: 0 8px 18px rgba(36,87,255,.28); }
+.actions-footer button:focus-visible{ outline: none; box-shadow: 0 0 0 4px var(--ring), 0 10px 24px rgba(36,87,255,.35); }
 
 /* System information table: compact, centered card-like table */
 .information-table{
@@ -185,6 +193,15 @@
 .information-table tbody::-webkit-scrollbar-track{
   background: rgba(240,242,250,.6);
   border-radius: 10px;
+}
+
+.information-table tbody::-webkit-scrollbar{ width: 8px; }
+.information-table tbody::-webkit-scrollbar-thumb{
+  background: rgba(46,104,255,.35);
+  border-radius: 10px;
+}
+.information-table tbody::-webkit-scrollbar-track{
+  background: rgba(245,246,250,.5);
 }
 
 /* Host element fallback: ensure it behaves as a block container */

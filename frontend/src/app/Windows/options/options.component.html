@@ -19,8 +19,13 @@
         Network Interface:
         <input type="text" [(ngModel)]="userInputs.interface" placeholder="e.g., eth0" />
       </label>
+      <label>
+        Bpftrace Script Path:
+        <input type="text" [(ngModel)]="userInputs.bpftrace_script_path" placeholder="/path/to/bpftrace/script" />
+      </label>
+    </div>
 
-      <!-- Save user input settings -->
+    <div class="actions-footer">
       <button (click)="saveInputs()">Save</button>
     </div>
 

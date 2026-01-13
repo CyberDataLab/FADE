@@ -15,70 +15,67 @@
 
 3. Create a directory in the project root directory called ‘ssh_keys’ and copy into it the two files generated in the previous step: 'id_ed25519' and 'id_ed25519.pub'.
 
-EN EL HOST: sudo chown -R anomalydetector:anomalydetector ~/defender_software/ssh_keys
-chmod 700 ~/defender_software/ssh_keys
-chmod 600 ~/defender_software/ssh_keys/id_ed25519
-chmod 644 ~/defender_software/ssh_keys/id_ed25519.pub
+4. On the host system, set correct permissions:
+   ```sh
+   sudo chown -R <username>:<username> ~/defender_software/ssh_keys
+   chmod 700 ~/defender_software/ssh_keys
+   chmod 600 ~/defender_software/ssh_keys/id_ed25519
+   chmod 644 ~/defender_software/ssh_keys/id_ed25519.pub
+   ```
+   Replace <username> with your actual host username.
 
-para ver que todo funciona bien poner eso en el contenedor del backend y generará known hosts y old
-ssh -i /root/.ssh/id_ed25519 -o StrictHostKeyChecking=no anomalydetector@host.docker.internal true
+5. To verify SSH connectivity, enter the backend container and run:
+   ```sh
+   ssh -i /root/.ssh/id_ed25519 -o StrictHostKeyChecking=no <username>@host.docker.internal true
+   ```
+   Replace <username> with your actual host username.
 
-ver el contenido de id_ed25519.pub y pegarlo en ~/.ssh/authorized_keys
+   This will generate known_hosts automatically.
+
+6. Now, copy the content of id_ed25519.pub and paste it into:
+   ```sh
+   ~/.ssh/authorized_keys
+   ```
+    on the host machine.
 
 
-4. To start the docker-compose.yml, run the following command in the project root directory:
+7. To start the docker-compose.yml, run the following command in the project root directory:
    ```sh
    ./start.sh --mode <mode>   
    ```
    Replace <mode> with cpu or gpu.
 
-5. Once the containers for the frontend, backend, and database are up and running, run the following command to check the container names:
+8. Once the containers for the frontend, backend, and database are up and running, run the following command to check the container names:
    ```sh
    docker ps
    ```
 
-6. The last modification of the database is stored in the backup.sql file located in the project root directory. To load the data, run the following command from the terminal while in the project root directory:
-   ```sh
-   docker cp backup.sql <database_container_name>:/backup.sql
-   ```
-   Replace <database_container_name> with the actual name of the database container returned by the previous docker ps command.
+9. Initialize the database (create empty tables) and create a superuser if you are starting the application for the first time.
 
-7. Access the database container with the following command:
-   ```sh
-   docker exec -ti <database_container_name> sh
-   ```
-   Replace <database_container_name> with the actual name of the database container returned by the previous docker ps command.
+   Enter the backend container:
 
-8. Run the following command to restore the database:
-   ```sh
-   mysql -u root -p defender < /backup.sql
-   ````
-
-9. To access the frontend, go to the following address in your browser:
-   ```sh
-   localhost:4200
-   ```
-
-10. If you are starting the application for the first time, you need to create a super user. To do this, enter in the backend container:
    ```sh
    docker exec -ti <backend_container_name> sh
    ```
-   Replace <backend_container_name> with the actual name of the backend container returned by the previous docker ps command.
 
-11. Once inside the backend container, run the following command to create a Django superuser. You will be prompted to enter a username, email, and password:
-    ```sh
+   Apply Django migrations to create all database tables:
+
+   ```sh
+   python manage.py migrate
+   ```
+
+   Create a Django superuser (only required the first time):
+
+   ```sh
    python manage.py createsuperuser
    ```
 
-12. Now you can access in the frontend using the credentials created in the previous step.
-
-## After stopping the project:
-
-1. Run the following command from the database container to dump the latest database state:
+10. To access the frontend, go to the following address in your browser:
    ```sh
-   mysqldump -u root -p defender > backup.sql
+   http://localhost:4200
    ```
-2. Replace the backup.sql file in the project root directory with the latest database dump.
+
+11. Log in using the credentials created in the previous step.
 
 ## To implement the policies, if you are running the project on a macOS must follow these steps:
 
@@ -104,6 +101,27 @@ ver el contenido de id_ed25519.pub y pegarlo en ~/.ssh/authorized_keys
    sudo pfctl -a blockrules -f /etc/pf-block.rules
    ```
    This allows the system to run tshark for live traffic capture without asking for a password.
+
+## Optional: Email alert configuration
+
+If you want to create alert policies that send notification emails, you must create a `.env` file in the project root directory.
+
+Add the following environment variables:
+
+```text
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_HOST_USER=your_email_to_send_alerts
+EMAIL_HOST_PASSWORD=your_app_password_here
+EMAIL_USE_TLS=True
+EMAIL_USE_SSL=False
+```
+
+### Important notes
+
+- The `.env` file **must not be committed** to the repository.
+- Use a **Gmail App Password**, not your real Gmail password.
+- This configuration is only required if you plan to use **email-based alert policies**.
 
 ## Additional configuration 
 

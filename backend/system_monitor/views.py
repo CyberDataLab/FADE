@@ -68,6 +68,7 @@ def system_config(request):
         - host_username: str (username for remote SSH access)
         - tshark_path: str (absolute path to the tshark binary)
         - interface: str (name of the network interface to monitor)
+        - bpftrace_script_path: str (absolute path to the bpftrace script)
 
     Returns:
         - 200 OK with system configuration on GET.
@@ -81,7 +82,8 @@ def system_config(request):
             data = {
                 'host_username': config.host_username,
                 'tshark_path': config.tshark_path,
-                'interface': config.interface
+                'interface': config.interface,
+                'bpftrace_script_path': config.bpftrace_script_path
             }
 
         # Return empty/default values if no configuration is found
@@ -89,13 +91,14 @@ def system_config(request):
             data = {
                 'host_username': '',
                 'tshark_path': '',
-                'interface': ''
+                'interface': '',
+                'bpftrace_script_path': ''
             }
         return JsonResponse(data, status=200)
 
     elif request.method == 'POST':
         # Required fields for POST request
-        required_fields = ['host_username', 'tshark_path', 'interface']
+        required_fields = ['host_username', 'tshark_path', 'interface', 'bpftrace_script_path']
         data = request.data
 
         # Validate that all required fields are present and non-empty
@@ -108,7 +111,8 @@ def system_config(request):
             defaults={
                 'host_username': data['host_username'],
                 'tshark_path': data['tshark_path'],
-                'interface': data['interface']
+                'interface': data['interface'],
+                'bpftrace_script_path': data['bpftrace_script_path']
             }
         )
 

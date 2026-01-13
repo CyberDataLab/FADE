@@ -195,14 +195,16 @@ def _build_bpftrace_cmd(ssh: SSHConfig, capture: CaptureConfig) -> list[str]:
         - The `--` separator ensures that SSH does not interpret subsequent arguments.
     """
 
-    script = "/home/anomalydetector/defender_software/syscalls_event.bt"
+    bpftrace_script_path = capture.bpftrace_script_path or ""
+
+    logger.info(f"[BUILD BPFTRACE CMD] Using bpftrace script: {bpftrace_script_path}")
     bpftrace_bin = getattr(ssh, "bpftrace_path", "/usr/bin/bpftrace")
 
     remote_cmd = []
     if ssh.sudo:
         remote_cmd += ["sudo", "-n"]
 
-    remote_cmd += [bpftrace_bin, "-q", script]
+    remote_cmd += [bpftrace_bin, "-q", bpftrace_script_path]
     if capture.extra_args:
         remote_cmd += capture.extra_args
 

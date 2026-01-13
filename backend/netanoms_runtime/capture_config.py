@@ -18,7 +18,7 @@ class CaptureConfig:
         ek: bool = True,
         run_env: str = "docker",
         extra_args: Optional[List[str]] = None,
-        bpftrace_script: str = "/home/anomalydetector/defender_software/syscalls_event.bt"
+        bpftrace_script_path: Optional[str] = None
     ):
         
         """
@@ -33,13 +33,12 @@ class CaptureConfig:
                 Defaults to "docker".
             extra_args (List[str], optional): Additional command-line arguments for
                 tshark or bpftrace. Defaults to an empty list.
-            bpftrace_script (str, optional): Absolute path to the bpftrace script
-                when running in syscall capture mode. Defaults to
-                "/home/anomalydetector/defender_software/syscalls_event.bt".
+            bpftrace_script_path (str, optional): Absolute path to the bpftrace script
+                when running in syscall capture mode. Defaults to None.
         """
 
         self.mode = mode
         self.ek = ek
         self.run_env = run_env
         self.extra_args = extra_args or []
-        self.bpftrace_script = bpftrace_script
+        self.bpftrace_script_path = bpftrace_script_path

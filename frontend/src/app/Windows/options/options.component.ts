@@ -33,7 +33,8 @@ export class OptionsComponent implements OnInit {
   userInputs = {
     host_username: '',
     tshark_path: '',
-    interface: ''
+    interface: '',
+    bpftrace_script_path: ''
   };
 
   /**
@@ -63,6 +64,7 @@ export class OptionsComponent implements OnInit {
         this.userInputs.host_username = config.host_username || '';
         this.userInputs.tshark_path = config.tshark_path || '';
         this.userInputs.interface = config.interface || '';
+        this.userInputs.bpftrace_script_path = config.bpftrace_script_path || '';
       });
     }
   }
@@ -74,7 +76,8 @@ export class OptionsComponent implements OnInit {
     const payload = {
       host_username: this.userInputs.host_username,
       tshark_path: this.userInputs.tshark_path,
-      interface: this.userInputs.interface
+      interface: this.userInputs.interface,
+      bpftrace_script_path: this.userInputs.bpftrace_script_path
     };
   
     // Save settings via the service and notify user

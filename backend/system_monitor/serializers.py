@@ -15,5 +15,5 @@ class SystemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = SystemConfiguration
-        fields = ['id', "host_username", "tshark_path", "interface"]
+        fields = ['id', "host_username", "tshark_path", "interface", "bpftrace_script_path"]
         extra_kwargs = {'user': {'read_only': True}}

@@ -57,6 +57,7 @@ def handle_syscalls_anomalies(
         try:
             try:
                 data = json.loads(line)
+                logger.info(f"[HANDLE PACKET] Received data: {data}")
             except json.JSONDecodeError:
                 continue 
 

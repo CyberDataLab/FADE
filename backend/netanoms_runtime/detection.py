@@ -134,7 +134,11 @@ def run_live_production(
     _callbacks["on_status"] = on_status
     _callbacks["on_error"] = on_error
 
+    logger.info(capture.__dict__)
+
     cmd = _build_capture_cmd(ssh, capture)
+
+    logger.info(f"[run_live_production] Capture command: {' '.join(cmd)}")
     _emit_status(f"Launching capture: {' '.join(cmd)}")
 
     proc = subprocess.Popen(
