@@ -420,42 +420,71 @@ def handle_packet_traffic_anomalies(
                                 elif kind == "lime":
                                     logger.info(f"[HANDLE PACKET] Explaining row {i} with LIME...")
 
+                                    # -----------------------------
+                                    # 0) Alinear el espacio de features a X_train (CRÍTICO)
+                                    # -----------------------------
+                                    train_cols = X_train.columns.tolist()
+
+                                    # row_df viene de anomalous_data (que puede no coincidir con X_train)
+                                    row_df_aligned = row_df.reindex(columns=train_cols, fill_value=0)
+                                    row_df_aligned = row_df_aligned.apply(pd.to_numeric, errors="coerce").fillna(0.0)
+
+                                    # Construye explainer con background estable de entrenamiento
                                     explainer = explainer_class(
                                         training_data=X_train.values,
-                                        feature_names=X_train.columns.tolist(),
+                                        feature_names=train_cols,
                                         mode="regression"
+                                        # si tu LimeTabularExplainer lo soporta:
+                                        # , random_state=42
                                     )
 
                                     def anomaly_score(X):
                                         """
-                                        Computes the anomaly score using the model's decision function.
-
-                                        This function is designed to be compatible with explainability tools like LIME.
-                                        It converts the input to a pandas DataFrame if it is a NumPy array, ensuring that
-                                        column names align with those used during training.
-
-                                        Args:
-                                            X (np.ndarray or pd.DataFrame): The input data for which to compute the anomaly scores.
-
-                                        Returns:
-                                            np.ndarray: The reshaped anomaly scores as a column vector.
+                                        Función de scoring compatible con LIME.
+                                        Debe operar en el mismo espacio de features que el modelo (train_cols)
+                                        y devolver un vector 1D (n,).
                                         """
                                         if isinstance(X, np.ndarray):
-                                            X = pd.DataFrame(X, columns=X_train.columns)
-                                        return model_instance.decision_function(X).reshape(-1, 1)
+                                            X = pd.DataFrame(X, columns=train_cols)
 
-                                    # Generate local explanation for the current row
+                                        X = X.reindex(columns=train_cols, fill_value=0)
+                                        X = X.apply(pd.to_numeric, errors="coerce").fillna(0.0)
+
+                                        # IMPORTANTÍSIMO: 1D, no reshape(-1,1)
+                                        return model_instance.decision_function(X)
+
+                                    # -----------------------------
+                                    # 1) Generar explicación local para la fila actual
+                                    # -----------------------------
                                     exp = explainer.explain_instance(
-                                        row.values,
+                                        row_df_aligned.iloc[0].values,  # usar la fila alineada
                                         anomaly_score,
                                         num_features=10
                                     )
 
-                                    # Sort contributions by absolute value and get most relevant feature
-                                    sorted_contribs = sorted(exp.as_list(), key=lambda x: abs(x[1]), reverse=True)
-                                    feature_name = sorted_contribs[0][0] 
+                                    # -----------------------------
+                                    # 2) Top feature "real" por índice (evita bins tipo "f <= x")
+                                    # -----------------------------
+                                    feature_name = ""
+                                    try:
+                                        exp_map = exp.as_map()  # {label: [(feat_idx, weight), ...]}
+                                        label_key = list(exp_map.keys())[0] if exp_map else 1
+                                        pairs = exp_map.get(label_key, [])
+                                        if pairs:
+                                            feat_idx, weight = max(pairs, key=lambda t: abs(t[1]))
+                                            feature_name = train_cols[int(feat_idx)]
+                                        else:
+                                            # fallback
+                                            sorted_contribs = sorted(exp.as_list(), key=lambda x: abs(x[1]), reverse=True)
+                                            feature_name = sorted_contribs[0][0] if sorted_contribs else ""
+                                    except Exception:
+                                        sorted_contribs = sorted(exp.as_list(), key=lambda x: abs(x[1]), reverse=True)
+                                        feature_name = sorted_contribs[0][0] if sorted_contribs else ""
 
-                                    # Ensure src_port and dst_port are integers
+                                    # -----------------------------
+                                    # 3) Normalización de feature_values (como en tu flujo actual)
+                                    # -----------------------------
+                                    # Asegurar puertos como int si existen
                                     for col in ['src_port', 'dst_port']:
                                         if col in row and not pd.isnull(row[col]):
                                             try:
@@ -463,15 +492,14 @@ def handle_packet_traffic_anomalies(
                                             except:
                                                 row[col] = -1
 
-                                    # Convert row to dictionary, applying .item() when needed
                                     feature_values = row.apply(lambda x: x.item() if hasattr(x, "item") else x).to_dict()
-                                    
-                                    # Clean IPs: convert int to string if needed, or fallback to "UNDEFINED"
+
+                                    # Limpiar IPs
                                     for ip_key in ['src', 'dst']:
                                         if ip_key in feature_values:
                                             val = feature_values[ip_key]
                                             if isinstance(val, str):
-                                                feature_values[ip_key] = val  
+                                                feature_values[ip_key] = val
                                             elif isinstance(val, (int, float)):
                                                 try:
                                                     feature_values[ip_key] = int_to_ip(int(val))
@@ -480,27 +508,30 @@ def handle_packet_traffic_anomalies(
                                             else:
                                                 feature_values[ip_key] = "UNDEFINED"
 
-                                    # Normalize protocol name
-                                    feature_values['protocol'] = PROTOCOL_MAP.get(str(feature_values.get('protocol', '')), feature_values.get('protocol', 'UNKNOWN'))
+                                    # Normalizar protocolo
+                                    feature_values['protocol'] = PROTOCOL_MAP.get(
+                                        str(feature_values.get('protocol', '')),
+                                        feature_values.get('protocol', 'UNKNOWN')
+                                    )
 
-                                    # Format source and destination ports for anomaly description
-                                    src_port_str = str(df.loc[i, 'src_port']) if pd.notna(df.loc[i, 'src_port']) else "N/A"
-                                    dst_port_str = str(df.loc[i, 'dst_port']) if pd.notna(df.loc[i, 'dst_port']) else "N/A"
-
-                                    # Construct a detailed anomaly description
+                                    # Descripción detallada (como SHAP)
                                     anomaly_description = build_anomaly_description(row)
 
-                                    # Format full anomaly details for display or database
-                                    anomaly_details = "\n".join([
-                                        f"{k}: {v}" for k, v in feature_values.items()
-                                    ])
-
-                                    # Save local explanation as LIME bar chart
-                                    lime_path = [save_lime_bar_local(exp, scenario_uuid, image_counter)]
-
+                                    # Detalles para logging / DB
+                                    anomaly_details = "\n".join([f"{k}: {v}" for k, v in feature_values.items()])
                                     logger.info("[HANDLE PACKET] Anomaly details: %s", anomaly_details)
 
-                                    # Save the anomaly metrics with LIME explanations
+                                    # -----------------------------
+                                    # 4) Guardar gráfica LIME local (como SHAP)
+                                    # -----------------------------
+                                    lime_path = [save_lime_bar_local(exp, scenario_uuid, image_counter)]
+
+                                    logger.info(f"[HANDLE PACKET] LIME anomaly #{i}, top feature: {feature_name}")
+                                    logger.info(f"[HANDLE PACKET] Generating anomaly record with index: {image_counter}")
+
+                                    # -----------------------------
+                                    # 5) Enviar callback / persistir métricas (como SHAP)
+                                    # -----------------------------
                                     save_anomaly_metrics(
                                         model_name=model_instance.__class__.__name__,
                                         feature_name=feature_name,
@@ -515,8 +546,8 @@ def handle_packet_traffic_anomalies(
                                         local_lime_images=lime_path
                                     )
 
-                                    # Increase index for next anomaly
                                     image_counter += 1
+
 
                                 else:
                                     logger.warning(f"[HANDLE PACKET ]Explainability kind not supported yet: {kind}")

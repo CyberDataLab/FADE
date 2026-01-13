@@ -1577,11 +1577,15 @@ def execute_scenario(scenario_model, scenario, design):
                     # Get the selected classes to be explained
                     selected_classes_raw = params.get("selectedClasses", [])
 
+                    logger.info(f"[EXECUTE SCENARIO] Selected classes raw: {selected_classes_raw}")
+
                     selected_classes = [
                         str(c["name"]).replace(" ", "_").replace("/", "_")
                         for c in selected_classes_raw
                         if c.get("selected")
                     ]
+
+                    logger.info(f"[EXECUTE SCENARIO] Selected classes for explanation: {selected_classes}")
 
                     # Validate the configuration data
                     if not explainer_module_path or not explainer_type:
@@ -1596,6 +1600,8 @@ def execute_scenario(scenario_model, scenario, design):
                     model_object = model_info.get("model_object")
                     if not model_object:
                         return {"error": f"Model object not found in {model_id}"}
+                    
+                    model_type = model_info.get("type")
 
                     try:
                         # Import the explainer class dynamically
@@ -1603,7 +1609,6 @@ def execute_scenario(scenario_model, scenario, design):
 
                         # Case the explainer is SHAP
                         if el_type == "SHAP":
-                            model_type = model_info.get("type")
 
                             # Check input data for SHAP
                             if el_type in classification_types + regression_types:
@@ -1616,10 +1621,53 @@ def execute_scenario(scenario_model, scenario, design):
 
                             logger.info(f"[EXECUTE SCENARIO] Calculating SHAP values with data: {input_data}")
 
+                            # ---------------------------------------------------------------------------------------
+                            # NOTE: Do NOT use the full dataset as SHAP background or as "data to explain".
+                            # Large datasets can cause extreme slowdowns and OOM / process kills.
+                            # We use small random subsets for both:
+                            #   - background_data: baseline/reference dataset for the explainer
+                            #   - data_to_explain: rows we compute SHAP values for (enough for global plots)
+                            # ---------------------------------------------------------------------------------------
+                            background_size = 50   # typical: 50-500
+                            explain_size = 200      # typical: 20-500
+
+                            def _sample_data(data, n, random_state=42):
+                                """
+                                Sample n rows from either a pandas DataFrame or a numpy array/tensor-like object.
+                                """
+                                if data is None:
+                                    return None
+
+                                # Pandas DataFrame
+                                if isinstance(data, pd.DataFrame):
+                                    if len(data) <= n:
+                                        return data
+                                    return data.sample(n=n, random_state=random_state)
+
+                                # Numpy array / Tensor-like
+                                try:
+                                    total = data.shape[0]
+                                except Exception:
+                                    return data
+
+                                if total <= n:
+                                    return data
+
+                                rng = np.random.RandomState(random_state)
+                                idx = rng.choice(total, size=n, replace=False)
+                                return data[idx]
+
+                            # Small background dataset for ALL explainers
+                            background_data = _sample_data(input_data, background_size, random_state=42)
+
+                            # Small subset to explain for ALL explainers
+                            data_to_explain = _sample_data(input_data, explain_size, random_state=42)
+
                             # Case explainer type is KernelExplainer, LinearExplainer, DeepExplainer, or TreeExplainer
                             if explainer_type == "KernelExplainer":
                                 def model_score(X):
-                                    if isinstance(X, np.ndarray):
+                                    # Keep the original tabular behavior
+                                    if isinstance(X, np.ndarray) and isinstance(input_data, pd.DataFrame):
                                         X = pd.DataFrame(X, columns=input_data.columns)
 
                                     if hasattr(model_object, "decision_function"):
@@ -1629,14 +1677,27 @@ def execute_scenario(scenario_model, scenario, design):
                                     else:
                                         return model_object.predict(X)
 
-                                background = shap.kmeans(input_data, 20)
-                                explainer = explainer_class(model_score, background)
+                                # NOTE: Do NOT use shap.kmeans(...) here.
+                                # For packet/network data there can be many duplicated rows. kmeans may return mismatched
+                                # weights when the number of distinct points is smaller than n_clusters, leading to:
+                                # "# of weights must match data matrix!"
+                                bg = background_data
+                                if isinstance(bg, pd.DataFrame):
+                                    bg = bg.drop_duplicates()
+
+                                explainer = explainer_class(model_score, bg)
 
                             elif explainer_type in ["LinearExplainer", "DeepExplainer"]:
-                                explainer = explainer_class(model_object, input_data)
+                                # NOTE: Use a small background to avoid OOM/slowdowns
+                                explainer = explainer_class(model_object, background_data)
 
                             elif explainer_type == "TreeExplainer":
-                                explainer = explainer_class(model_object, input_data, feature_perturbation="interventional")
+                                # NOTE: For interventional perturbation, a small background is enough
+                                explainer = explainer_class(
+                                    model_object,
+                                    background_data,
+                                    feature_perturbation="interventional"
+                                )
 
                             else:
                                 explainer = explainer_class(model_object)
@@ -1660,10 +1721,14 @@ def execute_scenario(scenario_model, scenario, design):
                                     normal_data = input_df[y_pred_arr == 0]
                                     anomaly_data = input_df[y_pred_arr == 1]
 
+                                    # IMPORTANT: Do not explain huge subsets; sample them
+                                    normal_data = _sample_data(normal_data, explain_size, random_state=42)
+                                    anomaly_data = _sample_data(anomaly_data, explain_size, random_state=42)
+
                                     shap_image_paths = []
 
                                     # Generate global shap values for normal and anomaly data depending on selected classes
-                                    if not normal_data.empty and "normal" in selected_classes:
+                                    if normal_data is not None and not normal_data.empty and "normal" in selected_classes:
                                         if explainer_type == "TreeExplainer":
                                             shap_normal = explainer(normal_data, check_additivity=False)
                                         else:
@@ -1671,7 +1736,7 @@ def execute_scenario(scenario_model, scenario, design):
                                         path_normal = save_shap_bar_global(shap_normal, scenario.uuid, model_type, label="normal")
                                         shap_image_paths.append(path_normal)
 
-                                    if not anomaly_data.empty and "anomaly" in selected_classes:
+                                    if anomaly_data is not None and not anomaly_data.empty and "anomaly" in selected_classes:
                                         if explainer_type == "TreeExplainer":
                                             shap_anomaly = explainer(anomaly_data, check_additivity=False)
                                         else:
@@ -1688,7 +1753,12 @@ def execute_scenario(scenario_model, scenario, design):
 
                                 # Case model connected is classification or regression model
                                 else:
-                                    shap_values = explainer(input_data)
+                                    # IMPORTANT: explain only a subset of rows (data_to_explain), not full input_data
+                                    if explainer_type == "TreeExplainer":
+                                        shap_values = explainer(data_to_explain, check_additivity=False)
+                                    else:
+                                        shap_values = explainer(data_to_explain)
+
                                     class_names = getattr(model_object, "classes_", None)
 
                                     logger.info(f"[EXECUTE SCENARIO] Model classes: {class_names}")
@@ -1726,7 +1796,7 @@ def execute_scenario(scenario_model, scenario, design):
                                             # Get or create the regression metric
                                             metric, created = RegressionMetric.objects.get_or_create(
                                                 scenario_model=scenario_model,
-                                                execution=scenario_model.execution,
+                                               execution=scenario_model.execution,
                                                 model_name=model_type,
                                                 defaults={"global_shap_images": shap_image_paths}
                                             )
@@ -1746,52 +1816,347 @@ def execute_scenario(scenario_model, scenario, design):
                             except Exception as e:
                                 return {"error": f"Error generating SHAP values: {str(e)}"}
 
+
                         # Case the explainer is LIME
                         elif el_type == "LIME":
-                            explainer = explainer_class(
-                                training_data=input_data.values,
-                                feature_names=input_data.columns.tolist(),
-                                mode="regression"
-                            )
+                            model_type = model_info.get("type")
 
-                            def anomaly_score(X):
-                                if isinstance(X, np.ndarray):
-                                    X = pd.DataFrame(X, columns=input_data.columns)
-                                return model_object.decision_function(X).reshape(-1, 1)
+                            # -----------------------------
+                            # 1) Select proper input data
+                            # -----------------------------
+                            if model_type in classification_types + regression_types:
+                                # For supervised models, prefer training data (stable background for LIME)
+                                input_data = model_info.get("X_train")
+                                if input_data is None:
+                                    return {"error": f"No training data found for model {model_id} to apply LIME"}
+                            else:
+                                # For anomaly detection, we use the node input_data already flowing in the scenario
+                                if input_data is None:
+                                    return {"error": f"No input data found for node {el_type} to apply LIME"}
 
-                            scores = model_object.decision_function(input_data)
-                            top_k = 20
-                            top_indices = np.argsort(scores)[-top_k:]
+                            logger.info(f"[EXECUTE SCENARIO] Applying LIME for model type: {model_type}")
+                            logger.info(f"[EXECUTE SCENARIO] LIME input shape: {getattr(input_data, 'shape', None)}")
+                            logger.info(f"[EXECUTE SCENARIO] Selected classes for LIME: {selected_classes}")
 
-                            feature_weights = defaultdict(list)
+                            # ---------------------------------------------------------
+                            # SAFETY: ensure DataFrame BUT DO NOT break on 3D/4D inputs
+                            # ---------------------------------------------------------
+                            original_sample_shape = None  # used for NN/CNN predict wrapper
 
-                            for i in top_indices:
-                                row = input_data.iloc[i]
-                                exp = explainer.explain_instance(
-                                    row.values,
-                                    anomaly_score,
-                                    num_features=len(input_data.columns)
+                            if isinstance(input_data, pd.DataFrame):
+                                input_df = input_data.copy()
+                            else:
+                                arr = np.asarray(input_data)
+
+                                # LIME Tabular requires 2D: (n_samples, n_features)
+                                if hasattr(arr, "ndim") and arr.ndim > 2:
+                                    original_sample_shape = tuple(arr.shape[1:])  # e.g. (784,1) or (28,28,1)
+                                    logger.info(
+                                        f"[EXECUTE SCENARIO] Flattening input_data for LIME from {arr.shape} to 2D"
+                                    )
+                                    arr = arr.reshape(arr.shape[0], -1)
+
+                                input_df = pd.DataFrame(arr)
+
+                            # from now on, use input_df everywhere
+                            input_data = input_df
+
+                            lime_image_paths = []
+
+                            # ================
+                            # A) ANOMALY MODELS
+                            # ================
+                            if model_type in anomaly_types:
+                                # Need y_pred to split normal/anomaly like SHAP
+                                y_pred = model_info.get("y_pred")
+                                if y_pred is None:
+                                    return {"error": "Missing y_pred to apply LIME in anomaly detection model"}
+
+                                y_pred_arr = np.array(y_pred)
+                                input_df = input_data.copy()
+
+                                # 0 => normal, 1 => anomaly (as in your pipeline)
+                                normal_data = input_df[y_pred_arr == 0]
+                                anomaly_data = input_df[y_pred_arr == 1]
+
+                                explainer = explainer_class(
+                                    training_data=input_df.values,
+                                    feature_names=input_df.columns.tolist(),
+                                    mode="regression"
                                 )
 
-                                for feature, weight in exp.as_list():
-                                    feature_weights[feature].append(abs(weight))
+                                def anomaly_score(X):
+                                    if isinstance(X, np.ndarray):
+                                        X = pd.DataFrame(X, columns=input_df.columns)
+                                    # Return 1D array (more compatible with LIME)
+                                    return model_object.decision_function(X)
 
-                            mean_weights = {feature: np.mean(w) for feature, w in feature_weights.items()}
+                                def compute_mean_weights_for_subset(subset_df: pd.DataFrame, top_k: int = 20) -> dict:
+                                    """
+                                    Builds an aggregated (global) LIME importance dict from local explanations
+                                    for the given subset (normal or anomaly).
+                                    """
+                                    if subset_df is None or subset_df.empty:
+                                        return {}
 
-                            sorted_items = sorted(mean_weights.items(), key=lambda x: x[1], reverse=True)
-                            features, values = zip(*sorted_items)
+                                    scores = model_object.decision_function(subset_df)
+                                    k = min(top_k, len(subset_df))
+                                    top_indices = np.argsort(scores)[-k:]
 
-                            # Save the LIME bar chart
-                            lime_image_path = save_lime_bar_global(mean_weights, scenario.uuid)
+                                    feature_weights = defaultdict(list)
 
-                            metrics = AnomalyMetric.objects.filter(
-                                scenario_model=scenario_model,
-                                execution=scenario_model.execution,
-                            )
+                                    for i in top_indices:
+                                        row = subset_df.iloc[i]
+                                        exp = explainer.explain_instance(
+                                            row.values,
+                                            anomaly_score,
+                                            num_features=len(subset_df.columns)
+                                        )
 
-                            for metric in metrics:
-                                metric.global_lime_image = lime_image_path
-                                metric.save()
+                                        # Prefer as_map() to aggregate by feature index (avoids "bin strings")
+                                        try:
+                                            exp_map = exp.as_map()
+                                            # For regression, label is typically 1
+                                            label_key = list(exp_map.keys())[0] if exp_map else 1
+                                            for feat_idx, weight in exp_map.get(label_key, []):
+                                                feature_name = subset_df.columns[int(feat_idx)]
+                                                feature_weights[feature_name].append(abs(weight))
+                                        except Exception:
+                                            # Fallback to as_list() if needed
+                                            for feature, weight in exp.as_list():
+                                                feature_weights[feature].append(abs(weight))
+
+                                    return {
+                                        feature: float(np.mean(w))
+                                        for feature, w in feature_weights.items()
+                                        if len(w) > 0
+                                    }
+
+                                # Generate two separate global plots like SHAP ("normal" and "anomaly")
+                                # Respect selected_classes if provided (expected values: "normal", "anomaly")
+                                paths = []
+
+                                if (not selected_classes) or ("normal" in selected_classes):
+                                    mean_weights_normal = compute_mean_weights_for_subset(normal_data, top_k=20)
+                                    if mean_weights_normal:
+                                        lime_path_normal = save_lime_bar_global(mean_weights_normal, f"{scenario.uuid}_normal")
+                                        if lime_path_normal:
+                                            paths.append(lime_path_normal)
+
+                                if (not selected_classes) or ("anomaly" in selected_classes):
+                                    mean_weights_anom = compute_mean_weights_for_subset(anomaly_data, top_k=20)
+                                    if mean_weights_anom:
+                                        lime_path_anom = save_lime_bar_global(mean_weights_anom, f"{scenario.uuid}_anomaly")
+                                        if lime_path_anom:
+                                            paths.append(lime_path_anom)
+
+                                lime_image_paths = paths
+
+                                # Save into anomaly metrics (JSONField)
+                                metrics = AnomalyMetric.objects.filter(
+                                    scenario_model=scenario_model,
+                                    execution=scenario_model.execution,
+                                )
+                                for metric in metrics:
+                                    metric.global_lime_images = lime_image_paths
+                                    metric.save()
+
+                            # ===========================
+                            # B) CLASSIFICATION MODELS
+                            # ===========================
+                            elif model_type in classification_types:
+                                # LIME classification: explain predicted probabilities via predict_proba / predict
+                                if not hasattr(model_object, "predict") and not hasattr(model_object, "predict_proba"):
+                                    return {"error": f"Model {model_type} does not support prediction required for LIME classification"}
+
+                                class_names = getattr(model_object, "classes_", None)
+                                logger.info(f"[EXECUTE SCENARIO] Model classes: {class_names}")
+                                logger.info(f"[EXECUTE SCENARIO] Selected classes for LIME: {selected_classes}")
+
+                                # --------------------------------------------------
+                                # Choose prediction function (NN-safe)  <-- DEFINIR PRIMERO
+                                # --------------------------------------------------
+                                def _default_predict_proba(X):
+                                    if hasattr(model_object, "predict_proba"):
+                                        return model_object.predict_proba(X)
+                                    return model_object.predict(X)
+
+                                if original_sample_shape is not None:
+                                    def predict_fn(X):
+                                        X = np.asarray(X)
+                                        X = X.reshape((X.shape[0],) + tuple(original_sample_shape))
+                                        proba = model_object.predict(X) if hasattr(model_object, "predict") else model_object.predict_proba(X)
+                                        proba = np.asarray(proba)
+                                        if proba.ndim == 1:
+                                            proba = proba.reshape(-1, 1)
+                                        return proba
+                                else:
+                                    predict_fn = _default_predict_proba
+
+                                # --------------------------------------------------
+                                # Compute probabilities once (also gives num_classes)
+                                # --------------------------------------------------
+                                proba = np.asarray(predict_fn(input_data.values))
+                                if proba.ndim != 2:
+                                    return {"error": "predict function returned unexpected shape for LIME classification"}
+
+                                num_classes = proba.shape[1]
+
+                                # --------------------------------------------------
+                                # Build which classes to explain (NN-safe)
+                                # --------------------------------------------------
+                                selected_label_indices = None
+
+                                if selected_classes:
+                                    tmp = []
+                                    for cls in selected_classes:
+                                        try:
+                                            tmp.append(int(cls))
+                                        except Exception:
+                                            pass
+                                    if tmp:
+                                        selected_label_indices = sorted(list(set(tmp)))
+
+                                # Fallback: explain all classes
+                                if selected_label_indices is None:
+                                    selected_label_indices = list(range(num_classes))
+
+                                # If model has no classes_, create a default mapping "0..K-1"
+                                if class_names is None:
+                                    class_names = np.array([str(i) for i in range(num_classes)])
+
+                                # --------------------------------------------------
+                                # Create explainer (TABULAR)
+                                # --------------------------------------------------
+                                explainer = explainer_class(
+                                    training_data=input_data.values,
+                                    feature_names=input_data.columns.tolist(),
+                                    mode="classification"
+                                )
+
+                                # --------------------------------------------------
+                                # Pick top_k samples PER CLASS (ensures one plot per class)
+                                # --------------------------------------------------
+                                top_k = 20
+                                per_class_feature_weights = defaultdict(lambda: defaultdict(list))
+
+                                for c in selected_label_indices:
+                                    class_scores = proba[:, c]
+                                    k = min(top_k, len(class_scores))
+                                    top_indices_c = np.argsort(class_scores)[-k:]
+
+                                    for i in top_indices_c:
+                                        row = input_data.iloc[int(i)]
+                                        exp = explainer.explain_instance(
+                                            row.values,
+                                            predict_fn,
+                                            labels=[c],  # force explain this class
+                                            num_features=len(input_data.columns)
+                                        )
+
+                                        exp_map = exp.as_map()
+                                        # exp_map key should be c, but be defensive
+                                        for lbl, pairs in exp_map.items():
+                                            for feat_idx, weight in pairs:
+                                                feature_name = input_data.columns[int(feat_idx)]
+                                                per_class_feature_weights[lbl][feature_name].append(abs(weight))
+
+                                # --------------------------------------------------
+                                # Save one global LIME image per class explained
+                                # --------------------------------------------------
+                                lime_image_paths = []
+                                for lbl, fw in per_class_feature_weights.items():
+                                    mean_weights = {f: float(np.mean(w)) for f, w in fw.items() if len(w) > 0}
+                                    if not mean_weights:
+                                        continue
+
+                                    # lbl is numeric class index -> turn into readable name
+                                    cls_suffix = str(lbl)
+                                    if class_names is not None and 0 <= int(lbl) < len(class_names):
+                                        cls_suffix = str(class_names[int(lbl)]).replace(" ", "_").replace("/", "_")
+
+                                    # Respect selected_classes filter
+                                    if selected_classes and cls_suffix not in selected_classes:
+                                        continue
+
+                                    lime_path = save_lime_bar_global(mean_weights, f"{scenario.uuid}_{cls_suffix}")
+                                    if lime_path:
+                                        lime_image_paths.append(lime_path)
+
+                                metric, created = ClassificationMetric.objects.get_or_create(
+                                    scenario_model=scenario_model,
+                                    execution=scenario_model.execution,
+                                    model_name=model_type,
+                                    defaults={"global_lime_images": lime_image_paths}
+                                )
+                                if not created:
+                                    metric.global_lime_images = lime_image_paths
+                                    metric.save()
+
+
+                            # ======================
+                            # C) REGRESSION MODELS
+                            # ======================
+                            elif model_type in regression_types:
+                                # LIME regression: explain predict output
+                                if not hasattr(model_object, "predict"):
+                                    return {"error": f"Model {model_type} does not support predict required for LIME regression"}
+
+                                explainer = explainer_class(
+                                    training_data=input_data.values,
+                                    feature_names=input_data.columns.tolist(),
+                                    mode="regression"
+                                )
+
+                                def reg_predict(X):
+                                    if isinstance(X, np.ndarray):
+                                        X = pd.DataFrame(X, columns=input_data.columns)
+                                    y = model_object.predict(X)
+                                    return np.array(y).reshape(-1)  # Ensure 1D
+
+                                # Focus on samples with largest absolute prediction (heuristic)
+                                y_pred = reg_predict(input_data)
+                                top_k = 20
+                                top_indices = np.argsort(np.abs(y_pred))[-top_k:]
+
+                                feature_weights = defaultdict(list)
+
+                                for i in top_indices:
+                                    row = input_data.iloc[i]
+                                    exp = explainer.explain_instance(
+                                        row.values,
+                                        reg_predict,
+                                        num_features=len(input_data.columns)
+                                    )
+
+                                    try:
+                                        exp_map = exp.as_map()
+                                        label_key = list(exp_map.keys())[0] if exp_map else 1
+                                        for feat_idx, weight in exp_map.get(label_key, []):
+                                            feature_name = input_data.columns[int(feat_idx)]
+                                            feature_weights[feature_name].append(abs(weight))
+                                    except Exception:
+                                        for feature, weight in exp.as_list():
+                                            feature_weights[feature].append(abs(weight))
+
+                                mean_weights = {feature: float(np.mean(w)) for feature, w in feature_weights.items() if len(w) > 0}
+
+                                lime_image_path = save_lime_bar_global(mean_weights, str(scenario.uuid))
+                                if lime_image_path:
+                                    lime_image_paths = [lime_image_path]
+
+                                metric, created = RegressionMetric.objects.get_or_create(
+                                    scenario_model=scenario_model,
+                                    execution=scenario_model.execution,
+                                    model_name=model_type,
+                                    defaults={"global_lime_images": lime_image_paths}
+                                )
+                                if not created:
+                                    metric.global_lime_images = lime_image_paths
+                                    metric.save()
+
+                            else:
+                                return {"error": f"Unsupported model type for LIME: {model_type}"}
 
                         else:
                             return {"error": f"Explainability node not yet supported: {el_type}"}

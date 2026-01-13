@@ -9,7 +9,7 @@ from rest_framework import status
 import logging
 from system_monitor.models import SystemConfiguration
 from .utils import *
-from action_execution.policy_storage import add_alert_policy
+from netanoms_runtime.policy_storage import add_alert_policy
 
 logger = logging.getLogger('backend')
 

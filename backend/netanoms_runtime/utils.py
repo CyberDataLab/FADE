@@ -7,11 +7,11 @@ from typing import Any, Optional, Dict, List
 import pandas as pd
 
 import logging
-from action_execution.policy_storage import load_alert_policies, delete_alert_policy
+from netanoms_runtime.policy_storage import load_alert_policies, delete_alert_policy
 
 from django.core.mail import send_mail
 from django.conf import settings
-import os
+import io
 import socket
 import struct
 import tempfile
@@ -72,8 +72,10 @@ def _build_capture_cmd(ssh: SSHConfig, capture: CaptureConfig) -> list[str]:
     """
 
     mode = capture.mode.strip().lower()
-    if mode in ("flow", "packet"):
+    if mode == "packet":
         return _build_tshark_cmd(ssh, capture)
+    if mode == "flow":
+        return _build_argus_flow_cmd(ssh, capture)
     if mode == "syscalls":
         return _build_bpftrace_cmd(ssh, capture)
     raise ValueError(f"Capture mode not supported: {capture.mode!r}")
@@ -123,6 +125,62 @@ def _build_tshark_cmd(ssh: SSHConfig, cap: CaptureConfig) -> List[str]:
         return shlex.split(base)
     else:
         raise ValueError(f"run_env unknown: {cap.run_env} (Expected 'docker' o 'host')")
+
+def _build_argus_flow_cmd(ssh: SSHConfig, cap: CaptureConfig) -> list[str]:
+    """
+    Build a remote Argus pipeline that outputs live flow records in (quasi) real-time.
+
+    Key points for your setup:
+      - dumpcap must use -P (PCAP/libpcap) so Argus can read stdin correctly
+      - Argus emits status frequently with ARGUS_FLOW_STATUS_INTERVAL=1
+      - ra prints CSV (commas) so your df_from_ra_csv_lines() + handler work as-is
+      - In docker mode we execute on the HOST via ssh user@host and wrap in bash -lc + pipefail
+      - No timeout here: production must be continuous
+    """
+    dumpcap_bin = getattr(ssh, "dumpcap_path", "/usr/bin/dumpcap")
+
+    # CSV fields (commas!) to match df_from_ra_csv_lines() expectations
+    ra_fields = "saddr,sport,daddr,dport,proto,pkts,bytes,dur,sttl,dttl"
+
+    # dumpcap base: force PCAP output with -P
+    dumpcap_base = f"{dumpcap_bin} -P -i {shlex.quote(ssh.interface)} -q"
+
+    if cap.extra_args:
+        dumpcap_base += " " + " ".join(shlex.quote(x) for x in cap.extra_args)
+
+    # Live pipeline (no files)
+    # dumpcap (pcap) -> argus (binary argus) -> ra (csv)
+    # If you still want clustering, you can re-add racluster between argus and ra.
+    pipeline = (
+        f"{dumpcap_base} -w - "
+        f"| stdbuf -oL argus -X -B ARGUS_FLOW_STATUS_INTERVAL=1 -e 127.0.0.1 -r - -w - "
+        f"| stdbuf -oL ra -r - -n -c , -s {shlex.quote(ra_fields)}"
+    )
+
+    # Optional: if you WANT racluster, uncomment this variant instead:
+    # pipeline = (
+    #     f"{dumpcap_base} -w - "
+    #     f"| stdbuf -oL argus -X -B ARGUS_FLOW_STATUS_INTERVAL=1 -e 127.0.0.1 -r - -w - "
+    #     f"| stdbuf -oL racluster -r - -w - "
+    #     f"| stdbuf -oL ra -r - -n -c , -s {shlex.quote(ra_fields)}"
+    # )
+
+    if cap.run_env.lower() == "docker":
+        # Run capture on the host (from inside container) via SSH
+        if ssh.sudo:
+            pipeline = "sudo -n " + pipeline
+
+        remote_cmd = f"bash -lc {shlex.quote('set -o pipefail; ' + pipeline)}"
+        return ["ssh", f"{ssh.username}@{ssh.host}", remote_cmd]
+
+    elif cap.run_env.lower() == "host":
+        if ssh.sudo:
+            pipeline = "sudo -n " + pipeline
+        return ["bash", "-lc", f"set -o pipefail; {pipeline}"]
+
+    else:
+        raise ValueError(f"run_env unknown: {cap.run_env}")
+
 
 #MIRAR SI ES EN HOST
 def _build_bpftrace_cmd(ssh: SSHConfig, capture: CaptureConfig) -> list[str]:
@@ -707,3 +765,41 @@ def get_next_anomaly_index(scenario_uuid: str = None) -> int:
 
     except Exception:
         return 1
+    
+def df_from_ra_csv_lines(lines: list[str]) -> pd.DataFrame:
+    out_cols = [
+        "src","src_port","dst","dst_port","protocol",
+        "packet_count","total_bytes","avg_packet_size",
+        "flow_duration","avg_ttl"
+    ]
+    if not lines:
+        return pd.DataFrame(columns=out_cols)
+
+    csv_text = "\n".join(lines)
+
+    names = ["saddr","sport","daddr","dport","proto","pkts","bytes","dur","sttl","dttl"]
+    df_raw = pd.read_csv(io.StringIO(csv_text), header=None, names=names)
+
+    # Convert numerics
+    for c in ["sport","dport","pkts","bytes","dur","sttl","dttl"]:
+        df_raw[c] = pd.to_numeric(df_raw[c], errors="coerce")
+
+    out_df = pd.DataFrame({
+        "src": df_raw["saddr"].astype("string"),
+        "src_port": df_raw["sport"].fillna(-1).astype("int64", errors="ignore"),
+        "dst": df_raw["daddr"].astype("string"),
+        "dst_port": df_raw["dport"].fillna(-1).astype("int64", errors="ignore"),
+        "protocol": df_raw["proto"].astype("string").fillna("UNKNOWN").replace("", "UNKNOWN"),
+        "packet_count": df_raw["pkts"].fillna(0).astype("int64", errors="ignore"),
+        "total_bytes": df_raw["bytes"].fillna(0).astype("int64", errors="ignore"),
+        "flow_duration": df_raw["dur"].fillna(0).astype(float),
+    })
+
+    pkts = pd.to_numeric(out_df["packet_count"], errors="coerce").fillna(0)
+    bytes_ = pd.to_numeric(out_df["total_bytes"], errors="coerce").fillna(0)
+    out_df["avg_packet_size"] = (bytes_ / pkts.replace(0, pd.NA)).fillna(0).astype(float)
+
+    out_df["avg_ttl"] = pd.concat([df_raw["sttl"], df_raw["dttl"]], axis=1).mean(axis=1, skipna=True)
+
+    out_df = out_df.dropna(subset=["src","dst","protocol"], how="all")
+    return out_df

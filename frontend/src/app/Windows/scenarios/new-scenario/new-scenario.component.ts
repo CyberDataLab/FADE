@@ -280,9 +280,9 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
       return;
     }
   
-    // Special handling for SHAP nodes (needs upstream class detection)
-    if (elementType === 'SHAP') {
-      const shapId = node.id;
+    // Special handling for SHAP and LIME nodes (needs upstream class detection)
+    if (elementType === 'SHAP' || elementType === 'LIME') {
+      const explainId = node.id;
     
       /**
        * @summary Recursively finds the class labels from upstream nodes,
@@ -303,10 +303,18 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
           const isAnomalyModel = this.config?.sections?.dataModel?.anomalyDetection?.some(
             (e: any) => e.type === sourceType
           );
-    
+
+          const isRegressionModel = this.config?.sections?.dataModel?.regression?.some(
+            (e: any) => e.type === sourceType
+          );
+
           // If is a anomaly model the classes are always 'normal' and 'anomaly'
           if (isAnomalyModel) {
             return ['normal', 'anomaly'];
+          }
+
+          if (isRegressionModel) {
+            return [''];
           }
     
           if (sourceParams?.classes?.length) {
@@ -324,10 +332,10 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
       };
     
       // Store resolved classes
-      const foundClasses = findClassesFromUpstream(shapId);
+      const foundClasses = findClassesFromUpstream(explainId);
       if (foundClasses?.length) {
-        this.elementParameters[shapId] = {
-          ...this.elementParameters[shapId],
+        this.elementParameters[explainId] = {
+          ...this.elementParameters[explainId],
           classes: foundClasses
         };
       }
@@ -2148,7 +2156,7 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
       }
 
       // Special handling for SHAP nodes: retain only selected classes, drop all class definitions
-      if (type === 'SHAP') {
+      if (type === 'SHAP' || type === 'LIME') {
         if (elementParams.selectedClasses) {
           elementParams.selectedClasses = elementParams.selectedClasses.map((classe: any) => ({
             name: classe.name,
@@ -2356,7 +2364,7 @@ export class NewScenarioComponent implements OnInit, AfterViewInit{
       }
 
       // Restore selected classes for SHAP nodes
-      if (element.type === 'SHAP' && element.parameters?.selectedClasses) {
+      if ((element.type === 'SHAP' || element.type === 'LIME') && element.parameters?.selectedClasses) {
         this.elementParameters[element.id] = {
           ...element.parameters,
           classes: element.parameters.selectedClasses.map((cls: any) => ({

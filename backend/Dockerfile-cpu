@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y \
     default-libmysqlclient-dev build-essential pkg-config \
     tshark openssh-client netcat-openbsd bsdmainutils \
     util-linux \
+    argus-server argus-client \
  && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements file

@@ -10,7 +10,7 @@ from netanoms_runtime.explainability_config import ExplainabilityConfig
 from netanoms_runtime.utils import (get_next_anomaly_index, save_shap_bar_local, 
                                     save_lime_bar_local, ip_to_int, int_to_ip, 
                                     build_anomaly_description,check_and_send_email_alerts, 
-                                    PROTOCOL_MAP, PROTOCOL_REVERSE_MAP)
+                                    df_from_ra_csv_lines, PROTOCOL_MAP, PROTOCOL_REVERSE_MAP)
 
 from netanoms_runtime.callbacks import save_anomaly_metrics
 
@@ -47,128 +47,72 @@ def handle_flow_traffic_anomalies(
 
     image_counter = get_next_anomaly_index(scenario_uuid)
 
-    flow_dict = defaultdict(list)
+    buf: list[str] = []
     last_flush = time.time()
 
     # Time interval in seconds to flush the flow data
     interval = 1
+
+    header_skipped = False
 
     # Keep processing while the thread control flag is True
     while thread_controls.get(scenario_uuid, True):
         # Read a line from the subprocess output
         line = proc.stdout.readline()
 
-        # If no line is read, continue to the next iteration
+        # ---- (1) EOF / proceso muerto: salir y loggear stderr ----
+        # Si Popen está en text=True -> EOF es ""
+        # Si está en bytes -> EOF es b""
+        if line == "" or line == b"":
+            rc = proc.poll()
+            try:
+                err = proc.stderr.read() if getattr(proc, "stderr", None) else ""
+            except Exception:
+                err = ""
+            logger.error(
+                f"[HANDLE FLOW] EOF: el proceso de captura terminó (returncode={rc}, execution={execution}). "
+                f"stderr:\n{err}"
+            )
+            break
+
+        # Normaliza bytes -> str (por si Popen no usa text=True)
+        if isinstance(line, (bytes, bytearray)):
+            line = line.decode("utf-8", errors="replace")
+
+        # logger.info en cada línea puede saturar; si quieres déjalo, pero recomiendo debug
+        logger.debug(f"[HANDLE FLOW] Read line: {line!r}")
+
+        line = line.strip()
         if not line:
             continue
 
-        try:
-            # Parse the JSON packet
-            pkt = json.loads(line.strip())
-
-            # Skip packets without layers
-            if "layers" not in pkt:
+        # ---- (2) Saltar cabecera CSV de ra una vez ----
+        # Ejemplo: "SrcAddr,Sport,DstAddr,Dport,Proto,TotPkts,TotBytes,Dur,sTtl,dTtl"
+        if not header_skipped:
+            low = line.lower()
+            if "srcaddr" in low and "dstaddr" in low and "proto" in low:
+                header_skipped = True
+                logger.debug(f"[HANDLE FLOW] CSV header detected and skipped: {line}")
                 continue
+            header_skipped = True  # por si no viene header, no bloqueamos
 
-            # Extract relevant fields from the packet
-            layers = pkt.get("layers", {})
-            frame = layers.get("frame", {})
-            frame_time = frame.get("frame_frame_time_epoch")
-            time_ = float(pd.to_datetime(frame_time).timestamp())
-            length = int(frame.get("frame_frame_len", 0))
-
-            src = dst = proto = ttl = None
-            ip_layer = layers.get("ip", {})
-            ipv6_layer = layers.get("ipv6", {})
-
-            # Extract IP and protocol information from IPv4 or IPv6 layers
-            if ipv6_layer:
-                proto = ipv6_layer.get("ipv6_ipv6_nxt")
-                src = ipv6_layer.get("ipv6_ipv6_src")
-                dst = ipv6_layer.get("ipv6_ipv6_dst")
-                ttl = ipv6_layer.get("ipv6_ipv6_hlim")
-            elif ip_layer:
-                proto = ip_layer.get("ip_ip_proto")
-                src = ip_layer.get("ip_ip_src")
-                dst = ip_layer.get("ip_ip_dst")
-                ttl = ip_layer.get("ip_ip_ttl")
-
-            # Extract protocol name
-            proto_name = PROTOCOL_MAP.get(str(proto), str(proto)) if proto else "UNKNOWN"
-
-            # Extract TCP/UDP ports
-            tcp_layer = layers.get("tcp", {})
-            udp_layer = layers.get("udp", {})
-            src_port = tcp_layer.get("tcp_tcp_srcport") or udp_layer.get("udp_udp_srcport") or -1
-            dst_port = tcp_layer.get("tcp_tcp_dstport") or udp_layer.get("udp_udp_dstport") or -1
-
-            # Convert ports to integers, defaulting to -1 if conversion fails
-            try:
-                src_port = int(src_port)
-            except:
-                src_port = -1
-            try:
-                dst_port = int(dst_port)
-            except:
-                dst_port = -1
-
-            # Create a flow key based on source, destination, ports, and protocol
-            if proto_name in ['TCP', 'UDP']:
-                flow_key = tuple(sorted([(src, src_port), (dst, dst_port)])) + (proto_name,)
-            else:
-                flow_key = (src, dst, proto_name)
-
-            flow_dict[flow_key].append({
-                'time': time_,
-                'length': length,
-                'ttl': int(ttl) if ttl else None
-            })
-
-        except Exception:
-            continue
+        # ---- (3) Filtrado básico de ruido ----
+        if "," in line and not line.lower().startswith(("ra ", "argus", "dumpcap")):
+            buf.append(line)
 
         # Check if it's time to flush the flow data
         if time.time() - last_flush >= interval:
-            rows = []
-
-            # Process the collected flows
-            for flow, packets in flow_dict.items():
-                times = [p['time'] for p in packets if p['time'] is not None]
-                lengths = [p['length'] for p in packets if p['length'] is not None]
-                ttls = [p['ttl'] for p in packets if p['ttl'] is not None]
-
-                try:
-                    if isinstance(flow[0], tuple):
-                        src, src_port = flow[0]
-                        dst, dst_port = flow[1]
-                        proto = flow[2]
-                    else:
-                        src, dst, proto = flow
-                        src_port = dst_port = -1
-
-                    rows.append({
-                        'src': src,
-                        'src_port': src_port,
-                        'dst': dst,
-                        'dst_port': dst_port,
-                        'protocol': proto,
-                        'packet_count': len(packets),
-                        'total_bytes': sum(lengths),
-                        'avg_packet_size': sum(lengths) / len(lengths) if lengths else 0,
-                        'flow_duration': max(times) - min(times) if times else 0,
-                        'avg_ttl': sum(ttls) / len(ttls) if ttls else None,
-                    })
-                except Exception:
-                    continue
-
-            flow_dict.clear()
+            df = df_from_ra_csv_lines(buf)
+            buf.clear()
             last_flush = time.time()
-
-            # Create a DataFrame from the collected flow data
-            df = pd.DataFrame(rows)
 
             if df.empty:
                 continue
+
+            anomaly_context = {
+                "source": "argus_ra_csv",
+                "interval_s": interval,
+            }
 
             # Process each pipeline: preprocessing + model inference
             for pipe in pipelines:

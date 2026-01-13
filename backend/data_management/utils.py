@@ -2,18 +2,13 @@ from __future__ import annotations
 import json
 import pandas as pd
 import numpy as np
-import math
-import hashlib
-from dataclasses import dataclass, field
-from typing import Dict, Tuple, Optional, List
+from typing import List
 import io
-import re
-from datetime import datetime
 import time
 from collections import defaultdict
 import logging
 from .models import *
-from action_execution.policy_storage import load_alert_policies, delete_alert_policy
+from netanoms_runtime.policy_storage import load_alert_policies, delete_alert_policy
 
 from sklearn.metrics import f1_score, precision_score, recall_score, accuracy_score, confusion_matrix, mean_squared_error, mean_absolute_error, r2_score
 
@@ -31,6 +26,9 @@ import pyshark
 
 from collections import defaultdict
 import joblib
+
+import shutil
+import subprocess
 
 from netanoms_runtime.pipeline_def import PipelineDef
 
@@ -383,121 +381,132 @@ def build_neural_network(input_shape, model_type, parameters):
 
 def extract_features_by_flow_from_pcap(file_obj):
     """
-    Extracts flow-based features from a PCAP file using PyShark.
+    Extract flow-based features from a PCAP using Argus (argus + racluster + ra).
 
-    This function processes the PCAP packet by packet, grouping them by flow (identified by
-    source/destination IPs and ports, and protocol), and computes flow-level statistics such as:
-    - packet count
-    - total bytes
-    - average packet size
-    - flow duration
-    - average TTL
-
-    Args:
-        file_obj (file-like object): The uploaded PCAP file.
-
-    Returns:
-        pandas.DataFrame: A DataFrame containing the aggregated flow features.
+    Returns a DataFrame with the same columns you already had:
+      src, src_port, dst, dst_port, protocol,
+      packet_count, total_bytes, avg_packet_size, flow_duration, avg_ttl
     """
+    logger.info("[EXTRACT FLOW][ARGUS] Extracting flow features from PCAP...")
 
-    logger.info("[EXTRACT FLOW] Extracting features from PCAP file...")
+    for bin_name in ("argus", "ra", "racluster"):
+        if shutil.which(bin_name) is None:
+            raise RuntimeError(f"Missing '{bin_name}' in container")
 
-    # Save uploaded file to a temporary .pcap file
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pcap") as tmp:
         tmp.write(file_obj.read())
         tmp_path = tmp.name
 
-    logger.info("[EXTRACT FLOW] Temporary file created at: %s", tmp_path)
+    logger.info("[EXTRACT FLOW][ARGUS] Temporary file created at: %s", tmp_path)
+    logger.info("[EXTRACT FLOW][ARGUS] pcap size=%s bytes exists=%s", os.path.getsize(tmp_path), os.path.exists(tmp_path))
 
-    cap = None
-    flow_dict = defaultdict(list)
+    # Argus pipeline
+    argus_cmd = ["argus", "-X", "-e", "127.0.0.1", "-r", tmp_path, "-w", "-"]
+    racluster_cmd = ["racluster", "-r", "-", "-w", "-"]
+
+    # IMPORTANT:
+    # -c , => CSV
+    # We will parse with header=None and fixed names to avoid "mystery headers"
+    ra_fields = "saddr sport daddr dport proto pkts bytes dur sttl dttl"
+    ra_cmd = ["ra", "-r", "-", "-n", "-c", ",", "-s", ra_fields]
 
     try:
-        # Initialize PyShark capture
-        cap = pyshark.FileCapture(tmp_path, keep_packets=False)
+        p1 = subprocess.Popen(argus_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        p2 = subprocess.Popen(racluster_cmd, stdin=p1.stdout, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        p1.stdout.close()
 
-        for i, pkt in enumerate(cap):
-            try:
-                # Basic packet metadata
-                time = float(pkt.sniff_time.timestamp()) if hasattr(pkt, 'sniff_time') else None
-                length = int(pkt.length) if hasattr(pkt, 'length') else None
+        p3 = subprocess.Popen(ra_cmd, stdin=p2.stdout, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        p2.stdout.close()
 
-                # Extract source and destination IPs
-                src = pkt.ip.src if hasattr(pkt, 'ip') else None
-                dst = pkt.ip.dst if hasattr(pkt, 'ip') else None
+        out, err3 = p3.communicate()
+        err1 = p1.stderr.read() if p1.stderr else b""
+        err2 = p2.stderr.read() if p2.stderr else b""
+        rc1, rc2, rc3 = p1.wait(), p2.wait(), p3.returncode
 
-                # Extract protocol information
-                proto = pkt.transport_layer or getattr(pkt, 'highest_layer', None)
-                proto_name = PROTOCOL_MAP.get(str(proto), str(proto)) if proto else 'UNKNOWN'
+        if rc1 != 0 or rc2 != 0 or rc3 != 0:
+            raise RuntimeError(
+                f"[EXTRACT FLOW][ARGUS] Pipeline failed rc(argus)={rc1} rc(racluster)={rc2} rc(ra)={rc3}\n"
+                f"stderr(argus): {err1.decode(errors='ignore')}\n"
+                f"stderr(racluster): {err2.decode(errors='ignore')}\n"
+                f"stderr(ra): {err3.decode(errors='ignore')}\n"
+            )
 
-                # Extract source and destination ports, defaulting to -1 if not available
-                src_port = dst_port = -1
+        text = out.decode("utf-8", errors="replace").strip()
 
-                if pkt.transport_layer:
-                    try:
-                        layer = pkt[pkt.transport_layer]
-                        
-                        # Use getattr to safely access srcport and dstport attributes
-                        src_port = int(getattr(layer, 'srcport', -1)) if hasattr(layer, 'srcport') else -1
-                        dst_port = int(getattr(layer, 'dstport', -1)) if hasattr(layer, 'dstport') else -1
-                    except Exception as e:
-                        logger.warning("[EXTRACT FLOW] Error retrieving ports from packet %d: %s", i + 1, str(e))
+        # If no output, return empty DF with expected columns
+        out_cols = ["src","src_port","dst","dst_port","protocol","packet_count","total_bytes","avg_packet_size","flow_duration","avg_ttl"]
+        if not text:
+            return pd.DataFrame(columns=out_cols)
 
-                # Extract TCP flags and TTL if available
-                flags = pkt.tcp.flags if hasattr(pkt, 'tcp') and hasattr(pkt.tcp, 'flags') else None
-                ttl = int(pkt.ip.ttl) if hasattr(pkt, 'ip') and hasattr(pkt.ip, 'ttl') else None
-
-                # Create a unique key for the flow based on src, src_port, dst, dst_port, and protocol
-                flow_key = (src, src_port, dst, dst_port, proto_name)
-                flow_dict[flow_key].append({
-                    'time': time,
-                    'length': length,
-                    'ttl': ttl,
-                    'flags': flags
-                })
-
-            except Exception as e:
-                logger.warning("[EXTRACT FLOW] Error processing packet %d: %s", i + 1, str(e))
+        # Keep only lines that look like CSV data (contain commas and not obvious banners)
+        lines = []
+        for line in text.splitlines():
+            line = line.strip()
+            if not line:
                 continue
+            if "," not in line:
+                continue
+            # sometimes ra prints separators; filter out non-data-ish lines
+            if line.lower().startswith("ra ") or line.lower().startswith("argus"):
+                continue
+            lines.append(line)
 
-    except Exception as e:
-        logger.error("[EXTRACT FLOW] Error reading PCAP file: %s", str(e))
-    finally:
-        if cap:
-            cap.close()
-            del cap
-        logger.info("[EXTRACT FLOW] Capture closed successfully")
+        if not lines:
+            logger.warning("[EXTRACT FLOW][ARGUS] ra produced output but no CSV data lines. Raw head:\n%s",
+                           "\n".join(text.splitlines()[:30]))
+            return pd.DataFrame(columns=out_cols)
 
-    # Aggregate flow-level statistics
-    aggregated = []
-    for flow, packets in flow_dict.items():
-        times = [p['time'] for p in packets if p['time'] is not None]
-        lengths = [p['length'] for p in packets if p['length'] is not None]
-        ttls = [p['ttl'] for p in packets if p['ttl'] is not None]
+        csv_text = "\n".join(lines)
 
-        aggregated.append({
-            'src': flow[0],
-            'src_port': flow[1],
-            'dst': flow[2],
-            'dst_port': flow[3],
-            'protocol': flow[4],
-            'packet_count': len(packets),
-            'total_bytes': sum(lengths),
-            'avg_packet_size': sum(lengths) / len(lengths) if lengths else 0,
-            'flow_duration': max(times) - min(times) if times else 0,
-            'avg_ttl': sum(ttls) / len(ttls) if ttls else None,
+        # Parse as headerless CSV with fixed column names
+        names = ["saddr","sport","daddr","dport","proto","pkts","bytes","dur","sttl","dttl"]
+        df_raw = pd.read_csv(io.StringIO(csv_text), header=None, names=names)
+
+        # Drop header-like rows accidentally included as data
+        saddr_norm = df_raw["saddr"].astype(str).str.strip().str.lower()
+        proto_norm = df_raw["proto"].astype(str).str.strip().str.lower()
+
+        mask = (
+            (saddr_norm != "srcaddr") &
+            (proto_norm != "proto") &
+            df_raw["saddr"].apply(_is_ip) &
+            df_raw["daddr"].apply(_is_ip)
+        )
+
+        df_raw = df_raw[mask].copy()
+
+        # Convert numerics
+        for c in ["sport","dport","pkts","bytes","dur","sttl","dttl"]:
+            df_raw[c] = pd.to_numeric(df_raw[c], errors="coerce")
+
+        out_df = pd.DataFrame({
+            "src": df_raw["saddr"].astype("string"),
+            "src_port": df_raw["sport"].fillna(-1).astype("int64", errors="ignore"),
+            "dst": df_raw["daddr"].astype("string"),
+            "dst_port": df_raw["dport"].fillna(-1).astype("int64", errors="ignore"),
+            "protocol": df_raw["proto"].astype("string").fillna("UNKNOWN").replace("", "UNKNOWN"),
+            "packet_count": df_raw["pkts"].fillna(0).astype("int64", errors="ignore"),
+            "total_bytes": df_raw["bytes"].fillna(0).astype("int64", errors="ignore"),
+            "flow_duration": df_raw["dur"].fillna(0).astype(float),
         })
 
-    # Convert to DataFrame
-    df = pd.DataFrame(aggregated)
+        pkts = pd.to_numeric(out_df["packet_count"], errors="coerce").fillna(0)
+        bytes_ = pd.to_numeric(out_df["total_bytes"], errors="coerce").fillna(0)
+        out_df["avg_packet_size"] = (bytes_ / pkts.replace(0, pd.NA)).fillna(0).astype(float)
 
-    # Fill NaN values and replace empty strings
-    df['src_port'] = df['src_port'].fillna(-1)
-    df['dst_port'] = df['dst_port'].fillna(-1)
-    df['protocol'] = df['protocol'].fillna('UNKNOWN').replace('', 'UNKNOWN')
+        out_df["avg_ttl"] = pd.concat([df_raw["sttl"], df_raw["dttl"]], axis=1).mean(axis=1, skipna=True)
 
-    logger.info("[EXTRACT FLOW] DataFrame aggregated: %s", df)
-    return df
+        # Drop rows that are completely empty (in case ra printed weird stuff)
+        out_df = out_df.dropna(subset=["src","dst","protocol"], how="all")
+
+        logger.info("[EXTRACT FLOW][ARGUS] DataFrame aggregated head:\n%s", out_df.head(5))
+        return out_df
+
+    finally:
+        try:
+            os.remove(tmp_path)
+        except Exception:
+            pass
 
 def extract_features_by_packet_from_pcap(file_obj):
     """
@@ -601,6 +610,15 @@ def int_to_ip(ip_int):
         str: The IP address in dotted-decimal notation (e.g., '192.168.1.1').
     """
     return socket.inet_ntoa(struct.pack("!I", int(ip_int)))
+
+def _is_ip(x) -> bool:
+    try:
+        if pd.isna(x):
+            return False
+        ipaddress.ip_address(str(x).strip())
+        return True
+    except Exception:
+        return False
     
 def extract_parameters(properties, params):
     """
@@ -970,13 +988,98 @@ def save_shap_bar_global(
     os.makedirs(output_dir, exist_ok=True)
 
     try:
-        # Normalize class names
+        # ---------------------------
+        # 1) Normalizar class_names
+        # ---------------------------
         if class_names is not None:
             if isinstance(class_names, np.ndarray):
                 class_names = class_names.tolist()
             class_names = [str(c).replace(" ", "_").replace("/", "_") for c in class_names]
 
-        # Multiclass SHAP values: shape [samples, features, classes]
+        # ---------------------------------------------------------
+        # 2) Normalizar shap_values para redes neuronales (TF/Keras)
+        # ---------------------------------------------------------
+        # Caso A: algunos explainers devuelven lista por clase
+        #   -> [ (samples, ...features...), (samples, ...features...), ... ]
+        if isinstance(shap_values, list) and len(shap_values) > 0:
+            try:
+                sv0 = shap_values[0]
+                if hasattr(sv0, "values"):
+                    # lista de shap.Explanation
+                    vals = [sv.values for sv in shap_values]
+                    vals = np.stack(vals, axis=-1)  # (..., classes)
+                    # Reutilizamos data/base_values de la primera si existen
+                    data = getattr(sv0, "data", None)
+                    base = getattr(sv0, "base_values", None)
+                else:
+                    # lista de numpy arrays
+                    vals = np.stack(shap_values, axis=-1)
+                    data, base = None, None
+
+                # Si viene con features >2D (p.ej imagen), aplanar features
+                if vals.ndim > 3:
+                    n = vals.shape[0]
+                    n_classes = vals.shape[-1]
+                    vals = vals.reshape(n, -1, n_classes)
+
+                # Convertir a shap.Explanation para que shap.plots.bar funcione bien
+                try:
+                    shap_values = shap.Explanation(
+                        values=vals,
+                        base_values=base,
+                        data=data,
+                        feature_names=getattr(sv0, "feature_names", None),
+                    )
+                except Exception:
+                    shap_values = vals  # fallback
+            except Exception:
+                # si falla, seguimos con el objeto original
+                pass
+
+        # Caso B: shap.Explanation de deep con ndim>3: aplanar features
+        if hasattr(shap_values, "values"):
+            vals = shap_values.values
+            if isinstance(vals, np.ndarray) and vals.ndim > 3:
+                n = vals.shape[0]
+
+                # Si es multiclase, normalmente la última dimensión es clases
+                # y el resto son features (H,W,C,...) -> aplanamos todo salvo samples y classes
+                if vals.ndim >= 4:
+                    # Heurística: si parece multiclase (último eje pequeño) lo tratamos como output
+                    maybe_classes = vals.shape[-1]
+                    # Aplanar features:
+                    # - multiclase: (n, ..., classes) -> (n, flat_features, classes)
+                    # - no multiclase: (n, ...) -> (n, flat_features)
+                    if maybe_classes > 1:
+                        vals2 = vals.reshape(n, -1, maybe_classes)
+                    else:
+                        vals2 = vals.reshape(n, -1)
+
+                    data = getattr(shap_values, "data", None)
+                    if isinstance(data, np.ndarray) and data.ndim > 2:
+                        # aplanar data para consistencia (n, flat_features)
+                        data2 = data.reshape(n, -1)
+                    else:
+                        data2 = data
+
+                    # feature_names si no vienen: generamos nombres simples
+                    fn = getattr(shap_values, "feature_names", None)
+                    if fn is None or (hasattr(vals2, "shape") and isinstance(vals2, np.ndarray) and vals2.ndim >= 2 and fn is not None and len(fn) != vals2.shape[1]):
+                        fn = [f"f_{i}" for i in range(vals2.shape[1])]
+
+                    try:
+                        shap_values = shap.Explanation(
+                            values=vals2,
+                            base_values=getattr(shap_values, "base_values", None),
+                            data=data2,
+                            feature_names=fn,
+                        )
+                    except Exception:
+                        shap_values = vals2  # fallback
+
+        # ------------------------------------------
+        # 3) Lógica original (2D vs 3D) + filtro fijo
+        # ------------------------------------------
         if len(shap_values.shape) == 3:
             n_classes = shap_values.shape[2]
             paths = []
@@ -987,8 +1090,11 @@ def save_shap_bar_global(
                     else f"class_{class_idx}"
                 )
 
-                if selected_classes and class_label not in selected_classes:
-                    continue
+                # FIX: si no hay class_names (Keras), permitir filtrar por índice ('0','1',...)
+                if selected_classes:
+                    allowed = set(selected_classes)
+                    if (class_label not in allowed) and (str(class_idx) not in allowed):
+                        continue
 
                 try:
                     plt.figure()
@@ -1008,7 +1114,6 @@ def save_shap_bar_global(
 
             return paths if paths else ""
 
-        # Single class SHAP values: shape [samples, features]
         else:
             plt.figure()
             shap.plots.bar(shap_values, show=False)
@@ -1028,35 +1133,86 @@ def save_shap_bar_global(
         logger.warning(f"[SHAP GLOBAL] Error while saving SHAP plot: {e}")
         return ""
 
-def save_lime_bar_global(mean_weights: dict, scenario_uuid: str) -> str:
+def save_lime_bar_global(
+    mean_weights: dict,
+    scenario_uuid: str,
+    model_name: str = "",
+    class_label: str = None,
+    selected_classes: list = None
+) -> str:
     """
-    Generates and saves a horizontal bar chart of global LIME feature importances.
+    Generates and saves a SHAP-like horizontal bar chart of global LIME feature importances.
 
     Args:
-        mean_weights (dict): A dictionary of features and their mean absolute weights.
-        scenario_uuid (str): Unique identifier of the scenario, used in the output filename.
+        mean_weights (dict): feature -> mean(|weight|)
+        scenario_uuid (str): scenario id used in filename
+        model_name (str): optional model name to include in filename
+        class_label (str): optional class name (for multiclass classification)
+        selected_classes (list): optional list of class names to keep (defensive filter)
 
     Returns:
-        str: Relative path to the saved image file, or an empty string if saving fails.
+        str: Relative path to the saved image file, or "" on failure.
     """
     output_dir = os.path.join(settings.MEDIA_ROOT, "lime_global_images")
     os.makedirs(output_dir, exist_ok=True)
 
     try:
-        # Sort features by importance (descending)
-        features, values = zip(*sorted(mean_weights.items(), key=lambda x: x[1], reverse=True))
+        if not mean_weights:
+            logger.warning("[LIME GLOBAL] Empty mean_weights, nothing to plot.")
+            return ""
 
-        # Plot the LIME bar chart
-        plt.figure(figsize=(10, 6))
-        plt.barh(features[::-1], values[::-1])
-        plt.xlabel("Mean absolute weight (LIME)")
-        plt.title("Global LIME Feature Importance")
+        # Defensive filter: if selected_classes is provided and class_label is not selected, skip
+        if selected_classes and class_label and class_label not in selected_classes:
+            logger.info(f"[LIME GLOBAL] Skipping class '{class_label}' (not in selected_classes).")
+            return ""
+
+        # Sort descending
+        items = sorted(mean_weights.items(), key=lambda x: x[1], reverse=True)
+        features = [k for k, _ in items]
+        values = [float(v) for _, v in items]
+
+        # --- SHAP-like style ---
+        plt.figure(figsize=(10, 4.8))
+        ax = plt.gca()
+
+        bars = ax.barh(features[::-1], values[::-1], color="#ff0051")
+        ax.xaxis.grid(True, linestyle=":", linewidth=1, alpha=0.35)
+        ax.set_axisbelow(True)
+
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+
+        ax.set_xlabel("mean(|LIME weight|)")
+
+        # Title like SHAP cards
+        if class_label:
+            ax.set_title(f"LIME for {class_label}", fontweight="bold", color="#1e5bff", pad=12)
+        else:
+            ax.set_title("Global LIME Feature Importance", fontweight="bold", color="#1e5bff", pad=12)
+
+        # Annotate +value like SHAP
+        maxv = max(values) if values else 1.0
+        pad = maxv * 0.01 if maxv else 0.01
+        for b in bars:
+            w = b.get_width()
+            y = b.get_y() + b.get_height() / 2
+            ax.text(w + pad, y, f"+{w:.2f}", va="center", ha="left", fontsize=10, color="#ff0051")
+
         plt.tight_layout()
 
-        # Save the plot
-        output_filename = f"global_lime_{scenario_uuid}.png"
+        safe_model = str(model_name).replace(" ", "_").replace("/", "_") if model_name else ""
+        safe_class = str(class_label).replace(" ", "_").replace("/", "_") if class_label else ""
+
+        # Filename similar to SHAP naming
+        if safe_class and safe_model:
+            output_filename = f"global_lime_{scenario_uuid}_{safe_model}_{safe_class}.png"
+        elif safe_class:
+            output_filename = f"global_lime_{scenario_uuid}_{safe_class}.png"
+        else:
+            output_filename = f"global_lime_{scenario_uuid}.png"
+
         output_path = os.path.join(output_dir, output_filename)
-        plt.savefig(output_path, bbox_inches="tight")
+        plt.savefig(output_path, bbox_inches="tight", dpi=200)
         plt.close()
 
         logger.info(f"[LIME GLOBAL] Plot saved at: {output_path}")
@@ -1065,6 +1221,7 @@ def save_lime_bar_global(mean_weights: dict, scenario_uuid: str) -> str:
     except Exception as e:
         logger.warning(f"[LIME GLOBAL] Error while saving plot: {e}")
         return ""
+
     
 def save_lime_bar_local(exp, scenario_uuid: str, anomaly_index: int) -> str:
     """

@@ -1581,6 +1581,13 @@
               "type": "select",
               "default": "LimeTabularExplainer",
               "options": ["LimeTabularExplainer", "LimeTextExplainer", "LimeImageExplainer"]
+            },
+            {
+              "name": "selectedClasses",
+              "label": "Classes to Explain",
+              "type": "multi-select",
+              "default": [],
+              "options_from": "classes"
             }
           ]
         }
