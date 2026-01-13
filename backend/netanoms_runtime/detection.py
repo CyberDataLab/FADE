@@ -130,12 +130,10 @@ def run_live_production(
 
     session_id = scenario_uuid or "default"
 
-    # Registrar callbacks globales para que los handlers puedan emitir eventos
     _callbacks["on_anomaly"] = on_anomaly
     _callbacks["on_status"] = on_status
     _callbacks["on_error"] = on_error
 
-    # Construir comando de captura (tshark/bpftrace, etc.)
     cmd = _build_capture_cmd(ssh, capture)
     _emit_status(f"Launching capture: {' '.join(cmd)}")
 
@@ -148,7 +146,6 @@ def run_live_production(
         start_new_session=True,
     )
 
-    # Seleccionar handler según el modo de captura
     mode = (capture.mode or "").strip().lower()
     if mode == "packet":
         handler = _get_handler(_HANDLER_PACKET_NAME)
@@ -163,7 +160,6 @@ def run_live_production(
     def _runner():
         try:
             _emit_status(f"Starting live mode = '{capture.mode}' (execution={execution})")
-            # Handler genérico: sólo recibe lo que es común a cualquier app
             handler(
                 proc,
                 pipelines,
@@ -185,7 +181,6 @@ def run_live_production(
 
     t = threading.Thread(target=_runner, daemon=True)
 
-    # Marcar control del hilo por uuid/session_id
     thread_controls[session_id] = True
 
     t.start()

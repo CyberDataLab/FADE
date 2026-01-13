@@ -139,31 +139,18 @@ def _build_argus_flow_cmd(ssh: SSHConfig, cap: CaptureConfig) -> list[str]:
     """
     dumpcap_bin = getattr(ssh, "dumpcap_path", "/usr/bin/dumpcap")
 
-    # CSV fields (commas!) to match df_from_ra_csv_lines() expectations
     ra_fields = "saddr,sport,daddr,dport,proto,pkts,bytes,dur,sttl,dttl"
 
-    # dumpcap base: force PCAP output with -P
     dumpcap_base = f"{dumpcap_bin} -P -i {shlex.quote(ssh.interface)} -q"
 
     if cap.extra_args:
         dumpcap_base += " " + " ".join(shlex.quote(x) for x in cap.extra_args)
 
-    # Live pipeline (no files)
-    # dumpcap (pcap) -> argus (binary argus) -> ra (csv)
-    # If you still want clustering, you can re-add racluster between argus and ra.
     pipeline = (
         f"{dumpcap_base} -w - "
         f"| stdbuf -oL argus -X -B ARGUS_FLOW_STATUS_INTERVAL=1 -e 127.0.0.1 -r - -w - "
         f"| stdbuf -oL ra -r - -n -c , -s {shlex.quote(ra_fields)}"
     )
-
-    # Optional: if you WANT racluster, uncomment this variant instead:
-    # pipeline = (
-    #     f"{dumpcap_base} -w - "
-    #     f"| stdbuf -oL argus -X -B ARGUS_FLOW_STATUS_INTERVAL=1 -e 127.0.0.1 -r - -w - "
-    #     f"| stdbuf -oL racluster -r - -w - "
-    #     f"| stdbuf -oL ra -r - -n -c , -s {shlex.quote(ra_fields)}"
-    # )
 
     if cap.run_env.lower() == "docker":
         # Run capture on the host (from inside container) via SSH
@@ -182,7 +169,6 @@ def _build_argus_flow_cmd(ssh: SSHConfig, cap: CaptureConfig) -> list[str]:
         raise ValueError(f"run_env unknown: {cap.run_env}")
 
 
-#MIRAR SI ES EN HOST
 def _build_bpftrace_cmd(ssh: SSHConfig, capture: CaptureConfig) -> list[str]:
     """
     Builds the command-line instruction to launch a `bpftrace` syscall capture session.

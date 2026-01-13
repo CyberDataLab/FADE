@@ -25,16 +25,13 @@ def load_alert_policies():
     # Create the file with an empty JSON object if it doesn't exist
     logger.info("Loading alert policies")
 
-    # Crear directorio si no existe
     os.makedirs(POLICIES_DIR, exist_ok=True)
 
-    # Crear fichero si no existe
     if not os.path.exists(POLICY_FILE):
         with open(POLICY_FILE, "w") as f:
             json.dump({}, f)
         return {}
 
-    # Leer policies
     with open(POLICY_FILE, "r") as f:
         return json.load(f)
 

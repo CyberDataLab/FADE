@@ -60,9 +60,6 @@ def handle_flow_traffic_anomalies(
         # Read a line from the subprocess output
         line = proc.stdout.readline()
 
-        # ---- (1) EOF / proceso muerto: salir y loggear stderr ----
-        # Si Popen está en text=True -> EOF es ""
-        # Si está en bytes -> EOF es b""
         if line == "" or line == b"":
             rc = proc.poll()
             try:
@@ -75,28 +72,23 @@ def handle_flow_traffic_anomalies(
             )
             break
 
-        # Normaliza bytes -> str (por si Popen no usa text=True)
         if isinstance(line, (bytes, bytearray)):
             line = line.decode("utf-8", errors="replace")
 
-        # logger.info en cada línea puede saturar; si quieres déjalo, pero recomiendo debug
         logger.debug(f"[HANDLE FLOW] Read line: {line!r}")
 
         line = line.strip()
         if not line:
             continue
 
-        # ---- (2) Saltar cabecera CSV de ra una vez ----
-        # Ejemplo: "SrcAddr,Sport,DstAddr,Dport,Proto,TotPkts,TotBytes,Dur,sTtl,dTtl"
         if not header_skipped:
             low = line.lower()
             if "srcaddr" in low and "dstaddr" in low and "proto" in low:
                 header_skipped = True
                 logger.debug(f"[HANDLE FLOW] CSV header detected and skipped: {line}")
                 continue
-            header_skipped = True  # por si no viene header, no bloqueamos
+            header_skipped = True
 
-        # ---- (3) Filtrado básico de ruido ----
         if "," in line and not line.lower().startswith(("ra ", "argus", "dumpcap")):
             buf.append(line)
 

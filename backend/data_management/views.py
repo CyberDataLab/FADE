@@ -1621,15 +1621,8 @@ def execute_scenario(scenario_model, scenario, design):
 
                             logger.info(f"[EXECUTE SCENARIO] Calculating SHAP values with data: {input_data}")
 
-                            # ---------------------------------------------------------------------------------------
-                            # NOTE: Do NOT use the full dataset as SHAP background or as "data to explain".
-                            # Large datasets can cause extreme slowdowns and OOM / process kills.
-                            # We use small random subsets for both:
-                            #   - background_data: baseline/reference dataset for the explainer
-                            #   - data_to_explain: rows we compute SHAP values for (enough for global plots)
-                            # ---------------------------------------------------------------------------------------
-                            background_size = 50   # typical: 50-500
-                            explain_size = 200      # typical: 20-500
+                            background_size = 50
+                            explain_size = 200 
 
                             def _sample_data(data, n, random_state=42):
                                 """
@@ -1638,13 +1631,11 @@ def execute_scenario(scenario_model, scenario, design):
                                 if data is None:
                                     return None
 
-                                # Pandas DataFrame
                                 if isinstance(data, pd.DataFrame):
                                     if len(data) <= n:
                                         return data
                                     return data.sample(n=n, random_state=random_state)
 
-                                # Numpy array / Tensor-like
                                 try:
                                     total = data.shape[0]
                                 except Exception:
@@ -1677,10 +1668,6 @@ def execute_scenario(scenario_model, scenario, design):
                                     else:
                                         return model_object.predict(X)
 
-                                # NOTE: Do NOT use shap.kmeans(...) here.
-                                # For packet/network data there can be many duplicated rows. kmeans may return mismatched
-                                # weights when the number of distinct points is smaller than n_clusters, leading to:
-                                # "# of weights must match data matrix!"
                                 bg = background_data
                                 if isinstance(bg, pd.DataFrame):
                                     bg = bg.drop_duplicates()
@@ -1688,11 +1675,9 @@ def execute_scenario(scenario_model, scenario, design):
                                 explainer = explainer_class(model_score, bg)
 
                             elif explainer_type in ["LinearExplainer", "DeepExplainer"]:
-                                # NOTE: Use a small background to avoid OOM/slowdowns
                                 explainer = explainer_class(model_object, background_data)
 
                             elif explainer_type == "TreeExplainer":
-                                # NOTE: For interventional perturbation, a small background is enough
                                 explainer = explainer_class(
                                     model_object,
                                     background_data,
@@ -1753,7 +1738,6 @@ def execute_scenario(scenario_model, scenario, design):
 
                                 # Case model connected is classification or regression model
                                 else:
-                                    # IMPORTANT: explain only a subset of rows (data_to_explain), not full input_data
                                     if explainer_type == "TreeExplainer":
                                         shap_values = explainer(data_to_explain, check_additivity=False)
                                     else:
@@ -1821,11 +1805,7 @@ def execute_scenario(scenario_model, scenario, design):
                         elif el_type == "LIME":
                             model_type = model_info.get("type")
 
-                            # -----------------------------
-                            # 1) Select proper input data
-                            # -----------------------------
                             if model_type in classification_types + regression_types:
-                                # For supervised models, prefer training data (stable background for LIME)
                                 input_data = model_info.get("X_train")
                                 if input_data is None:
                                     return {"error": f"No training data found for model {model_id} to apply LIME"}
@@ -1838,10 +1818,7 @@ def execute_scenario(scenario_model, scenario, design):
                             logger.info(f"[EXECUTE SCENARIO] LIME input shape: {getattr(input_data, 'shape', None)}")
                             logger.info(f"[EXECUTE SCENARIO] Selected classes for LIME: {selected_classes}")
 
-                            # ---------------------------------------------------------
-                            # SAFETY: ensure DataFrame BUT DO NOT break on 3D/4D inputs
-                            # ---------------------------------------------------------
-                            original_sample_shape = None  # used for NN/CNN predict wrapper
+                            original_sample_shape = None
 
                             if isinstance(input_data, pd.DataFrame):
                                 input_df = input_data.copy()
@@ -1850,7 +1827,7 @@ def execute_scenario(scenario_model, scenario, design):
 
                                 # LIME Tabular requires 2D: (n_samples, n_features)
                                 if hasattr(arr, "ndim") and arr.ndim > 2:
-                                    original_sample_shape = tuple(arr.shape[1:])  # e.g. (784,1) or (28,28,1)
+                                    original_sample_shape = tuple(arr.shape[1:])
                                     logger.info(
                                         f"[EXECUTE SCENARIO] Flattening input_data for LIME from {arr.shape} to 2D"
                                     )
@@ -1858,7 +1835,6 @@ def execute_scenario(scenario_model, scenario, design):
 
                                 input_df = pd.DataFrame(arr)
 
-                            # from now on, use input_df everywhere
                             input_data = input_df
 
                             lime_image_paths = []
@@ -1973,9 +1949,6 @@ def execute_scenario(scenario_model, scenario, design):
                                 logger.info(f"[EXECUTE SCENARIO] Model classes: {class_names}")
                                 logger.info(f"[EXECUTE SCENARIO] Selected classes for LIME: {selected_classes}")
 
-                                # --------------------------------------------------
-                                # Choose prediction function (NN-safe)  <-- DEFINIR PRIMERO
-                                # --------------------------------------------------
                                 def _default_predict_proba(X):
                                     if hasattr(model_object, "predict_proba"):
                                         return model_object.predict_proba(X)

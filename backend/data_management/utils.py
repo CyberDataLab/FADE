@@ -988,41 +988,28 @@ def save_shap_bar_global(
     os.makedirs(output_dir, exist_ok=True)
 
     try:
-        # ---------------------------
-        # 1) Normalizar class_names
-        # ---------------------------
         if class_names is not None:
             if isinstance(class_names, np.ndarray):
                 class_names = class_names.tolist()
             class_names = [str(c).replace(" ", "_").replace("/", "_") for c in class_names]
 
-        # ---------------------------------------------------------
-        # 2) Normalizar shap_values para redes neuronales (TF/Keras)
-        # ---------------------------------------------------------
-        # Caso A: algunos explainers devuelven lista por clase
-        #   -> [ (samples, ...features...), (samples, ...features...), ... ]
         if isinstance(shap_values, list) and len(shap_values) > 0:
             try:
                 sv0 = shap_values[0]
                 if hasattr(sv0, "values"):
-                    # lista de shap.Explanation
                     vals = [sv.values for sv in shap_values]
-                    vals = np.stack(vals, axis=-1)  # (..., classes)
-                    # Reutilizamos data/base_values de la primera si existen
+                    vals = np.stack(vals, axis=-1)
                     data = getattr(sv0, "data", None)
                     base = getattr(sv0, "base_values", None)
                 else:
-                    # lista de numpy arrays
                     vals = np.stack(shap_values, axis=-1)
                     data, base = None, None
 
-                # Si viene con features >2D (p.ej imagen), aplanar features
                 if vals.ndim > 3:
                     n = vals.shape[0]
                     n_classes = vals.shape[-1]
                     vals = vals.reshape(n, -1, n_classes)
 
-                # Convertir a shap.Explanation para que shap.plots.bar funcione bien
                 try:
                     shap_values = shap.Explanation(
                         values=vals,
@@ -1031,25 +1018,17 @@ def save_shap_bar_global(
                         feature_names=getattr(sv0, "feature_names", None),
                     )
                 except Exception:
-                    shap_values = vals  # fallback
+                    shap_values = vals
             except Exception:
-                # si falla, seguimos con el objeto original
                 pass
 
-        # Caso B: shap.Explanation de deep con ndim>3: aplanar features
         if hasattr(shap_values, "values"):
             vals = shap_values.values
             if isinstance(vals, np.ndarray) and vals.ndim > 3:
                 n = vals.shape[0]
 
-                # Si es multiclase, normalmente la última dimensión es clases
-                # y el resto son features (H,W,C,...) -> aplanamos todo salvo samples y classes
                 if vals.ndim >= 4:
-                    # Heurística: si parece multiclase (último eje pequeño) lo tratamos como output
                     maybe_classes = vals.shape[-1]
-                    # Aplanar features:
-                    # - multiclase: (n, ..., classes) -> (n, flat_features, classes)
-                    # - no multiclase: (n, ...) -> (n, flat_features)
                     if maybe_classes > 1:
                         vals2 = vals.reshape(n, -1, maybe_classes)
                     else:
@@ -1057,12 +1036,10 @@ def save_shap_bar_global(
 
                     data = getattr(shap_values, "data", None)
                     if isinstance(data, np.ndarray) and data.ndim > 2:
-                        # aplanar data para consistencia (n, flat_features)
                         data2 = data.reshape(n, -1)
                     else:
                         data2 = data
 
-                    # feature_names si no vienen: generamos nombres simples
                     fn = getattr(shap_values, "feature_names", None)
                     if fn is None or (hasattr(vals2, "shape") and isinstance(vals2, np.ndarray) and vals2.ndim >= 2 and fn is not None and len(fn) != vals2.shape[1]):
                         fn = [f"f_{i}" for i in range(vals2.shape[1])]
@@ -1075,11 +1052,8 @@ def save_shap_bar_global(
                             feature_names=fn,
                         )
                     except Exception:
-                        shap_values = vals2  # fallback
+                        shap_values = vals2 
 
-        # ------------------------------------------
-        # 3) Lógica original (2D vs 3D) + filtro fijo
-        # ------------------------------------------
         if len(shap_values.shape) == 3:
             n_classes = shap_values.shape[2]
             paths = []
@@ -1090,7 +1064,6 @@ def save_shap_bar_global(
                     else f"class_{class_idx}"
                 )
 
-                # FIX: si no hay class_names (Keras), permitir filtrar por índice ('0','1',...)
                 if selected_classes:
                     allowed = set(selected_classes)
                     if (class_label not in allowed) and (str(class_idx) not in allowed):
@@ -1161,17 +1134,14 @@ def save_lime_bar_global(
             logger.warning("[LIME GLOBAL] Empty mean_weights, nothing to plot.")
             return ""
 
-        # Defensive filter: if selected_classes is provided and class_label is not selected, skip
         if selected_classes and class_label and class_label not in selected_classes:
             logger.info(f"[LIME GLOBAL] Skipping class '{class_label}' (not in selected_classes).")
             return ""
 
-        # Sort descending
         items = sorted(mean_weights.items(), key=lambda x: x[1], reverse=True)
         features = [k for k, _ in items]
         values = [float(v) for _, v in items]
 
-        # --- SHAP-like style ---
         plt.figure(figsize=(10, 4.8))
         ax = plt.gca()
 
@@ -1184,13 +1154,11 @@ def save_lime_bar_global(
 
         ax.set_xlabel("mean(|LIME weight|)")
 
-        # Title like SHAP cards
         if class_label:
             ax.set_title(f"LIME for {class_label}", fontweight="bold", color="#1e5bff", pad=12)
         else:
             ax.set_title("Global LIME Feature Importance", fontweight="bold", color="#1e5bff", pad=12)
 
-        # Annotate +value like SHAP
         maxv = max(values) if values else 1.0
         pad = maxv * 0.01 if maxv else 0.01
         for b in bars:
@@ -1203,7 +1171,6 @@ def save_lime_bar_global(
         safe_model = str(model_name).replace(" ", "_").replace("/", "_") if model_name else ""
         safe_class = str(class_label).replace(" ", "_").replace("/", "_") if class_label else ""
 
-        # Filename similar to SHAP naming
         if safe_class and safe_model:
             output_filename = f"global_lime_{scenario_uuid}_{safe_model}_{safe_class}.png"
         elif safe_class:
