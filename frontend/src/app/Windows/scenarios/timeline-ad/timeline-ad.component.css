@@ -157,7 +157,7 @@ h5 { font-size: var(--font-md); margin: 0.6rem 0; }
 /* Global scrollbar styling for the page */
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, var(--blue-400), var(--blue-600));
+  background: rgba(46,104,255,.35);
   border-radius: 10px;
 }
 ::-webkit-scrollbar-track {

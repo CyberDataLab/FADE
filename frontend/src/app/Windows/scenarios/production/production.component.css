@@ -358,3 +358,13 @@
 .menu-item:active {
   transform: translateY(1px);
 }
+
+/* Global scrollbar styling for the page */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-thumb {
+  background: rgba(46,104,255,.35);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(240,242,250,.6);
+}

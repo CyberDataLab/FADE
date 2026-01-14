@@ -189,19 +189,16 @@
   border-radius: 10px;
 }
 
-/* Scrollbar track: soft neutral background */
-.information-table tbody::-webkit-scrollbar-track{
-  background: rgba(240,242,250,.6);
-  border-radius: 10px;
+/* Global scrollbar styling for the metrics view */
+::-webkit-scrollbar {
+  width: 8px;
 }
-
-.information-table tbody::-webkit-scrollbar{ width: 8px; }
-.information-table tbody::-webkit-scrollbar-thumb{
+::-webkit-scrollbar-thumb {
   background: rgba(46,104,255,.35);
   border-radius: 10px;
 }
-.information-table tbody::-webkit-scrollbar-track{
-  background: rgba(245,246,250,.5);
+::-webkit-scrollbar-track {
+  background: rgba(240,242,250,.6);
 }
 
 /* Host element fallback: ensure it behaves as a block container */
