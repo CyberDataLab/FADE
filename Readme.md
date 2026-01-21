@@ -1,10 +1,48 @@
-# Project Setup and Execution
+<p align="center">
+  <img src="INCIBE-logos.jpg"
+       alt="Funded by the European Union, Government of Spain and INCIBE"
+       width="95%">
+</p>
 
-## Steps to get the project up and running:
+<hr>
+
+# 🛡️ FADE (Framework for Anomaly Detection in the Edge)
+
+FADE is an **open-source security monitoring and enforcement platform** designed to **detect, analyze, and mitigate anomalous and malicious behavior** at both **network and system levels**. The platform combines **real-time traffic inspection**, **system call monitoring**, and **policy-based enforcement** to provide advanced protection for modern infrastructures.
+
+FADE leverages containerized microservices and integrates seamlessly with host-level controls (e.g., firewalls and packet filters) to enable **live traffic capture, anomaly detection, and automated response**. The system is designed for **research, operational security, and advanced cyber defense scenarios**, supporting both **CPU and GPU-based deployments**.
+
+A core component of FADE is the **`netanoms_runtime` library**, which enables **real-time anomaly detection** on **network traffic** and **system calls**, allowing FADE to identify suspicious behaviors as they occur and react accordingly.
+
+## ✨ Key Features
+
+- 📡 **Real-time network traffic monitoring and capture**  
+- 🧠 **Anomaly detection powered by the `netanoms_runtime` library**, enabling:
+  - Real-time analysis of **network traffic**
+  - Behavioral monitoring of **system calls**
+- 🧪 **Support for multiple machine learning and deep learning scenarios**, including:
+  - **Classification**
+  - **Regression**
+  - **Anomaly detection**
+- 🔎 **Explainability of detections and model outputs** using:
+  - **SHAP** for global and local feature attribution
+  - **LIME** for instance-level interpretability of predictions and anomalies
+- 🔥 **Policy-based enforcement and firewall integration** (pf, iptables)  
+- 🖥️ **Web-based frontend for policy management, visualization, and analysis**  
+- 📊 **Live inspection, correlation, and analysis of security events**  
+- 🔗 **Backend API for integration with external security and analytics tools**  
+- 🐳 **Fully Dockerized architecture for easy deployment and scalability**  
+- ⚙️ **Support for both CPU and GPU execution modes**  
+- 🔐 **Secure SSH-based interaction between containers and host system**
+
+
+## 🎯 Project Setup and Execution
+
+### Steps to get the project up and running:
 
 1. Clone the project repository using the following command:
    ```sh
-   git clone elopez@deeplearning.inf.um.es:/home/repositorios/defender_software.git
+   git clone https://github.com/CyberDataLab/FADE.git
    ```
 
 2. Once the repository has been cloned, you need to generate an SSH key in order to run the production module. Use the following command:
@@ -77,7 +115,7 @@
 
 11. Log in using the credentials created in the previous step.
 
-## To implement the policies, if you are running the project on a macOS must follow these steps:
+### 🔐 To implement the policies, if you are running the project on a macOS must follow these steps:
 
 1. To enable the rules, run the following command:
    ```sh
@@ -102,7 +140,7 @@
    ```
    This allows the system to run tshark for live traffic capture without asking for a password.
 
-## Optional: Email alert configuration
+### ✉️ Optional: Email alert configuration
 
 If you want to create alert policies that send notification emails, you must create a `.env` file in the project root directory.
 
@@ -117,15 +155,15 @@ EMAIL_USE_TLS=True
 EMAIL_USE_SSL=False
 ```
 
-### Important notes
+#### ⚠️ Important notes
 
 - The `.env` file **must not be committed** to the repository.
 - Use a **Gmail App Password**, not your real Gmail password.
 - This configuration is only required if you plan to use **email-based alert policies**.
 
-## Additional configuration 
+### ⚙️ Additional configuration 
 
-### On macOS
+#### 🍎 On macOS
 
 1. For production, add the following line to your sudoers configuration (via sudo visudo), replacing <username> with your actual macOS username:
    ```text
@@ -139,7 +177,7 @@ EMAIL_USE_SSL=False
    ```
    This enables your user to manage pfctl policies without requiring a password each time.
 
-### On Linux
+#### 🐧 On Linux
 
 1. For production, add the following line to your sudoers configuration (via sudo visudo -f /etc/sudoers.d/tools), replacing <username> with your actual Linux username:
    ```text
@@ -153,3 +191,15 @@ EMAIL_USE_SSL=False
    ```
    This allows your user to manage firewall policies without requiring a password each time.
 
+## 📝 License
+This project is licensed under the [MIT License](LICENSE).
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+## 🙏 Funding & Acknowledgements
+
+This project has been supported by national and European funding programs, including INCIBE and the NextGenerationEU initiative.
+
+## 📬 Contact & Support
+For questions or support, contact the author:
+- Eduardo López Bernal (eduardo.lopez5@um.es)
