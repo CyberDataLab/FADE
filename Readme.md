@@ -62,7 +62,14 @@ A core component of FADE is the **`netanoms_runtime` library**, which enables **
    ```
    Replace <username> with your actual host username.
 
-5. To verify SSH connectivity, enter the backend container and run:
+5. Verify SSH connectivity:
+
+   Enter the backend container:
+   ```sh
+   docker exec -ti <backend_container_name> sh
+   ``` 
+
+   Verify SSH connectivity:
    ```sh
    ssh -i /root/.ssh/id_ed25519 -o StrictHostKeyChecking=no <username>@host.docker.internal true
    ```
