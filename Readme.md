@@ -55,10 +55,10 @@ A core component of FADE is the **`netanoms_runtime` library**, which enables **
 
 4. On the host system, set correct permissions:
    ```sh
-   sudo chown -R <username>:<username> ~/defender_software/ssh_keys
-   chmod 700 ~/defender_software/ssh_keys
-   chmod 600 ~/defender_software/ssh_keys/id_ed25519
-   chmod 644 ~/defender_software/ssh_keys/id_ed25519.pub
+   sudo chown -R <username>:<username> ~/FADE/ssh_keys
+   chmod 700 ~/FADE/ssh_keys
+   chmod 600 ~/FADE/ssh_keys/id_ed25519
+   chmod 644 ~/FADE/ssh_keys/id_ed25519.pub
    ```
    Replace <username> with your actual host username.
 
