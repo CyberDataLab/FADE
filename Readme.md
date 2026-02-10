@@ -1,10 +1,3 @@
-<p align="center">
-  <img src="INCIBE-logos.jpg"
-       alt="Funded by the European Union, Government of Spain and INCIBE"
-       width="95%">
-</p>
-
-<hr>
 
 # 🛡️ FADE (Framework for Anomaly Detection in the Edge)
 
@@ -205,7 +198,13 @@ This project is licensed under the [MIT License](LICENSE).
 
 ## 🙏 Funding & Acknowledgements
 
-This project has been supported by national and European funding programs, including INCIBE and the NextGenerationEU initiative.
+This research stems from the Strategic Project DEFENDER (C087/23), a result of the collaboration agreement signed between the National Institute of Cybersecurity (INCIBE) and the University of Murcia. This initiative is carried out within the framework of the funds from the Recovery, Transformation, and Resilience Plan, financed by the European Union (Next Generation)
+
+<p align="center">
+  <img src="INCIBE-logos.jpg"
+       alt="Funded by the European Union, Government of Spain and INCIBE"
+       width="95%">
+</p>
 
 ## 📬 Contact & Support
 For questions or support, contact the author:
